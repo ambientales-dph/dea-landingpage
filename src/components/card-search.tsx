@@ -99,9 +99,12 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
   const handleDownloadPdf = () => {
     const doc = new jsPDF();
     doc.setFontSize(10);
-    doc.text('Lista de Tarjetas de Trello', 10, 10);
+    doc.text('Lista de Proyectos', 10, 10);
   
-    const cardNames = allCards.map(card => card.name);
+    const projectRegex = /\([A-Z]{3}\d{3}\)$/;
+    const projectCards = allCards.filter(card => projectRegex.test(card.name));
+    const cardNames = projectCards.map(card => card.name);
+    
     const lineHeight = 7;
     const margin = 10;
     const pageHeight = doc.internal.pageSize.height;
@@ -121,7 +124,7 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
       });
     });
   
-    doc.save('trello-cards.pdf');
+    doc.save('trello-proyectos.pdf');
   };
   
   return (
