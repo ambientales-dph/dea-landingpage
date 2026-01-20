@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
   title: "DEA",
-  description: "Departamento de Estudios Ambientales y Sociales",
+  description: "Departamento de Estudios Ambientales",
 };
 
 export default function RootLayout({

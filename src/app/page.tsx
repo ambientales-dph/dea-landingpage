@@ -120,7 +120,7 @@ export default function Home() {
         <header className="bg-primary shadow-md h-16 flex-shrink-0">
           <div className="container mx-auto flex h-full items-center justify-between px-4">
             <h1 className="font-headline text-xl font-bold tracking-tight text-primary-foreground">
-              Departamento de Estudios Ambientales y Sociales
+              Departamento de Estudios Ambientales
             </h1>
             <div className="flex items-center gap-2 w-full max-w-lg">
               <CardSearch onCardSelect={handleCardSelect} selectedCard={selectedCard} />
