@@ -122,57 +122,71 @@ export default function Home() {
             <h1 className="font-headline text-xl font-bold tracking-tight text-primary-foreground">
               Departamento de Estudios Ambientales
             </h1>
-            <div className="flex items-center gap-2 w-full max-w-lg">
-              <CardSearch onCardSelect={handleCardSelect} selectedCard={selectedCard} />
-               {selectedCard && (
-                <Button variant="ghost" size="icon" onClick={handleClearSelection} className="text-primary-foreground hover:bg-primary/80">
-                  <X className="h-5 w-5" />
-                </Button>
-              )}
-            </div>
           </div>
         </header>
 
-        <main className="flex-1 grid grid-cols-2 grid-rows-2 gap-8 p-16">
-          <Button
-            variant="outline"
-            className="h-full flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-2xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-          >
-            <FolderKanban className="h-8 w-8 text-primary" />
-            Gestión de proyectos
-          </Button>
-          <Button
-            variant="outline"
-            className="h-full flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-2xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-            onClick={handleBoardButtonClick}
-          >
-            <LayoutGrid className="h-8 w-8 text-primary" />
-            <div className="flex flex-col items-center text-center">
-              <span>Tableros</span>
-              {selectedCard && (
-                 <span
-                    className="text-xs font-normal mt-1"
-                    dangerouslySetInnerHTML={formatCardName(selectedCard.name)}
-                 />
-              )}
+        <main className="flex-1 flex flex-col gap-8 p-16">
+          <div className="grid grid-cols-2 gap-8">
+            <div className="bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center">
+              <h2 className="text-xl font-bold mb-4 text-primary">Búsqueda Avanzada de Proyectos</h2>
+              <p className="text-sm mb-2">Este buscador permite encontrar proyectos por su nombre o por el contenido de su descripción.</p>
+              <p className="text-sm mb-2">Ingrese palabras clave para localizar la tarjeta de Trello correspondiente.</p>
+              <p className="text-sm mb-2">La ubicación del proyecto se mostrará en el mapa si está disponible.</p>
+              <p className="text-sm">Utilice el botón de descarga para obtener una lista completa de proyectos.</p>
             </div>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-full flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-2xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-            onClick={() => window.open('https://6000-firebase-studio-1750900454304.cluster-vpxjqdstfzgs6qeiaf7rdlsqrc.cloudworkstations.dev/', '_blank')}
-          >
-            <Clock className="h-8 w-8 text-primary" />
-            Línea de tiempo
-          </Button>
-          <Button
-            variant="outline"
-            className="h-full flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-2xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-            onClick={() => window.open('https://6000-firebase-studio-1753298695333.cluster-vpxjqdstfzgs6qeiaf7rdlsqrc.cloudworkstations.dev/', '_blank')}
-          >
-            <Waypoints className="h-8 w-8 text-primary" />
-            CartoDEA
-          </Button>
+            <div className="bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center">
+              <div className="flex items-center gap-2 w-full">
+                <CardSearch onCardSelect={handleCardSelect} selectedCard={selectedCard} />
+                {selectedCard && (
+                  <Button variant="ghost" size="icon" onClick={handleClearSelection} className="text-primary-foreground hover:bg-primary/80">
+                    <X className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-8">
+            <Button
+              variant="outline"
+              className="h-40 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
+            >
+              <FolderKanban className="h-8 w-8 text-primary" />
+              Gestión de proyectos
+            </Button>
+            <Button
+              variant="outline"
+              className="h-40 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
+              onClick={handleBoardButtonClick}
+            >
+              <LayoutGrid className="h-8 w-8 text-primary" />
+              <div className="flex flex-col items-center text-center">
+                <span>Tableros</span>
+                {selectedCard && (
+                   <span
+                      className="text-xs font-normal mt-1"
+                      dangerouslySetInnerHTML={formatCardName(selectedCard.name)}
+                   />
+                )}
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-40 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
+              onClick={() => window.open('https://6000-firebase-studio-1750900454304.cluster-vpxjqdstfzgs6qeiaf7rdlsqrc.cloudworkstations.dev/', '_blank')}
+            >
+              <Clock className="h-8 w-8 text-primary" />
+              Línea de tiempo
+            </Button>
+            <Button
+              variant="outline"
+              className="h-40 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
+              onClick={() => window.open('https://6000-firebase-studio-1753298695333.cluster-vpxjqdstfzgs6qeiaf7rdlsqrc.cloudworkstations.dev/', '_blank')}
+            >
+              <Waypoints className="h-8 w-8 text-primary" />
+              CartoDEA
+            </Button>
+          </div>
         </main>
 
         <footer className="bg-neutral-700/60 py-2 dark:bg-neutral-800/60 mt-auto">
