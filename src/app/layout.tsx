@@ -1,11 +1,10 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import { cn } from '@/lib/utils';
+import type { Metadata } from "next";
+import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'Work Showcase',
-  description: 'A showcase of professional work and projects.',
+  title: "DEA",
+  description: "Departamento de Estudios Ambientales y Sociales",
 };
 
 export default function RootLayout({
@@ -14,13 +13,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="!scroll-smooth">
+    <html lang="es">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Belleza&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Encode+Sans:wght@400;700&family=Encode+Sans+Condensed:wght@500&display=swap"
+          rel="stylesheet"
+        />
       </head>
-      <body className={cn('font-body antialiased')}>
+      <body className="font-body antialiased">
         {children}
         <Toaster />
       </body>
