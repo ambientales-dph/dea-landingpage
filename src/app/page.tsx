@@ -126,7 +126,7 @@ export default function Home() {
         </header>
 
         <main className="flex-1 flex flex-col p-16">
-          <div className="w-3/5 mx-auto flex flex-col gap-8">
+          <div className="w-4/5 mx-auto flex flex-col gap-8">
             <div className="grid grid-cols-2 gap-8">
               <div className="bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg">
                 <h2 className="text-xl font-bold mb-4 text-primary">Búsqueda Avanzada de Proyectos</h2>
