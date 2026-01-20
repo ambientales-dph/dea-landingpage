@@ -56,8 +56,10 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
       return allCards;
     }
     if (query && (!selectedCard || query !== selectedCard.name)) {
+      const lowercasedQuery = query.toLowerCase();
       return allCards.filter(card => 
-        card.name.toLowerCase().includes(query.toLowerCase())
+        card.name.toLowerCase().includes(lowercasedQuery) ||
+        (card.desc && card.desc.toLowerCase().includes(lowercasedQuery))
       );
     }
     return [];
