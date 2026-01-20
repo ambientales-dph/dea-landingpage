@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -10,6 +9,8 @@ import {
   Mail,
   X,
   Clock,
+  HelpCircle,
+  Search,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -18,6 +19,15 @@ import type { TrelloCard } from '@/services/trello';
 import { searchLocation } from '@/services/nominatim';
 import { fromLonLat } from 'ol/proj';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 const INITIAL_VIEW_STATE = {
   center: [-6450000, -4150000],
@@ -28,6 +38,7 @@ export default function Home() {
   const [selectedCard, setSelectedCard] = useState<TrelloCard | null>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const { toast } = useToast();
+  const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
 
   const handleCardSelect = async (card: TrelloCard | null) => {
     setSelectedCard(card);
@@ -122,6 +133,9 @@ export default function Home() {
             <h1 className="font-headline text-xl font-bold tracking-tight text-primary-foreground">
               Departamento de Estudios Ambientales
             </h1>
+            <Button variant="ghost" size="icon" onClick={() => setIsHelpPanelOpen(true)} className="text-primary-foreground hover:bg-primary/80">
+              <HelpCircle className="h-6 w-6" />
+            </Button>
           </div>
         </header>
 
@@ -199,6 +213,65 @@ export default function Home() {
             </div>
           </div>
         </footer>
+
+        <Sheet open={isHelpPanelOpen} onOpenChange={setIsHelpPanelOpen}>
+          <SheetContent className="bg-neutral-700/95 text-primary-foreground border-l-primary/20">
+            <SheetHeader>
+              <SheetTitle className="text-primary">Ayuda</SheetTitle>
+              <SheetDescription className="text-primary-foreground/80">
+                Funcionalidad de los controles principales.
+              </SheetDescription>
+            </SheetHeader>
+            <ScrollArea className="h-[calc(100%-4rem)] w-full mt-4">
+              <div className="space-y-6 p-1">
+                <div>
+                  <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
+                    <Search className="h-5 w-5" /> Búsqueda Avanzada
+                  </h3>
+                  <p className="text-sm mt-1">
+                    Permite buscar proyectos por su nombre o por el contenido de su descripción. Al seleccionar una tarjeta, el mapa se centrará en la ubicación del proyecto si esta se encuentra definida en la descripción de la tarjeta con el formato <strong># Ubicación</strong>.
+                  </p>
+                </div>
+                <Separator className="bg-primary/20" />
+                <div>
+                  <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
+                    <FolderKanban className="h-5 w-5" /> Gestión de Proyectos
+                  </h3>
+                  <p className="text-sm mt-1">
+                    Abre una nueva pestaña con el panel de gestión de todos los proyectos del departamento.
+                  </p>
+                </div>
+                <Separator className="bg-primary/20" />
+                <div>
+                  <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
+                    <LayoutGrid className="h-5 w-5" /> Tableros
+                  </h3>
+                  <p className="text-sm mt-1">
+                    Si no hay ninguna tarjeta seleccionada, abre el tablero principal de proyectos de Trello. Si hay una tarjeta seleccionada en el buscador, abre directamente esa tarjeta en Trello.
+                  </p>
+                </div>
+                <Separator className="bg-primary/20" />
+                <div>
+                  <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
+                    <Clock className="h-5 w-5" /> Línea de tiempo
+                  </h3>
+                  <p className="text-sm mt-1">
+                    Abre una nueva pestaña con la aplicación de línea de tiempo de los proyectos, permitiendo una visualización cronológica.
+                  </p>
+                </div>
+                <Separator className="bg-primary/20" />
+                <div>
+                  <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
+                    <Waypoints className="h-5 w-5" /> CartoDEA
+                  </h3>
+                  <p className="text-sm mt-1">
+                    Abre una nueva pestaña con la aplicación de cartografía del departamento (CartoDEA), donde se visualiza información geoespacial relevante.
+                  </p>
+                </div>
+              </div>
+            </ScrollArea>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );
