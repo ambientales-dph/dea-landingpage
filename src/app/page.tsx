@@ -127,14 +127,14 @@ export default function Home() {
 
         <main className="flex-1 flex flex-col gap-8 p-16">
           <div className="grid grid-cols-2 gap-8">
-            <div className="bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center">
+            <div className="bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg">
               <h2 className="text-xl font-bold mb-4 text-primary">Búsqueda Avanzada de Proyectos</h2>
               <p className="text-sm mb-2">Este buscador permite encontrar proyectos por su nombre o por el contenido de su descripción.</p>
               <p className="text-sm mb-2">Ingrese palabras clave para localizar la tarjeta de Trello correspondiente.</p>
               <p className="text-sm mb-2">La ubicación del proyecto se mostrará en el mapa si está disponible.</p>
               <p className="text-sm">Utilice el botón de descarga para obtener una lista completa de proyectos.</p>
             </div>
-            <div className="bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center">
+            <div className="bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg">
               <div className="flex items-center gap-2 w-full">
                 <CardSearch onCardSelect={handleCardSelect} selectedCard={selectedCard} />
                 {selectedCard && (
