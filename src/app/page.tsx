@@ -129,7 +129,7 @@ export default function Home() {
       >
         <header className="bg-primary shadow-md h-16 flex-shrink-0">
           <div className="container mx-auto flex h-full items-center justify-between px-4">
-            <h1 className="font-headline text-xl font-bold tracking-tight text-primary-foreground">
+            <h1 className="font-headline text-lg md:text-xl font-bold tracking-tight text-primary-foreground">
               Departamento de Estudios Ambientales
             </h1>
             <Button variant="ghost" size="icon" onClick={() => setIsHelpPanelOpen(true)} className="text-primary-foreground hover:bg-primary/80">
@@ -138,9 +138,9 @@ export default function Home() {
           </div>
         </header>
 
-        <main className="flex-1 flex flex-col p-16">
-          <div className="w-4/5 mx-auto flex flex-col gap-8">
-            <div className="grid grid-cols-2 gap-8">
+        <main className="flex-1 flex flex-col p-4 md:p-16">
+          <div className="w-full md:w-4/5 mx-auto flex flex-col gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg">
                 <h2 className="text-xl font-bold mb-4 text-primary">Búsqueda Avanzada de Proyectos</h2>
                 <p className="text-sm mb-2">Este buscador permite encontrar proyectos por su nombre o por el contenido de su descripción.</p>
@@ -157,7 +157,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <Button
                 variant="outline"
                 className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
