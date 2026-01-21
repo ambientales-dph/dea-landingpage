@@ -35,7 +35,7 @@ export async function searchLocation(query: string): Promise<NominatimResult | n
     });
 
     if (!response.ok) {
-      throw new Error(`Nominatim API error: ${response.status}`);
+      throw new Error(`Error en la API de Nominatim: ${response.status}`);
     }
 
     const results: NominatimResult[] = (await response.json()) as NominatimResult[];
@@ -47,6 +47,6 @@ export async function searchLocation(query: string): Promise<NominatimResult | n
     return null;
   } catch (error) {
     console.error('Error fetching from Nominatim API:', error);
-    throw new Error('Failed to fetch location data.');
+    throw new Error('No pudimos obtener los datos de la ubicación.');
   }
 }

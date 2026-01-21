@@ -34,7 +34,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         toast({
           variant: 'destructive',
           title: 'Error al cargar las tarjetas',
-          description: error instanceof Error ? error.message : 'Ocurrió un error desconocido.',
+          description: error instanceof Error ? error.message : 'Hubo un error desconocido.',
         });
       } finally {
         setIsLoading(false);
@@ -110,11 +110,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   
     if (query.trim() && filteredCards.length > 0) {
       cardsToDownload = filteredCards;
-      title = `Resultados de búsqueda para: "${query}"`;
+      title = `Resultados de la búsqueda para: "${query}"`;
     } else {
       const projectRegex = /\([A-Z]{3}\d{3}\)$/;
       cardsToDownload = allCards.filter(card => projectRegex.test(card.name));
-      title = 'Lista de Proyectos';
+      title = 'Lista de todos los proyectos';
     }
   
     doc.text(title, 10, 10);
@@ -161,7 +161,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
             <Command>
               <CommandList>
                 {filteredCards.length === 0 && query.length > 0 && !isOpen && (
-                  <CommandEmpty>No se encontraron resultados.</CommandEmpty>
+                  <CommandEmpty>No encontramos resultados.</CommandEmpty>
                 )}
                 <CommandGroup>
                   {filteredCards.map((card) => (
@@ -193,7 +193,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
             </Button>
           </TooltipTrigger>
           <TooltipContent className="text-xs">
-            <p>Descargá la lista de proyectos completa del tablero o el resultado de la búsqueda actual.</p>
+            <p>Descargá la lista de proyectos completa o el resultado de tu búsqueda.</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

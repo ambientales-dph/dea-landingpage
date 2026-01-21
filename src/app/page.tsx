@@ -146,11 +146,11 @@ export default function Home() {
           <div className="w-full md:w-4/5 mx-auto flex flex-col gap-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg">
-                <h2 className="text-xl font-bold mb-4 text-primary">Búsqueda Avanzada de Proyectos</h2>
-                <p className="text-sm mb-2">Este buscador permite encontrar proyectos por su nombre o por el contenido de su descripción.</p>
-                <p className="text-sm mb-2">Ingrese palabras clave para localizar la tarjeta de Trello correspondiente.</p>
-                <p className="text-sm mb-2">La ubicación del proyecto se mostrará en el mapa si está disponible.</p>
-                <p className="text-sm">Utilice el botón de descarga para obtener una lista completa de proyectos.</p>
+                <h2 className="text-xl font-bold mb-4 text-primary">Búsqueda avanzada de proyectos</h2>
+                <p className="text-sm mb-2">Con este buscador podés encontrar proyectos por su nombre o descripción.</p>
+                <p className="text-sm mb-2">Ingresá palabras clave para encontrar la tarjeta de Trello que buscás.</p>
+                <p className="text-sm mb-2">Si el proyecto tiene una ubicación, la vas a ver en el mapa.</p>
+                <p className="text-sm">Usá el botón de descarga para bajarte una lista con todos los proyectos.</p>
               </div>
               <div className="bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg">
                 <CardSearch
@@ -218,26 +218,26 @@ export default function Home() {
             <SheetHeader>
               <SheetTitle className="text-primary">Ayuda</SheetTitle>
               <SheetDescription className="text-primary-foreground/80">
-                Funcionalidad de los controles principales.
+                Acá te contamos para qué sirve cada control.
               </SheetDescription>
             </SheetHeader>
             <ScrollArea className="h-[calc(100%-4rem)] w-full mt-4">
               <div className="space-y-6 p-1">
                 <div>
                   <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
-                    <Search className="h-5 w-5" /> Búsqueda Avanzada
+                    <Search className="h-5 w-5" /> Búsqueda avanzada
                   </h3>
                   <p className="text-sm mt-1">
-                    Permite buscar proyectos por su nombre o por el contenido de su descripción. Al seleccionar una tarjeta, el mapa se centrará en la ubicación del proyecto si esta se encuentra definida en la descripción de la tarjeta con el formato <strong># Ubicación</strong>.
+                    Te permite buscar proyectos por nombre o por lo que dicen en su descripción. Cuando elegís una tarjeta, el mapa te va a mostrar dónde está el proyecto, siempre y cuando la ubicación esté en la descripción de la tarjeta con el formato <strong># Ubicación</strong>.
                   </p>
                 </div>
                 <Separator className="bg-primary/20" />
                 <div>
                   <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
-                    <FolderKanban className="h-5 w-5" /> Gestión de Proyectos
+                    <FolderKanban className="h-5 w-5" /> Gestión de proyectos
                   </h3>
                   <p className="text-sm mt-1">
-                    Abre una nueva pestaña con el panel de gestión de todos los proyectos del departamento.
+                    Abre en una pestaña nueva el panel para gestionar todos los proyectos del departamento.
                   </p>
                 </div>
                 <Separator className="bg-primary/20" />
@@ -246,7 +246,7 @@ export default function Home() {
                     <LayoutGrid className="h-5 w-5" /> Tableros
                   </h3>
                   <p className="text-sm mt-1">
-                    Si no hay ninguna tarjeta seleccionada, abre el tablero principal de proyectos de Trello. Si hay una tarjeta seleccionada en el buscador, abre directamente esa tarjeta en Trello.
+                    Si no seleccionaste ninguna tarjeta, esto te abre el tablero principal de proyectos en Trello. Si ya elegiste una, te la abre directamente.
                   </p>
                 </div>
                 <Separator className="bg-primary/20" />
@@ -255,7 +255,7 @@ export default function Home() {
                     <Clock className="h-5 w-5" /> Línea de tiempo
                   </h3>
                   <p className="text-sm mt-1">
-                    Abre una nueva pestaña con la aplicación de línea de tiempo de los proyectos, permitiendo una visualización cronológica.
+                    Abre en otra pestaña la línea de tiempo de los proyectos, para que los veas en orden cronológico.
                   </p>
                 </div>
                 <Separator className="bg-primary/20" />
@@ -264,7 +264,7 @@ export default function Home() {
                     <Waypoints className="h-5 w-5" /> CartoDEA
                   </h3>
                   <p className="text-sm mt-1">
-                    Abre una nueva pestaña con la aplicación de cartografía del departamento (CartoDEA), donde se visualiza información geoespacial relevante.
+                    Abre en una pestaña nueva la aplicación de mapas del departamento (CartoDEA), para que chusmees información geoespacial importante.
                   </p>
                 </div>
               </div>

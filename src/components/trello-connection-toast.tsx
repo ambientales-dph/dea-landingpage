@@ -13,14 +13,14 @@ export default function TrelloConnectionToast() {
       try {
         const userName = await verifyTrelloConnection();
         toast({
-          title: 'Autenticación con Trello exitosa',
+          title: '¡Conexión con Trello exitosa!',
           description: `Conectado como: ${userName}`,
         });
       } catch (error) {
         toast({
           variant: 'destructive',
-          title: 'Error de autenticación con Trello',
-          description: error instanceof Error ? error.message : 'Ocurrió un error desconocido.',
+          title: 'Error en la conexión con Trello',
+          description: error instanceof Error ? error.message : 'Hubo un error desconocido.',
         });
       }
     };

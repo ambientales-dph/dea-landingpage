@@ -7,7 +7,7 @@ const BASE_URL = 'https://api.trello.com/1';
 
 async function trelloFetch(url: string) {
   if (!TRELLO_API_KEY || !TRELLO_API_TOKEN) {
-    throw new Error('Trello API Key and Token must be set in .env');
+    throw new Error('Faltan la API Key y el Token de Trello en el archivo .env');
   }
   const fetch = (await import('node-fetch')).default;
   const fullUrl = `${BASE_URL}${url}${url.includes('?') ? '&' : '?'}key=${TRELLO_API_KEY}&token=${TRELLO_API_TOKEN}`;
@@ -16,7 +16,7 @@ async function trelloFetch(url: string) {
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Credenciales de Trello inválidas. Revisa tu API Key y Token.');
+      throw new Error('Las credenciales de Trello son inválidas. ¡Revisá tu API Key y Token!');
     }
     const errorText = await response.text();
     console.error(`Trello API error: ${response.status} ${errorText}`);
@@ -34,7 +34,7 @@ export async function verifyTrelloConnection(): Promise<string> {
     if (error instanceof Error) {
         throw error;
     }
-    throw new Error('Error de red al intentar conectar con Trello.');
+    throw new Error('Hubo un problema de red al intentar conectar con Trello.');
   }
 }
 
@@ -57,9 +57,9 @@ export async function getTrelloBoards(): Promise<TrelloBoard[]> {
   } catch (error) {
      if (error instanceof Error) {
         console.error('Failed to get Trello boards:', error.message);
-        throw new Error(`No se pudieron obtener los tableros de Trello: ${error.message}`);
+        throw new Error(`No pudimos obtener los tableros de Trello: ${error.message}`);
     }
-    throw new Error('Ocurrió un error desconocido al obtener los tableros de Trello.');
+    throw new Error('Hubo un error desconocido al obtener los tableros.');
   }
 }
 
@@ -82,8 +82,8 @@ export async function getAllCardsFromAllBoards(): Promise<TrelloCard[]> {
     } catch (error) {
         if (error instanceof Error) {
             console.error('Failed to get all Trello cards:', error.message);
-            throw new Error(`No se pudieron obtener las tarjetas de Trello: ${error.message}`);
+            throw new Error(`No pudimos obtener las tarjetas de Trello: ${error.message}`);
         }
-        throw new Error('Ocurrió un error desconocido al obtener las tarjetas de Trello.');
+        throw new Error('Hubo un error desconocido al obtener las tarjetas.');
     }
 }
