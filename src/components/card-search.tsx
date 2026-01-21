@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
@@ -10,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -136,7 +136,7 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
             value={query}
             onFocus={handleFocus}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscar una tarjeta...'}
+            placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o por código de proyecto...'}
             className="w-full bg-primary-foreground text-foreground"
             disabled={isLoading}
           />
@@ -163,9 +163,18 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
             </Command>
         </PopoverContent>
       </Popover>
-      <Button variant="ghost" size="icon" onClick={handleDownloadPdf} className="text-primary-foreground hover:bg-primary/80" disabled={isLoading}>
-        <Download className="h-5 w-5" />
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={handleDownloadPdf} className="text-primary-foreground hover:bg-primary/80" disabled={isLoading}>
+              <Download className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Descargá la lista de proyectos completa del tablero</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
