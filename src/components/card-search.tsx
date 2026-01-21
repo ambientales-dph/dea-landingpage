@@ -153,7 +153,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
               onFocus={handleFocus}
               onChange={(e) => handleInputChange(e.target.value)}
               placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o por código de proyecto...'}
-              className="w-full bg-primary-foreground text-foreground pr-10"
+              className="w-full bg-primary-foreground text-foreground pr-10 text-xs"
               disabled={isLoading}
             />
           </PopoverTrigger>
