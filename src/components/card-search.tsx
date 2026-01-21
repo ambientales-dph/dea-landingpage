@@ -190,10 +190,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
           <TooltipTrigger asChild>
             <Button onClick={handleDownloadPdf} className="text-primary-foreground bg-transparent hover:bg-primary/20" disabled={isLoading}>
               <Download className="h-5 w-5" />
-              <span className="ml-2">Descargar lista</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent className="text-xs">
             <p>Descargá la lista de proyectos completa del tablero o el resultado de la búsqueda actual.</p>
           </TooltipContent>
         </Tooltip>
