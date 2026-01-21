@@ -7,7 +7,6 @@ import {
   LayoutGrid,
   Waypoints,
   Mail,
-  X,
   Clock,
   HelpCircle,
   Search,
@@ -150,14 +149,11 @@ export default function Home() {
                 <p className="text-sm">Utilice el botón de descarga para obtener una lista completa de proyectos.</p>
               </div>
               <div className="bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg">
-                <div className="flex items-center gap-2 w-full">
-                  <CardSearch onCardSelect={handleCardSelect} selectedCard={selectedCard} />
-                  {selectedCard && (
-                    <Button variant="ghost" size="icon" onClick={handleClearSelection} className="text-primary-foreground hover:bg-primary/80">
-                      <X className="h-5 w-5" />
-                    </Button>
-                  )}
-                </div>
+                <CardSearch
+                  onCardSelect={handleCardSelect}
+                  selectedCard={selectedCard}
+                  onClear={handleClearSelection}
+                />
               </div>
             </div>
 

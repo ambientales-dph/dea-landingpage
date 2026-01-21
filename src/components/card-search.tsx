@@ -7,16 +7,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
   selectedCard: TrelloCard | null;
+  onClear: () => void;
 }
 
-export default function CardSearch({ onCardSelect, selectedCard }: CardSearchProps) {
+export default function CardSearch({ onCardSelect, selectedCard, onClear }: CardSearchProps) {
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -46,8 +47,6 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
   useEffect(() => {
     if (selectedCard) {
       setQuery(selectedCard.name);
-    } else {
-      setQuery('');
     }
   }, [selectedCard]);
 
@@ -96,14 +95,31 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
     }
   };
 
+  const handleClear = () => {
+    setQuery('');
+    setIsOpen(false);
+    onClear();
+  };
+
   const handleDownloadPdf = () => {
     const doc = new jsPDF();
     doc.setFontSize(10);
-    doc.text('Lista de Proyectos', 10, 10);
   
-    const projectRegex = /\([A-Z]{3}\d{3}\)$/;
-    const projectCards = allCards.filter(card => projectRegex.test(card.name));
-    const cardNames = projectCards.map(card => card.name);
+    let cardsToDownload: TrelloCard[];
+    let title: string;
+  
+    if (query.trim() && filteredCards.length > 0) {
+      cardsToDownload = filteredCards;
+      title = `Resultados de búsqueda para: "${query}"`;
+    } else {
+      const projectRegex = /\([A-Z]{3}\d{3}\)$/;
+      cardsToDownload = allCards.filter(card => projectRegex.test(card.name));
+      title = 'Lista de Proyectos';
+    }
+  
+    doc.text(title, 10, 10);
+  
+    const cardNames = cardsToDownload.map(card => card.name);
     
     const lineHeight = 7;
     const margin = 10;
@@ -111,7 +127,6 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
     let y = 20;
   
     cardNames.forEach(name => {
-      // Split text into lines that fit the page width
       const lines = doc.splitTextToSize(name, doc.internal.pageSize.width - margin * 2);
       
       lines.forEach((line: string) => {
@@ -128,20 +143,21 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
   };
   
   return (
-    <div className="flex w-full items-center gap-2">
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
-          <Textarea
-            ref={inputRef}
-            value={query}
-            onFocus={handleFocus}
-            onChange={(e) => handleInputChange(e.target.value)}
-            placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o por código de proyecto...'}
-            className="w-full bg-primary-foreground text-foreground"
-            disabled={isLoading}
-          />
-        </PopoverTrigger>
-        <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" onOpenAutoFocus={(e) => e.preventDefault()}>
+    <div className="flex w-full flex-col items-start gap-4">
+      <div className="relative w-full">
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+          <PopoverTrigger asChild>
+            <Textarea
+              ref={inputRef}
+              value={query}
+              onFocus={handleFocus}
+              onChange={(e) => handleInputChange(e.target.value)}
+              placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o por código de proyecto...'}
+              className="w-full bg-primary-foreground text-foreground pr-10"
+              disabled={isLoading}
+            />
+          </PopoverTrigger>
+          <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" onOpenAutoFocus={(e) => e.preventDefault()}>
             <Command>
               <CommandList>
                 {filteredCards.length === 0 && query.length > 0 && !isOpen && (
@@ -161,17 +177,24 @@ export default function CardSearch({ onCardSelect, selectedCard }: CardSearchPro
                 </CommandGroup>
               </CommandList>
             </Command>
-        </PopoverContent>
-      </Popover>
+          </PopoverContent>
+        </Popover>
+        {query && (
+          <Button variant="ghost" size="icon" onClick={handleClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-primary-foreground hover:bg-primary/80 h-8 w-8">
+            <X className="h-5 w-5" />
+          </Button>
+        )}
+      </div>
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={handleDownloadPdf} className="text-primary-foreground hover:bg-primary/80" disabled={isLoading}>
+            <Button onClick={handleDownloadPdf} className="text-primary-foreground bg-transparent hover:bg-primary/20" disabled={isLoading}>
               <Download className="h-5 w-5" />
+              <span className="ml-2">Descargar lista</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Descargá la lista de proyectos completa del tablero</p>
+            <p>Descargá la lista de proyectos completa del tablero o el resultado de la búsqueda actual.</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
