@@ -98,7 +98,14 @@ export default function Home() {
   };
 
   const handleTimelineButtonClick = () => {
-    window.open('https://studio--studio-1444688551-39519.us-central1.hosted.app', '_blank');
+    const baseUrl = 'https://studio--studio-1444688551-39519.us-central1.hosted.app';
+    let finalUrl = baseUrl;
+
+    if (selectedCard) {
+      finalUrl = `${baseUrl}?cardId=${selectedCard.id}`;
+    }
+
+    window.open(finalUrl, '_blank');
   };
   
   const handleClearSelection = () => {
