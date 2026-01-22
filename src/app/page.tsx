@@ -198,7 +198,15 @@ export default function Home() {
                 onClick={handleTimelineButtonClick}
               >
                 <Clock className="h-8 w-8 text-primary" />
-                Línea de tiempo
+                <div className="flex flex-col items-center text-center">
+                  <span>Línea de tiempo</span>
+                  {selectedCard && (
+                    <span
+                      className="text-xs font-normal mt-1"
+                      dangerouslySetInnerHTML={formatCardName(selectedCard.name)}
+                    />
+                  )}
+                </div>
               </Button>
               <Button
                 variant="outline"
