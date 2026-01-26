@@ -54,18 +54,7 @@ export interface TrelloCard {
 export async function getTrelloBoards(): Promise<TrelloBoard[]> {
   try {
     const boards = (await trelloFetch('/members/me/boards?fields=name,id')) as TrelloBoard[];
-    
-    // Filter boards to only include the ones specified by name or ID for more robustness.
-    const allowedBoardNames = ['Proyectos DEAS', 'Seguimiento de obras'];
-    const allowedBoardIds = ['6182b5b73b68da8f804d5d82'];
-    const lowercasedAllowedNames = allowedBoardNames.map(name => name.toLowerCase());
-
-    const filteredBoards = boards.filter(board => 
-      lowercasedAllowedNames.includes(board.name.toLowerCase()) ||
-      allowedBoardIds.includes(board.id)
-    );
-
-    return filteredBoards;
+    return boards;
   } catch (error) {
      if (error instanceof Error) {
         console.error('Failed to get Trello boards:', error.message);
