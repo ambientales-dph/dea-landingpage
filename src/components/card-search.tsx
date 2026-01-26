@@ -59,6 +59,23 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     }
   }, [selectedCard]);
 
+  const trelloColorToTw = (color: string | null | undefined): string => {
+    if (!color) return "bg-primary text-primary-foreground hover:bg-primary/90 aria-selected:bg-primary/90";
+    switch (color) {
+        case 'green': return 'bg-green-500 text-white hover:bg-green-600 aria-selected:bg-green-600';
+        case 'yellow': return 'bg-yellow-400 text-black hover:bg-yellow-500 aria-selected:bg-yellow-500';
+        case 'red': return 'bg-red-600 text-white hover:bg-red-700 aria-selected:bg-red-700';
+        case 'orange': return 'bg-orange-500 text-white hover:bg-orange-600 aria-selected:bg-orange-600';
+        case 'purple': return 'bg-purple-600 text-white hover:bg-purple-700 aria-selected:bg-purple-700';
+        case 'blue': return 'bg-blue-600 text-white hover:bg-blue-700 aria-selected:bg-blue-700';
+        case 'sky': return 'bg-sky-400 text-black hover:bg-sky-500 aria-selected:bg-sky-500';
+        case 'lime': return 'bg-lime-400 text-black hover:bg-lime-500 aria-selected:bg-lime-500';
+        case 'pink': return 'bg-pink-500 text-white hover:bg-pink-600 aria-selected:bg-pink-600';
+        case 'black': return 'bg-gray-800 text-white hover:bg-gray-900 aria-selected:bg-gray-900';
+        default: return "bg-primary text-primary-foreground hover:bg-primary/90 aria-selected:bg-primary/90";
+    }
+  };
+
   const removeAccents = (str: string): string => {
     if (!str) return '';
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -309,7 +326,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   
     const lineHeight = 7;
     const margin = 10;
-    const nameColX = margin;
     const pageHeight = doc.internal.pageSize.height;
     const nameColWidth = doc.internal.pageSize.width - (2 * margin);
     let y = 20;
@@ -337,6 +353,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         }
 
         doc.setFont('Helvetica', 'bold');
+        const nameColX = margin;
         doc.text(boardName, nameColX, y);
         y += lineHeight;
         doc.setFont('Helvetica', 'normal');
@@ -395,7 +412,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                       onSelect={() => handleSelect(card)}
                       className={cn(
                         "cursor-pointer text-xs",
-                        card.matchType === 'name' && "bg-primary text-primary-foreground"
+                        card.matchType === 'name' && trelloColorToTw(card.cover?.color)
                       )}
                     >
                       {card.name}
