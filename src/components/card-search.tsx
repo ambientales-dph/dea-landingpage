@@ -63,11 +63,21 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
       return allCards;
     }
     if (query && (!selectedCard || query !== selectedCard.name)) {
-      const lowercasedQuery = query.toLowerCase();
-      return allCards.filter(card => 
-        card.name.toLowerCase().includes(lowercasedQuery) ||
-        (card.desc && card.desc.toLowerCase().includes(lowercasedQuery))
-      );
+      const keywords = query.toLowerCase().split(' ').filter(kw => kw.trim() !== '');
+
+      if (keywords.length === 0) {
+        return isOpen ? allCards : [];
+      }
+      
+      return allCards.filter(card => {
+        const cardNameLower = card.name.toLowerCase();
+        const cardDescLower = card.desc ? card.desc.toLowerCase() : '';
+
+        return keywords.some(keyword => 
+          cardNameLower.includes(keyword) ||
+          cardDescLower.includes(keyword)
+        );
+      });
     }
     return [];
   }, [query, allCards, selectedCard, isOpen]);
@@ -283,6 +293,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   
     const lineHeight = 7;
     const margin = 10;
+    const nameColX = margin;
     const pageHeight = doc.internal.pageSize.height;
     const nameColWidth = doc.internal.pageSize.width - (2 * margin);
     let y = 20;
@@ -310,7 +321,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         }
 
         doc.setFont('Helvetica', 'bold');
-        doc.text(boardName, margin, y);
+        doc.text(boardName, nameColX, y);
         y += lineHeight;
         doc.setFont('Helvetica', 'normal');
         
