@@ -10,6 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Download, X } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -101,22 +109,53 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     onClear();
   };
 
-  const handleDownloadPdf = () => {
+  const boardNames = useMemo(() => {
+    if (allCards.length === 0) return [];
+    const names = allCards.map(card => card.boardName);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  }, [allCards]);
+
+  const handleDownloadPdf = (boardNameToFilter?: string) => {
     const doc = new jsPDF();
     doc.setFontSize(10);
   
     let cardsToDownload: TrelloCard[];
     let title: string;
   
-    if (query.trim() && filteredCards.length > 0) {
-      cardsToDownload = filteredCards;
-      title = `Resultados de la búsqueda para: "${query}"`;
+    const projectRegex = /\([A-Z]{3}\d{3}\)$/;
+    
+    if (!boardNameToFilter) {
+      if (query.trim() && filteredCards.length > 0) {
+        cardsToDownload = filteredCards;
+        title = `Resultados de la búsqueda para: "${query}"`;
+      } else {
+        cardsToDownload = allCards.filter(card => projectRegex.test(card.name));
+        title = 'Lista de todos los proyectos';
+      }
     } else {
-      const projectRegex = /\([A-Z]{3}\d{3}\)$/;
-      cardsToDownload = allCards.filter(card => projectRegex.test(card.name));
-      title = 'Lista de todos los proyectos';
+      cardsToDownload = allCards.filter(card => 
+        card.boardName === boardNameToFilter && projectRegex.test(card.name)
+      );
+      title = `Proyectos del tablero: ${boardNameToFilter}`;
     }
+
+    const getProjectCode = (name: string): string | null => {
+        const match = name.match(projectRegex);
+        return match ? match[0] : null;
+    };
   
+    cardsToDownload.sort((a, b) => {
+        const codeA = getProjectCode(a.name);
+        const codeB = getProjectCode(b.name);
+        
+        if (codeA && codeB) {
+            return codeA.localeCompare(codeB);
+        }
+        if (codeA) return -1;
+        if (codeB) return 1;
+        return a.name.localeCompare(b.name);
+    });
+
     doc.text(title, 10, 10);
   
     const lineHeight = 7;
@@ -140,10 +179,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   
     cardsToDownload.forEach(card => {
       const cardName = card.name || '';
-      const boardName = card.boardName || '';
+      const cardBoardName = card.boardName || '';
 
       const nameLines = doc.splitTextToSize(cardName, nameColWidth);
-      const boardLines = doc.splitTextToSize(boardName, boardColWidth);
+      const boardLines = doc.splitTextToSize(cardBoardName, boardColWidth);
       
       const requiredLines = Math.max(nameLines.length, boardLines.length);
       
@@ -219,18 +258,36 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
           </Button>
         )}
       </div>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button onClick={handleDownloadPdf} variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isLoading}>
-              <Download className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="text-xs">
-            <p>Descargá la lista de proyectos completa o el resultado de tu búsqueda.</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <DropdownMenu>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isLoading}>
+                  <Download className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs">
+              <p>Descargá la lista de proyectos.</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <DropdownMenuContent>
+            <DropdownMenuLabel>Descargar Proyectos</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => handleDownloadPdf()}>
+              {query.trim() && filteredCards.length > 0 ? 'Resultados de la búsqueda' : 'Todos los proyectos'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Por tablero</DropdownMenuLabel>
+            {boardNames.map((name) => (
+              <DropdownMenuItem key={name} onSelect={() => handleDownloadPdf(name)}>
+                  {name}
+              </DropdownMenuItem>
+            ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
