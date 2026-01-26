@@ -118,17 +118,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const handleDownloadPdf = (boardNameToFilter?: string) => {
     const doc = new jsPDF();
     doc.setFontSize(10);
-  
-    let cardsToDownload: TrelloCard[];
+
+    let cardsToProcess: TrelloCard[];
     let title: string;
-  
-    const projectRegex = /\([A-Z]{3}\d{3}\)$/;
+
+    const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
     const isSearching = query.trim() && filteredCards.length > 0;
-    
+
     if (boardNameToFilter) {
-      // A specific board is selected
       const baseCards = isSearching ? filteredCards : allCards;
-      cardsToDownload = baseCards.filter(card => 
+      cardsToProcess = baseCards.filter(card => 
         card.boardName === boardNameToFilter && projectRegex.test(card.name)
       );
       title = `Proyectos del tablero: ${boardNameToFilter}`;
@@ -136,32 +135,47 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         title += ` (filtrado por "${query}")`;
       }
     } else {
-      // No specific board, download based on search or all
+      const baseCards = isSearching ? filteredCards : allCards;
+      cardsToProcess = baseCards.filter(card => projectRegex.test(card.name));
       if (isSearching) {
-        cardsToDownload = filteredCards.filter(card => projectRegex.test(card.name));
         title = `Resultados de la búsqueda para: "${query}"`;
       } else {
-        cardsToDownload = allCards.filter(card => projectRegex.test(card.name));
         title = 'Lista de todos los proyectos';
       }
     }
 
-    const getProjectCode = (name: string): string | null => {
+    const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
         const match = name.match(projectRegex);
-        return match ? match[0] : null;
-    };
-  
-    cardsToDownload.sort((a, b) => {
-        const codeA = getProjectCode(a.name);
-        const codeB = getProjectCode(b.name);
-        
-        if (codeA && codeB) {
-            return codeA.localeCompare(codeB);
+        if (match && match[1]) {
+            return {
+                code: match[1],
+                nameWithoutCode: name.replace(projectRegex, '').trim()
+            };
         }
-        if (codeA) return -1;
-        if (codeB) return 1;
-        return a.name.localeCompare(b.name);
-    });
+        return { code: null, nameWithoutCode: name };
+    };
+
+    const groupedByBoard: Record<string, TrelloCard[]> = cardsToProcess.reduce((acc, card) => {
+        const boardName = card.boardName || 'Sin tablero';
+        if (!acc[boardName]) {
+            acc[boardName] = [];
+        }
+        acc[boardName].push(card);
+        return acc;
+    }, {} as Record<string, TrelloCard[]>);
+
+    const sortedBoardNames = Object.keys(groupedByBoard).sort((a, b) => a.localeCompare(b));
+
+    for (const boardName of sortedBoardNames) {
+        groupedByBoard[boardName].sort((a, b) => {
+            const codeA = getProjectInfo(a.name).code;
+            const codeB = getProjectInfo(b.name).code;
+            if (codeA && codeB) {
+                return codeA.localeCompare(codeB);
+            }
+            return codeA ? -1 : 1;
+        });
+    }
 
     doc.text(title, 10, 10);
   
@@ -169,55 +183,57 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     const margin = 10;
     const pageHeight = doc.internal.pageSize.height;
     const nameColX = margin;
-    const boardColX = 110;
-    const nameColWidth = boardColX - nameColX - 5;
-    const boardColWidth = doc.internal.pageSize.width - boardColX - margin;
-    
+    const nameColWidth = doc.internal.pageSize.width - (2 * margin);
     let y = 20;
 
-    // Table header
-    doc.setFont('helvetica', 'bold');
-    doc.text('Nombre de la tarjeta', nameColX, y);
-    doc.text('Tablero', boardColX, y);
-    y += lineHeight;
-    doc.line(margin, y, doc.internal.pageSize.width - margin, y);
-    y += lineHeight;
-    doc.setFont('helvetica', 'normal');
-  
-    cardsToDownload.forEach(card => {
-      const cardName = card.name || '';
-      const cardBoardName = card.boardName || '';
+    const checkPageBreak = (neededHeight: number) => {
+        if (y + neededHeight > pageHeight - margin) {
+            doc.addPage();
+            y = margin;
+            return true;
+        }
+        return false;
+    }
 
-      const nameLines = doc.splitTextToSize(cardName, nameColWidth);
-      const boardLines = doc.splitTextToSize(cardBoardName, boardColWidth);
-      
-      const requiredLines = Math.max(nameLines.length, boardLines.length);
-      
-      if (y + (requiredLines * lineHeight) > pageHeight - margin) {
-        doc.addPage();
-        y = margin; // Reset y for new page
-        // Redraw header on new page
+    let isFirstBoard = true;
+    for (const boardName of sortedBoardNames) {
+        if (groupedByBoard[boardName].length === 0) continue;
+
+        const boardHeaderHeight = isFirstBoard ? lineHeight : lineHeight * 2;
+        if (checkPageBreak(boardHeaderHeight)) {
+            isFirstBoard = true;
+        }
+
+        if (!isFirstBoard) {
+            y += lineHeight;
+        }
+
         doc.setFont('helvetica', 'bold');
-        doc.text('Nombre de la tarjeta', nameColX, y);
-        doc.text('Tablero', boardColX, y);
-        y += lineHeight;
-        doc.line(margin, y, doc.internal.pageSize.width - margin, y);
+        doc.text(boardName, nameColX, y);
         y += lineHeight;
         doc.setFont('helvetica', 'normal');
-      }
-
-      for (let i = 0; i < requiredLines; i++) {
-        const currentY = y + (i * lineHeight);
-        if (nameLines[i]) {
-            doc.text(nameLines[i], nameColX, currentY);
-        }
-        if (boardLines[i]) {
-            doc.text(boardLines[i], boardColX, currentY);
-        }
-    }
+        
+        for (const card of groupedByBoard[boardName]) {
+            const { code, nameWithoutCode } = getProjectInfo(card.name);
+            
+            if (!code) continue; 
     
-    y += (requiredLines * lineHeight) + (lineHeight / 2);
-    });
+            const formattedName = `${code} - ${nameWithoutCode}`;
+            const nameLines = doc.splitTextToSize(formattedName, nameColWidth);
+            const requiredHeight = nameLines.length * lineHeight;
+
+            if (checkPageBreak(requiredHeight + lineHeight)) {
+                doc.setFont('helvetica', 'bold');
+                doc.text(boardName + " (cont.)", nameColX, y);
+                y += lineHeight;
+                doc.setFont('helvetica', 'normal');
+            }
+            
+            doc.text(nameLines, nameColX, y);
+            y += requiredHeight;
+        }
+        isFirstBoard = false;
+    }
   
     doc.save('trello-proyectos.pdf');
   };
