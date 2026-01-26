@@ -62,12 +62,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const trelloColorToTw = (color: string | null | undefined): string => {
     if (!color) return "bg-primary text-primary-foreground hover:bg-primary/90 aria-selected:bg-primary/90";
     switch (color) {
-        case 'green': return 'bg-green-500 text-white hover:bg-green-600 aria-selected:bg-green-600';
+        case 'green': return 'bg-emerald-400 text-black hover:bg-emerald-500 aria-selected:bg-emerald-500';
         case 'yellow': return 'bg-yellow-400 text-black hover:bg-yellow-500 aria-selected:bg-yellow-500';
-        case 'red': return 'bg-red-600 text-white hover:bg-red-700 aria-selected:bg-red-700';
+        case 'red': return 'bg-red-400 text-black hover:bg-red-500 aria-selected:bg-red-500';
         case 'orange': return 'bg-orange-500 text-white hover:bg-orange-600 aria-selected:bg-orange-600';
         case 'purple': return 'bg-purple-600 text-white hover:bg-purple-700 aria-selected:bg-purple-700';
-        case 'blue': return 'bg-blue-600 text-white hover:bg-blue-700 aria-selected:bg-blue-700';
+        case 'blue': return 'bg-blue-400 text-black hover:bg-blue-500 aria-selected:bg-blue-500';
         case 'sky': return 'bg-sky-400 text-black hover:bg-sky-500 aria-selected:bg-sky-500';
         case 'lime': return 'bg-lime-400 text-black hover:bg-lime-500 aria-selected:bg-lime-500';
         case 'pink': return 'bg-pink-500 text-white hover:bg-pink-600 aria-selected:bg-pink-600';
@@ -351,9 +351,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         if (!isFirstBoard) {
             y += lineHeight;
         }
-
-        doc.setFont('Helvetica', 'bold');
+        
         const nameColX = margin;
+        doc.setFont('Helvetica', 'bold');
         doc.text(boardName, nameColX, y);
         y += lineHeight;
         doc.setFont('Helvetica', 'normal');
