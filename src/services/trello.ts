@@ -1,4 +1,3 @@
-
 'use server';
 
 const TRELLO_API_KEY = process.env.TRELLO_API_KEY;
@@ -48,6 +47,7 @@ export interface TrelloCard {
   name: string;
   url: string;
   desc: string;
+  boardName: string;
 }
 
 export async function getTrelloBoards(): Promise<TrelloBoard[]> {
@@ -72,14 +72,21 @@ export async function getTrelloBoards(): Promise<TrelloBoard[]> {
   }
 }
 
-async function getCardsFromBoard(boardId: string): Promise<TrelloCard[]> {
-    return (await trelloFetch(`/boards/${boardId}/cards?fields=name,url,desc`)) as TrelloCard[];
+async function getCardsFromBoard(boardId: string): Promise<Omit<TrelloCard, 'boardName'>[]> {
+    return (await trelloFetch(`/boards/${boardId}/cards?fields=name,url,desc`)) as Omit<TrelloCard, 'boardName'>[];
 }
 
 export async function getAllCardsFromAllBoards(): Promise<TrelloCard[]> {
     try {
         const boards = await getTrelloBoards();
-        const allCardsPromises = boards.map(board => getCardsFromBoard(board.id));
+        const allCardsPromises = boards.map(async (board) => {
+            const cards = await getCardsFromBoard(board.id);
+            return cards.map(card => ({
+                ...card,
+                boardName: board.name
+            }));
+        });
+        
         const cardsPerBoard = await Promise.all(allCardsPromises);
         
         const allCards = cardsPerBoard.flat();

@@ -119,31 +119,65 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   
     doc.text(title, 10, 10);
   
-    const cardNames = cardsToDownload.map(card => card.name);
-    
     const lineHeight = 7;
     const margin = 10;
     const pageHeight = doc.internal.pageSize.height;
+    const nameColX = margin;
+    const boardColX = 110;
+    const nameColWidth = boardColX - nameColX - 5;
+    const boardColWidth = doc.internal.pageSize.width - boardColX - margin;
+    
     let y = 20;
+
+    // Table header
+    doc.setFont('helvetica', 'bold');
+    doc.text('Nombre de la tarjeta', nameColX, y);
+    doc.text('Tablero', boardColX, y);
+    y += lineHeight;
+    doc.line(margin, y, doc.internal.pageSize.width - margin, y);
+    y += lineHeight;
+    doc.setFont('helvetica', 'normal');
   
-    cardNames.forEach(name => {
-      const lines = doc.splitTextToSize(name, doc.internal.pageSize.width - margin * 2);
+    cardsToDownload.forEach(card => {
+      const cardName = card.name || '';
+      const boardName = card.boardName || '';
+
+      const nameLines = doc.splitTextToSize(cardName, nameColWidth);
+      const boardLines = doc.splitTextToSize(boardName, boardColWidth);
       
-      lines.forEach((line: string) => {
-        if (y + lineHeight > pageHeight - margin) {
-          doc.addPage();
-          y = margin;
-        }
-        doc.text(line, margin, y);
+      const requiredLines = Math.max(nameLines.length, boardLines.length);
+      
+      if (y + (requiredLines * lineHeight) > pageHeight - margin) {
+        doc.addPage();
+        y = margin; // Reset y for new page
+        // Redraw header on new page
+        doc.setFont('helvetica', 'bold');
+        doc.text('Nombre de la tarjeta', nameColX, y);
+        doc.text('Tablero', boardColX, y);
         y += lineHeight;
-      });
+        doc.line(margin, y, doc.internal.pageSize.width - margin, y);
+        y += lineHeight;
+        doc.setFont('helvetica', 'normal');
+      }
+
+      for (let i = 0; i < requiredLines; i++) {
+        const currentY = y + (i * lineHeight);
+        if (nameLines[i]) {
+            doc.text(nameLines[i], nameColX, currentY);
+        }
+        if (boardLines[i]) {
+            doc.text(boardLines[i], boardColX, currentY);
+        }
+    }
+    
+    y += (requiredLines * lineHeight) + (lineHeight / 2);
     });
   
     doc.save('trello-proyectos.pdf');
   };
   
   return (
-    <div className="flex w-full flex-col items-start gap-4">
+    <div className="flex w-full flex-col items-start gap-2">
       <div className="relative w-full">
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
@@ -152,7 +186,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
               value={query}
               onFocus={handleFocus}
               onChange={(e) => handleInputChange(e.target.value)}
-              placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o por código de proyecto...'}
+              placeholder='Buscá por palabra clave o por código de proyecto...'
               className="w-full bg-primary-foreground text-foreground pr-10 text-xs"
               disabled={isLoading}
             />
@@ -188,7 +222,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button onClick={handleDownloadPdf} className="text-primary-foreground bg-transparent hover:bg-primary/20" disabled={isLoading}>
+            <Button onClick={handleDownloadPdf} variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isLoading}>
               <Download className="h-5 w-5" />
             </Button>
           </TooltipTrigger>
