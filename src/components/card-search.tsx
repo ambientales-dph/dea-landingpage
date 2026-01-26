@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -65,25 +66,34 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
 
   const filteredCards = useMemo(() => {
     if (!query && isOpen) {
-      return allCards;
+      return allCards.map(card => ({ ...card, matchType: 'description' as const }));
     }
     if (query && (!selectedCard || query !== selectedCard.name)) {
       const normalizedQuery = removeAccents(query.toLowerCase());
       const keywords = normalizedQuery.split(' ').filter(kw => kw.trim() !== '');
 
       if (keywords.length === 0) {
-        return isOpen ? allCards : [];
+        return isOpen ? allCards.map(card => ({ ...card, matchType: 'description' as const })) : [];
       }
       
-      return allCards.filter(card => {
-        const cardNameLower = removeAccents(card.name.toLowerCase());
-        const cardDescLower = removeAccents(card.desc ? card.desc.toLowerCase() : '');
+      return allCards
+        .map(card => {
+          const cardNameLower = removeAccents(card.name.toLowerCase());
+          const cardDescLower = removeAccents(card.desc ? card.desc.toLowerCase() : '');
 
-        return keywords.some(keyword => 
-          cardNameLower.includes(keyword) ||
-          cardDescLower.includes(keyword)
-        );
-      });
+          const nameMatch = keywords.some(keyword => cardNameLower.includes(keyword));
+          if (nameMatch) {
+            return { ...card, matchType: 'name' as const };
+          }
+
+          const descMatch = keywords.some(keyword => cardDescLower.includes(keyword));
+          if (descMatch) {
+            return { ...card, matchType: 'description' as const };
+          }
+
+          return null;
+        })
+        .filter((c): c is TrelloCard & { matchType: 'name' | 'description' } => c !== null);
     }
     return [];
   }, [query, allCards, selectedCard, isOpen]);
@@ -383,7 +393,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                       key={card.id}
                       value={card.name}
                       onSelect={() => handleSelect(card)}
-                      className="cursor-pointer text-xs"
+                      className={cn(
+                        "cursor-pointer text-xs",
+                        card.matchType === 'name' && "bg-primary text-primary-foreground"
+                      )}
                     >
                       {card.name}
                     </CommandItem>
