@@ -118,7 +118,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const handleDownloadPdf = (boardNameToFilter?: string) => {
     const doc = new jsPDF();
     doc.setFontSize(10);
-    doc.setFont('Encode Sans');
+    doc.setFont('EncodeSans');
 
     let cardsToProcess: TrelloCard[];
     let title: string;
@@ -209,10 +209,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
             y += lineHeight;
         }
 
-        doc.setFont('Encode Sans', 'bold');
+        doc.setFont('EncodeSans', 'bold');
         doc.text(boardName, nameColX, y);
         y += lineHeight;
-        doc.setFont('Encode Sans', 'normal');
+        doc.setFont('EncodeSans', 'normal');
         
         for (const card of groupedByBoard[boardName]) {
             const { code, nameWithoutCode } = getProjectInfo(card.name);
@@ -224,10 +224,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
             const requiredHeight = nameLines.length * lineHeight;
 
             if (checkPageBreak(requiredHeight + lineHeight)) {
-                doc.setFont('Encode Sans', 'bold');
+                doc.setFont('EncodeSans', 'bold');
                 doc.text(boardName + " (cont.)", nameColX, y);
                 y += lineHeight;
-                doc.setFont('Encode Sans', 'normal');
+                doc.setFont('EncodeSans', 'normal');
             }
             
             doc.text(nameLines, nameColX, y);
