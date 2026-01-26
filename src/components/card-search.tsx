@@ -123,20 +123,27 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     let title: string;
   
     const projectRegex = /\([A-Z]{3}\d{3}\)$/;
+    const isSearching = query.trim() && filteredCards.length > 0;
     
-    if (!boardNameToFilter) {
-      if (query.trim() && filteredCards.length > 0) {
-        cardsToDownload = filteredCards;
+    if (boardNameToFilter) {
+      // A specific board is selected
+      const baseCards = isSearching ? filteredCards : allCards;
+      cardsToDownload = baseCards.filter(card => 
+        card.boardName === boardNameToFilter && projectRegex.test(card.name)
+      );
+      title = `Proyectos del tablero: ${boardNameToFilter}`;
+      if (isSearching) {
+        title += ` (filtrado por "${query}")`;
+      }
+    } else {
+      // No specific board, download based on search or all
+      if (isSearching) {
+        cardsToDownload = filteredCards.filter(card => projectRegex.test(card.name));
         title = `Resultados de la búsqueda para: "${query}"`;
       } else {
         cardsToDownload = allCards.filter(card => projectRegex.test(card.name));
         title = 'Lista de todos los proyectos';
       }
-    } else {
-      cardsToDownload = allCards.filter(card => 
-        card.boardName === boardNameToFilter && projectRegex.test(card.name)
-      );
-      title = `Proyectos del tablero: ${boardNameToFilter}`;
     }
 
     const getProjectCode = (name: string): string | null => {
