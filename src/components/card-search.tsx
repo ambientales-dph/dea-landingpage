@@ -58,20 +58,26 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     }
   }, [selectedCard]);
 
+  const removeAccents = (str: string): string => {
+    if (!str) return '';
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
   const filteredCards = useMemo(() => {
     if (!query && isOpen) {
       return allCards;
     }
     if (query && (!selectedCard || query !== selectedCard.name)) {
-      const keywords = query.toLowerCase().split(' ').filter(kw => kw.trim() !== '');
+      const normalizedQuery = removeAccents(query.toLowerCase());
+      const keywords = normalizedQuery.split(' ').filter(kw => kw.trim() !== '');
 
       if (keywords.length === 0) {
         return isOpen ? allCards : [];
       }
       
       return allCards.filter(card => {
-        const cardNameLower = card.name.toLowerCase();
-        const cardDescLower = card.desc ? card.desc.toLowerCase() : '';
+        const cardNameLower = removeAccents(card.name.toLowerCase());
+        const cardDescLower = removeAccents(card.desc ? card.desc.toLowerCase() : '');
 
         return keywords.some(keyword => 
           cardNameLower.includes(keyword) ||
