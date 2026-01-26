@@ -182,6 +182,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   
     const lineHeight = 7;
     const margin = 10;
+    const nameColX = margin;
     const pageHeight = doc.internal.pageSize.height;
     const nameColWidth = doc.internal.pageSize.width - (2 * margin);
     let y = 20;
