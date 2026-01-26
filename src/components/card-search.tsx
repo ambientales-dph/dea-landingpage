@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X } from 'lucide-react';
+import { Download, X, AlertTriangle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -115,23 +115,129 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     return [...new Set(names)].sort((a, b) => a.localeCompare(b));
   }, [allCards]);
 
+  const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
+    const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
+    const match = name.match(projectRegex);
+    if (match && match[1]) {
+        return {
+            code: match[1],
+            nameWithoutCode: name.replace(projectRegex, '').trim()
+        };
+    }
+    return { code: null, nameWithoutCode: name };
+  };
+
+  const handleDownloadDuplicatesPdf = () => {
+    const doc = new jsPDF();
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+
+    const title = 'Lista de Proyectos Duplicados';
+    doc.text(title, 10, 10);
+
+    const cardsByCode: Record<string, TrelloCard[]> = {};
+
+    // Group cards by project code, excluding the template
+    for (const card of allCards) {
+      if (card.name.includes('(XXX000)')) continue;
+
+      const { code } = getProjectInfo(card.name);
+      if (code) {
+        if (!cardsByCode[code]) {
+          cardsByCode[code] = [];
+        }
+        cardsByCode[code].push(card);
+      }
+    }
+
+    // Filter for groups with more than one card (duplicates) and sort by code
+    const duplicates = Object.entries(cardsByCode)
+      .filter(([, cards]) => cards.length > 1)
+      .sort(([codeA], [codeB]) => codeA.localeCompare(codeB));
+
+    if (duplicates.length === 0) {
+      toast({
+        title: 'No se encontraron duplicados',
+        description: 'Todos los códigos de proyecto son únicos.',
+      });
+      return;
+    }
+
+    const lineHeight = 7;
+    const margin = 10;
+    const nameColX = margin;
+    const boardColX = 120;
+    const pageHeight = doc.internal.pageSize.height;
+    let y = 20;
+
+    const checkPageBreak = (neededHeight: number) => {
+        if (y + neededHeight > pageHeight - margin) {
+            doc.addPage();
+            y = margin;
+            return true;
+        }
+        return false;
+    }
+    
+    let isFirstDuplicate = true;
+    for (const [code, cards] of duplicates) {
+        const headerHeight = isFirstDuplicate ? lineHeight : lineHeight * 2;
+        if (checkPageBreak(headerHeight)) {
+            isFirstDuplicate = true;
+        }
+
+        if (!isFirstDuplicate) {
+            y += lineHeight;
+        }
+
+        doc.setFont('Helvetica', 'bold');
+        doc.text(`Código duplicado: ${code}`, nameColX, y);
+        y += lineHeight;
+        doc.setFont('Helvetica', 'normal');
+
+        // Sort cards within the duplicate group by board name for consistent ordering
+        cards.sort((a, b) => a.boardName.localeCompare(b.boardName));
+        
+        for (const card of cards) {
+            const { code: cardCode, nameWithoutCode } = getProjectInfo(card.name);
+            const formattedName = cardCode ? `${cardCode} - ${nameWithoutCode}` : nameWithoutCode;
+            
+            const nameLines = doc.splitTextToSize(formattedName, boardColX - nameColX - 2);
+            const boardLines = doc.splitTextToSize(card.boardName, doc.internal.pageSize.width - boardColX - margin);
+            const requiredHeight = Math.max(nameLines.length, boardLines.length) * lineHeight;
+
+            if (checkPageBreak(requiredHeight + 2)) {
+                doc.setFont('Helvetica', 'bold');
+                doc.text(`Código duplicado: ${code} (cont.)`, nameColX, y);
+                y += lineHeight;
+                doc.setFont('Helvetica', 'normal');
+            }
+
+            doc.text(nameLines, nameColX, y);
+            doc.text(boardLines, boardColX, y);
+            y += requiredHeight;
+        }
+        isFirstDuplicate = false;
+    }
+  
+    doc.save('trello-proyectos-duplicados.pdf');
+  };
+
   const handleDownloadPdf = (boardNameToFilter?: string) => {
     const doc = new jsPDF();
-    doc.setFont('Helvetica');
+    doc.setFont('Helvetica', 'normal');
 
     let cardsToProcess: TrelloCard[];
     let title: string;
 
-    const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
     const isSearching = query.trim() && filteredCards.length > 0;
-    const templateProjectCode = '(XXX000)';
-
+    
     if (boardNameToFilter) {
       const baseCards = isSearching ? filteredCards : allCards;
       cardsToProcess = baseCards.filter(card => 
         card.boardName === boardNameToFilter && 
-        projectRegex.test(card.name) &&
-        !card.name.includes(templateProjectCode)
+        getProjectInfo(card.name).code &&
+        !card.name.includes('(XXX000)')
       );
       title = `Proyectos del tablero: ${boardNameToFilter}`;
       if (isSearching) {
@@ -140,8 +246,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     } else {
       const baseCards = isSearching ? filteredCards : allCards;
       cardsToProcess = baseCards.filter(card => 
-        projectRegex.test(card.name) &&
-        !card.name.includes(templateProjectCode)
+        getProjectInfo(card.name).code &&
+        !card.name.includes('(XXX000)')
       );
       if (isSearching) {
         title = `Resultados de la búsqueda para: "${query}"`;
@@ -149,17 +255,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         title = 'Lista de todos los proyectos';
       }
     }
-
-    const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
-        const match = name.match(projectRegex);
-        if (match && match[1]) {
-            return {
-                code: match[1],
-                nameWithoutCode: name.replace(projectRegex, '').trim()
-            };
-        }
-        return { code: null, nameWithoutCode: name };
-    };
 
     const groupedByBoard: Record<string, TrelloCard[]> = cardsToProcess.reduce((acc, card) => {
         const boardName = card.boardName || 'Sin tablero';
@@ -188,7 +283,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   
     const lineHeight = 7;
     const margin = 10;
-    const nameColX = margin;
     const pageHeight = doc.internal.pageSize.height;
     const nameColWidth = doc.internal.pageSize.width - (2 * margin);
     let y = 20;
@@ -216,7 +310,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         }
 
         doc.setFont('Helvetica', 'bold');
-        doc.text(boardName, nameColX, y);
+        doc.text(boardName, margin, y);
         y += lineHeight;
         doc.setFont('Helvetica', 'normal');
         
@@ -231,12 +325,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
 
             if (checkPageBreak(requiredHeight + lineHeight)) {
                 doc.setFont('Helvetica', 'bold');
-                doc.text(boardName + " (cont.)", nameColX, y);
+                doc.text(boardName + " (cont.)", margin, y);
                 y += lineHeight;
                 doc.setFont('Helvetica', 'normal');
             }
             
-            doc.text(nameLines, nameColX, y);
+            doc.text(nameLines, margin, y);
             y += requiredHeight;
         }
         isFirstBoard = false;
@@ -288,36 +382,56 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
           </Button>
         )}
       </div>
-      <DropdownMenu>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isLoading}>
-                  <Download className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent className="text-xs">
-              <p>Descargá la lista de proyectos.</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <DropdownMenuContent>
-            <DropdownMenuLabel>Descargar Proyectos</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => handleDownloadPdf()}>
-              {query.trim() && filteredCards.length > 0 ? 'Resultados de la búsqueda' : 'Todos los proyectos'}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Por tablero</DropdownMenuLabel>
-            {boardNames.map((name) => (
-              <DropdownMenuItem key={name} onSelect={() => handleDownloadPdf(name)}>
-                  {name}
+      <div className="flex items-center gap-2">
+        <DropdownMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isLoading}>
+                    <Download className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">
+                <p>Descargá la lista de proyectos.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <DropdownMenuContent>
+              <DropdownMenuLabel>Descargar Proyectos</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => handleDownloadPdf()}>
+                {query.trim() && filteredCards.length > 0 ? 'Resultados de la búsqueda' : 'Todos los proyectos'}
               </DropdownMenuItem>
-            ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Por tablero</DropdownMenuLabel>
+              {boardNames.map((name) => (
+                <DropdownMenuItem key={name} onSelect={() => handleDownloadPdf(name)}>
+                    {name}
+                </DropdownMenuItem>
+              ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-primary-foreground hover:bg-primary/20" 
+                  disabled={isLoading}
+                  onClick={handleDownloadDuplicatesPdf}
+                >
+                  <AlertTriangle className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">
+                <p>Descargá la lista de proyectos duplicados.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+      </div>
     </div>
   );
 }
