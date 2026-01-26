@@ -117,7 +117,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
 
   const handleDownloadPdf = (boardNameToFilter?: string) => {
     const doc = new jsPDF();
-    doc.setFontSize(10);
     doc.setFont('Calibri');
 
     let cardsToProcess: TrelloCard[];
@@ -125,11 +124,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
 
     const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
     const isSearching = query.trim() && filteredCards.length > 0;
+    const templateProjectCode = '(XXX000)';
 
     if (boardNameToFilter) {
       const baseCards = isSearching ? filteredCards : allCards;
       cardsToProcess = baseCards.filter(card => 
-        card.boardName === boardNameToFilter && projectRegex.test(card.name)
+        card.boardName === boardNameToFilter && 
+        projectRegex.test(card.name) &&
+        !card.name.includes(templateProjectCode)
       );
       title = `Proyectos del tablero: ${boardNameToFilter}`;
       if (isSearching) {
@@ -137,7 +139,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
       }
     } else {
       const baseCards = isSearching ? filteredCards : allCards;
-      cardsToProcess = baseCards.filter(card => projectRegex.test(card.name));
+      cardsToProcess = baseCards.filter(card => 
+        projectRegex.test(card.name) &&
+        !card.name.includes(templateProjectCode)
+      );
       if (isSearching) {
         title = `Resultados de la búsqueda para: "${query}"`;
       } else {
@@ -178,6 +183,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         });
     }
 
+    doc.setFontSize(10);
     doc.text(title, 10, 10);
   
     const lineHeight = 7;
