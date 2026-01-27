@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { getAllCardsFromAllBoards, TrelloCard } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +26,11 @@ interface CardSearchProps {
   onClear: () => void;
 }
 
+const removeAccents = (str: string): string => {
+  if (!str) return '';
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 export default function CardSearch({ onCardSelect, selectedCard, onClear }: CardSearchProps) {
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
   const [query, setQuery] = useState('');
@@ -34,11 +39,24 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const getProjectInfo = useCallback((name: string): { code: string | null; nameWithoutCode: string } => {
+    const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
+    const match = name.match(projectRegex);
+    if (match && match[1]) {
+        return {
+            code: match[1],
+            nameWithoutCode: name.replace(projectRegex, '').trim()
+        };
+    }
+    return { code: null, nameWithoutCode: name };
+  }, []);
+
   useEffect(() => {
     async function fetchAllCards() {
       try {
         const fetchedCards = await getAllCardsFromAllBoards();
-        setAllCards(fetchedCards);
+        const projectCards = fetchedCards.filter(card => getProjectInfo(card.name).code !== null);
+        setAllCards(projectCards);
       } catch (error) {
         toast({
           variant: 'destructive',
@@ -51,7 +69,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     }
 
     fetchAllCards();
-  }, [toast]);
+  }, [toast, getProjectInfo]);
 
   useEffect(() => {
     if (selectedCard) {
@@ -62,12 +80,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const trelloColorToTw = (color: string | null | undefined): string => {
     if (!color) return "bg-primary text-primary-foreground hover:bg-primary/90 aria-selected:bg-primary/90";
     switch (color) {
-        case 'green': return 'bg-emerald-400 text-black hover:bg-emerald-500 aria-selected:bg-emerald-500';
-        case 'yellow': return 'bg-yellow-400 text-black hover:bg-yellow-500 aria-selected:bg-yellow-500';
-        case 'red': return 'bg-red-400 text-black hover:bg-red-500 aria-selected:bg-red-500';
+        case 'green': return 'bg-[rgb(75,206,151)] text-white hover:bg-[rgba(75,206,151,0.9)] aria-selected:bg-[rgba(75,206,151,0.9)]';
+        case 'yellow': return 'bg-[rgb(238,209,43)] text-black hover:bg-[rgba(238,209,43,0.9)] aria-selected:bg-[rgba(238,209,43,0.9)]';
+        case 'red': return 'bg-[rgb(248,113,104)] text-white hover:bg-[rgba(248,113,104,0.9)] aria-selected:bg-[rgba(248,113,104,0.9)]';
         case 'orange': return 'bg-orange-500 text-white hover:bg-orange-600 aria-selected:bg-orange-600';
         case 'purple': return 'bg-purple-600 text-white hover:bg-purple-700 aria-selected:bg-purple-700';
-        case 'blue': return 'bg-blue-400 text-black hover:bg-blue-500 aria-selected:bg-blue-500';
+        case 'blue': return 'bg-[rgb(102,157,241)] text-white hover:bg-[rgba(102,157,241,0.9)] aria-selected:bg-[rgba(102,157,241,0.9)]';
         case 'sky': return 'bg-sky-400 text-black hover:bg-sky-500 aria-selected:bg-sky-500';
         case 'lime': return 'bg-lime-400 text-black hover:bg-lime-500 aria-selected:bg-lime-500';
         case 'pink': return 'bg-pink-500 text-white hover:bg-pink-600 aria-selected:bg-pink-600';
@@ -75,11 +93,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         default: return "bg-primary text-primary-foreground hover:bg-primary/90 aria-selected:bg-primary/90";
     }
   };
-
-  const removeAccents = (str: string): string => {
-    if (!str) return '';
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  }
 
   const filteredCards = useMemo(() => {
     if (!query && isOpen) {
@@ -157,18 +170,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     const names = allCards.map(card => card.boardName);
     return [...new Set(names)].sort((a, b) => a.localeCompare(b));
   }, [allCards]);
-
-  const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
-    const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
-    const match = name.match(projectRegex);
-    if (match && match[1]) {
-        return {
-            code: match[1],
-            nameWithoutCode: name.replace(projectRegex, '').trim()
-        };
-    }
-    return { code: null, nameWithoutCode: name };
-  };
 
   const handleDownloadDuplicatesPdf = () => {
     const doc = new jsPDF();
@@ -326,7 +327,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   
     const lineHeight = 7;
     const margin = 10;
-    const pageHeight = doc.internal.pageSize.height;
     const nameColWidth = doc.internal.pageSize.width - (2 * margin);
     let y = 20;
 
@@ -412,7 +412,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                       onSelect={() => handleSelect(card)}
                       className={cn(
                         "cursor-pointer text-xs",
-                        card.matchType === 'name' && trelloColorToTw(card.cover?.color)
+                        card.matchType === 'name' ? trelloColorToTw(card.cover?.color) : ""
                       )}
                     >
                       {card.name}
