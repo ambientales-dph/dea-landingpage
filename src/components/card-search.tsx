@@ -562,12 +562,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
       </div>
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={setIsSummaryOpen}>
-            <DialogContent className="p-0 sm:max-w-lg">
+            <DialogContent className="p-0 sm:max-w-md">
                 <DialogHeader
                     style={trelloColorToStyle(selectedCard.cover?.color)}
                     className="p-6 rounded-t-lg"
                 >
-                    <DialogTitle>{selectedCard.name}</DialogTitle>
+                    <DialogTitle className="text-base font-semibold">{selectedCard.name}</DialogTitle>
                     {selectedCard.labels && selectedCard.labels.length > 0 && (
                         <div className="flex flex-wrap gap-2 pt-2">
                             {selectedCard.labels.map(label => (
@@ -584,8 +584,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                 </DialogHeader>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                     <h3 className="font-semibold text-foreground mb-2">Descripción</h3>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {selectedCard.desc || 'Esta tarjeta no tiene descripción.'}
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                      {selectedCard.desc ? (
+                        selectedCard.desc.split(/\*\*(.*?)\*\*/g).map((part, index) =>
+                          index % 2 === 1 ? (
+                            <strong key={index}>{part}</strong>
+                          ) : (
+                            <span key={index}>{part}</span>
+                          )
+                        )
+                      ) : (
+                        'Esta tarjeta no tiene descripción.'
+                      )}
                     </p>
                 </div>
             </DialogContent>
