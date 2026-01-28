@@ -3,12 +3,12 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -24,7 +24,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -35,6 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -59,6 +59,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const [editedDesc, setEditedDesc] = useState('');
   const [activity, setActivity] = useState<TrelloAction[]>([]);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [isCommenting, setIsCommenting] = useState(false);
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -102,27 +104,30 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     }
   }, [selectedCard]);
 
+  const fetchActivity = useCallback(async () => {
+    if (!selectedCard) return;
+
+    setIsActivityLoading(true);
+    setActivity([]);
+    try {
+      const cardActivity = await getCardActivity(selectedCard.id);
+      setActivity(cardActivity);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al cargar actividad',
+        description: error instanceof Error ? error.message : 'No se pudo cargar la actividad de la tarjeta.',
+      });
+    } finally {
+      setIsActivityLoading(false);
+    }
+  }, [selectedCard, toast]);
+
   useEffect(() => {
     if (selectedCard && isSummaryOpen) {
-      const fetchActivity = async () => {
-        setIsActivityLoading(true);
-        setActivity([]);
-        try {
-          const cardActivity = await getCardActivity(selectedCard.id);
-          setActivity(cardActivity);
-        } catch (error) {
-          toast({
-            variant: 'destructive',
-            title: 'Error al cargar actividad',
-            description: error instanceof Error ? error.message : 'No se pudo cargar la actividad de la tarjeta.',
-          });
-        } finally {
-          setIsActivityLoading(false);
-        }
-      };
       fetchActivity();
     }
-  }, [selectedCard, isSummaryOpen, toast]);
+  }, [selectedCard, isSummaryOpen, fetchActivity]);
 
   const trelloColorToTw = (color: string | null | undefined): string => {
     if (!color) return "bg-primary text-primary-foreground hover:bg-primary/90 aria-selected:bg-primary/90";
@@ -524,6 +529,29 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         setIsSaving(false);
     }
   };
+
+  const handlePostComment = async () => {
+    if (!selectedCard || !newComment.trim()) return;
+
+    setIsCommenting(true);
+    try {
+      await addCommentToCard({ cardId: selectedCard.id, text: newComment });
+      setNewComment('');
+      toast({
+        title: '¡Éxito!',
+        description: 'Tu comentario se ha añadido a la tarjeta.',
+      });
+      await fetchActivity(); // Re-fetch activity to show the new comment
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al comentar',
+        description: error instanceof Error ? error.message : 'No se pudo añadir tu comentario.',
+      });
+    } finally {
+      setIsCommenting(false);
+    }
+  };
   
   const renderActivity = (action: TrelloAction) => {
     switch (action.type) {
@@ -733,46 +761,70 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                       <>
                         <Separator className="mx-6 w-auto" />
                         <div className="p-6">
-                          <h3 className="font-semibold text-foreground mb-4">Actividad</h3>
-                          {isActivityLoading ? (
-                              <div className="space-y-4">
-                                  <div className="flex items-start space-x-3">
-                                      <Skeleton className="h-8 w-8 rounded-full" />
-                                      <div className="space-y-2">
-                                          <Skeleton className="h-4 w-48" />
-                                          <Skeleton className="h-4 w-32" />
-                                      </div>
-                                  </div>
-                                  <div className="flex items-start space-x-3">
-                                      <Skeleton className="h-8 w-8 rounded-full" />
-                                      <div className="space-y-2">
-                                          <Skeleton className="h-4 w-40" />
-                                          <Skeleton className="h-4 w-24" />
-                                      </div>
-                                  </div>
+                          <Collapsible defaultOpen className="group">
+                            <CollapsibleTrigger className="flex w-full items-center justify-between mb-4">
+                              <h3 className="font-semibold text-foreground">Actividad</h3>
+                              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-6 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                              <div className="space-y-2">
+                                <Textarea
+                                  placeholder="Escribí un comentario..."
+                                  value={newComment}
+                                  onChange={(e) => setNewComment(e.target.value)}
+                                  disabled={isCommenting}
+                                  className="text-xs"
+                                />
+                                <Button
+                                  onClick={handlePostComment}
+                                  disabled={!newComment.trim() || isCommenting}
+                                  size="sm"
+                                >
+                                  {isCommenting && <Save className="mr-2 h-4 w-4 animate-spin" />}
+                                  {isCommenting ? 'Enviando...' : 'Enviar comentario'}
+                                </Button>
                               </div>
-                          ) : (
-                              <div className="space-y-6">
-                                  {activity.map(action => (
-                                      <div key={action.id} className="flex items-start space-x-3">
-                                          <Avatar className="h-8 w-8">
-                                              <AvatarImage src={action.memberCreator.avatarUrl ? `${action.memberCreator.avatarUrl}/50.png` : undefined} alt={action.memberCreator.fullName} />
-                                              <AvatarFallback>{action.memberCreator.fullName.charAt(0)}</AvatarFallback>
-                                          </Avatar>
-                                          <div className="flex-1 text-xs">
-                                              <div className="flex items-baseline gap-2">
-                                                  <span className="font-semibold">{action.memberCreator.fullName}</span>
-                                                  <span className="text-muted-foreground text-[10px]">{formatDistanceToNow(new Date(action.date), { addSuffix: true, locale: es })}</span>
-                                              </div>
-                                              {renderActivity(action)}
+                              {isActivityLoading ? (
+                                  <div className="space-y-4">
+                                      <div className="flex items-start space-x-3">
+                                          <Skeleton className="h-8 w-8 rounded-full" />
+                                          <div className="space-y-2">
+                                              <Skeleton className="h-4 w-48" />
+                                              <Skeleton className="h-4 w-32" />
                                           </div>
                                       </div>
-                                  ))}
-                                  {activity.length === 0 && !isActivityLoading && (
-                                      <p className="text-xs text-muted-foreground">No hay actividad reciente en esta tarjeta.</p>
-                                  )}
-                              </div>
-                          )}
+                                      <div className="flex items-start space-x-3">
+                                          <Skeleton className="h-8 w-8 rounded-full" />
+                                          <div className="space-y-2">
+                                              <Skeleton className="h-4 w-40" />
+                                              <Skeleton className="h-4 w-24" />
+                                          </div>
+                                      </div>
+                                  </div>
+                              ) : (
+                                  <div className="space-y-6">
+                                      {activity.map(action => (
+                                          <div key={action.id} className="flex items-start space-x-3">
+                                              <Avatar className="h-8 w-8">
+                                                  <AvatarImage src={action.memberCreator.avatarUrl ? `${action.memberCreator.avatarUrl}/50.png` : undefined} alt={action.memberCreator.fullName} />
+                                                  <AvatarFallback>{action.memberCreator.fullName.charAt(0)}</AvatarFallback>
+                                              </Avatar>
+                                              <div className="flex-1 text-xs">
+                                                  <div className="flex items-baseline gap-2">
+                                                      <span className="font-semibold">{action.memberCreator.fullName}</span>
+                                                      <span className="text-muted-foreground text-[10px]">{formatDistanceToNow(new Date(action.date), { addSuffix: true, locale: es })}</span>
+                                                  </div>
+                                                  {renderActivity(action)}
+                                              </div>
+                                          </div>
+                                      ))}
+                                      {activity.length === 0 && !isActivityLoading && (
+                                          <p className="text-xs text-muted-foreground">No hay actividad reciente en esta tarjeta.</p>
+                                      )}
+                                  </div>
+                              )}
+                            </CollapsibleContent>
+                          </Collapsible>
                         </div>
                       </>
                     )}
@@ -792,3 +844,5 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     </div>
   );
 }
+
+    

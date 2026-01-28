@@ -162,3 +162,19 @@ export async function getCardActivity(cardId: string): Promise<TrelloAction[]> {
     throw new Error('Hubo un error desconocido al obtener la actividad de la tarjeta.');
   }
 }
+
+export async function addCommentToCard({ cardId, text }: { cardId: string; text: string }): Promise<TrelloAction> {
+  try {
+    const newAction = (await trelloFetch(`/cards/${cardId}/actions/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    })) as TrelloAction;
+    return newAction;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to add comment to Trello card ${cardId}:`, error.message);
+      throw new Error(`No pudimos añadir el comentario a la tarjeta: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al añadir el comentario.');
+  }
+}
