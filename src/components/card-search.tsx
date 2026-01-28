@@ -364,7 +364,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
             
             if (!code) continue; 
     
-            const formattedName = `${code} - ${nameWithoutCode}`;
+            const formattedName = `${code.replace(/[()]/g, '')} - ${nameWithoutCode}`;
             const nameLines = doc.splitTextToSize(formattedName, nameColWidth);
             const requiredHeight = nameLines.length * lineHeight;
 
@@ -385,51 +385,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   };
   
   return (
-    <div className="flex w-full flex-col items-start gap-2">
-      <div className="relative w-full">
-        <Popover open={isOpen && !(selectedCard && query === selectedCard.name)} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
-            <Textarea
-              ref={inputRef}
-              value={query}
-              onFocus={handleFocus}
-              onChange={(e) => handleInputChange(e.target.value)}
-              placeholder='Buscá por palabra clave o por código de proyecto...'
-              className="w-full bg-primary-foreground text-foreground pr-10 text-xs"
-              disabled={isLoading}
-            />
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <Command>
-              <CommandList>
-                {filteredCards.length === 0 && query.length > 0 && !isOpen && (
-                  <CommandEmpty>No encontramos resultados.</CommandEmpty>
-                )}
-                <CommandGroup>
-                  {filteredCards.map((card) => (
-                    <CommandItem
-                      key={card.id}
-                      value={card.name}
-                      onSelect={() => handleSelect(card)}
-                      className={cn(
-                        "cursor-pointer text-xs",
-                        card.matchType === 'name' ? trelloColorToTw(card.cover?.color) : ""
-                      )}
-                    >
-                      {card.name}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-        {query && (
-          <Button variant="ghost" size="icon" onClick={handleClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8">
-            <X className="h-5 w-5" />
-          </Button>
-        )}
-      </div>
+    <div className="flex h-full w-full flex-col justify-between">
       <div className="flex items-center gap-2">
         <DropdownMenu>
           <TooltipProvider>
@@ -479,6 +435,50 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+      </div>
+      <div className="relative w-full">
+        <Popover open={isOpen && !(selectedCard && query === selectedCard.name)} onOpenChange={setIsOpen}>
+          <PopoverTrigger asChild>
+            <Textarea
+              ref={inputRef}
+              value={query}
+              onFocus={handleFocus}
+              onChange={(e) => handleInputChange(e.target.value)}
+              placeholder='Buscá por palabra clave o por código de proyecto...'
+              className="w-full min-h-24 bg-primary-foreground text-foreground pr-10 text-xs"
+              disabled={isLoading}
+            />
+          </PopoverTrigger>
+          <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <Command>
+              <CommandList>
+                {filteredCards.length === 0 && query.length > 0 && !isOpen && (
+                  <CommandEmpty>No encontramos resultados.</CommandEmpty>
+                )}
+                <CommandGroup>
+                  {filteredCards.map((card) => (
+                    <CommandItem
+                      key={card.id}
+                      value={card.name}
+                      onSelect={() => handleSelect(card)}
+                      className={cn(
+                        "cursor-pointer text-xs",
+                        card.matchType === 'name' ? trelloColorToTw(card.cover?.color) : ""
+                      )}
+                    >
+                      {card.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {query && (
+          <Button variant="ghost" size="icon" onClick={handleClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8">
+            <X className="h-5 w-5" />
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -159,7 +159,7 @@ export default function Home() {
                 <p className="text-sm mb-2">Si el proyecto tiene una ubicación, la vas a ver en el mapa.</p>
                 <p className="text-sm">Usá el botón de descarga para bajarte una lista con todos los proyectos.</p>
               </div>
-              <div className="bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg">
+              <div className="bg-neutral-700/60 p-6 rounded-lg flex flex-col shadow-lg">
                 <CardSearch
                   onCardSelect={handleCardSelect}
                   selectedCard={selectedCard}
