@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -82,6 +83,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   useEffect(() => {
     if (selectedCard) {
       setQuery(selectedCard.name);
+    } else {
+      setQuery('');
     }
   }, [selectedCard]);
 
@@ -117,6 +120,40 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         case 'black': return { backgroundColor: '#374151', color: 'white' };
         default: return { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' };
     }
+  };
+
+  const trelloLabelColorToStyle = (color: string | null): React.CSSProperties => {
+    if (!color) return { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' };
+    
+    const colorMap: Record<string, { bg: string, text: string }> = {
+        'green': { bg: '#61bd4f', text: 'white' },
+        'yellow': { bg: '#f2d600', text: 'black' },
+        'orange': { bg: '#ff9f1a', text: 'black' },
+        'red': { bg: '#eb5a46', text: 'white' },
+        'purple': { bg: '#c377e0', text: 'white' },
+        'blue': { bg: '#0079bf', text: 'white' },
+        'sky': { bg: '#00c2e0', text: 'black' },
+        'lime': { bg: '#51e898', text: 'black' },
+        'pink': { bg: '#ff78cb', text: 'black' },
+        'black': { bg: '#344563', text: 'white' },
+        'green_light': { bg: '#b6e0a9', text: 'black' },
+        'yellow_light': { bg: '#f5e9a4', text: 'black' },
+        'orange_light': { bg: '#ffd6a8', text: 'black' },
+        'red_light': { bg: '#f8c2bB', text: 'black' },
+        'purple_light': { bg: '#e2b8f0', text: 'black' },
+        'blue_light': { bg: '#a3c9e3', text: 'black' },
+        'sky_light': { bg: '#a3e1eb', text: 'black' },
+        'lime_light': { bg: '#a5f0c6', text: 'black' },
+        'pink_light': { bg: '#ffd6ec', text: 'black' },
+        'black_light': { bg: '#a5adba', text: 'black' },
+    };
+
+    const style = colorMap[color];
+    if (style) {
+        return { backgroundColor: style.bg, color: style.text };
+    }
+
+    return { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' };
   };
 
   const filteredCards = useMemo(() => {
@@ -533,6 +570,22 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                     <DialogTitle>{selectedCard.name}</DialogTitle>
                 </DialogHeader>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
+                    {selectedCard.labels && selectedCard.labels.length > 0 && (
+                        <div className="mb-4">
+                            <h3 className="font-semibold text-foreground mb-2">Etiquetas</h3>
+                            <div className="flex flex-wrap gap-2">
+                                {selectedCard.labels.map(label => (
+                                    <Badge
+                                        key={label.id}
+                                        style={trelloLabelColorToStyle(label.color)}
+                                        className="border-transparent"
+                                    >
+                                        {label.name}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     <h3 className="font-semibold text-foreground mb-2">Descripción</h3>
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                         {selectedCard.desc || 'Esta tarjeta no tiene descripción.'}
