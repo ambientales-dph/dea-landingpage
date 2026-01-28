@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -761,29 +761,33 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                       <>
                         <Separator className="mx-6 w-auto" />
                         <div className="p-6">
-                          <Collapsible defaultOpen className="group">
-                            <CollapsibleTrigger className="flex w-full items-center justify-between mb-4">
-                              <h3 className="font-semibold text-foreground">Actividad</h3>
-                              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                          <h3 className="font-semibold text-foreground mb-4">Actividad</h3>
+                          <div className="flex items-start gap-2 mb-4">
+                            <Textarea
+                              placeholder="Escribí un comentario..."
+                              value={newComment}
+                              onChange={(e) => setNewComment(e.target.value)}
+                              disabled={isCommenting}
+                              className="text-xs flex-1"
+                              rows={2}
+                            />
+                            <Button
+                              onClick={handlePostComment}
+                              disabled={!newComment.trim() || isCommenting}
+                              size="icon"
+                              className="shrink-0"
+                            >
+                              {isCommenting ? <Save className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                              <span className="sr-only">Enviar comentario</span>
+                            </Button>
+                          </div>
+
+                          <Collapsible className="group">
+                            <CollapsibleTrigger className="flex w-full items-center justify-start gap-2 text-sm font-medium text-muted-foreground">
+                              <span>Historial</span>
+                              <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                             </CollapsibleTrigger>
-                            <CollapsibleContent className="space-y-6 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-                              <div className="space-y-2">
-                                <Textarea
-                                  placeholder="Escribí un comentario..."
-                                  value={newComment}
-                                  onChange={(e) => setNewComment(e.target.value)}
-                                  disabled={isCommenting}
-                                  className="text-xs"
-                                />
-                                <Button
-                                  onClick={handlePostComment}
-                                  disabled={!newComment.trim() || isCommenting}
-                                  size="sm"
-                                >
-                                  {isCommenting && <Save className="mr-2 h-4 w-4 animate-spin" />}
-                                  {isCommenting ? 'Enviando...' : 'Enviar comentario'}
-                                </Button>
-                              </div>
+                            <CollapsibleContent className="mt-4 space-y-6 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                               {isActivityLoading ? (
                                   <div className="space-y-4">
                                       <div className="flex items-start space-x-3">
