@@ -28,7 +28,7 @@ interface CardSearchProps {
 
 const removeAccents = (str: string): string => {
   if (!str) return '';
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return str.normalize("NFD").replace(/[\u00c0-\u024f]/g, "");
 }
 
 export default function CardSearch({ onCardSelect, selectedCard, onClear }: CardSearchProps) {
@@ -328,6 +328,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     const lineHeight = 7;
     const margin = 10;
     const nameColWidth = doc.internal.pageSize.width - (2 * margin);
+    const pageHeight = doc.internal.pageSize.height;
     let y = 20;
 
     const checkPageBreak = (neededHeight: number) => {
@@ -386,7 +387,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   return (
     <div className="flex w-full flex-col items-start gap-2">
       <div className="relative w-full">
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <Popover open={isOpen && !(selectedCard && query === selectedCard.name)} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
             <Textarea
               ref={inputRef}
