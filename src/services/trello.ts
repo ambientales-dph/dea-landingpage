@@ -68,6 +68,27 @@ export interface TrelloCard {
   labels: TrelloLabel[];
 }
 
+export interface TrelloAction {
+  id: string;
+  data: {
+    text?: string;
+    listBefore?: { name: string };
+    listAfter?: { name: string };
+    old?: {
+        name?: string;
+        desc?: string;
+    }
+  };
+  type: string;
+  date: string;
+  memberCreator: {
+    id: string;
+    avatarUrl: string | null;
+    fullName: string;
+    username: string;
+  };
+}
+
 export async function getTrelloBoards(): Promise<TrelloBoard[]> {
   try {
     const boards = (await trelloFetch('/members/me/boards?fields=name,id')) as TrelloBoard[];
@@ -126,5 +147,18 @@ export async function updateTrelloCard({ cardId, name, desc }: { cardId: string;
       throw new Error(`No pudimos actualizar la tarjeta de Trello: ${error.message}`);
     }
     throw new Error('Hubo un error desconocido al actualizar la tarjeta.');
+  }
+}
+
+export async function getCardActivity(cardId: string): Promise<TrelloAction[]> {
+  try {
+    const actions = (await trelloFetch(`/cards/${cardId}/actions?filter=all&member_creator=true`)) as TrelloAction[];
+    return actions;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to get activity for Trello card ${cardId}:`, error.message);
+      throw new Error(`No pudimos obtener la actividad de la tarjeta de Trello: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al obtener la actividad de la tarjeta.');
   }
 }

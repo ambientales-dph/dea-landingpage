@@ -1,14 +1,17 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Download, X, AlertTriangle, FileText, Edit, Save } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -29,7 +32,9 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-
+import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -52,6 +57,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const [isSaving, setIsSaving] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [editedDesc, setEditedDesc] = useState('');
+  const [activity, setActivity] = useState<TrelloAction[]>([]);
+  const [isActivityLoading, setIsActivityLoading] = useState(false);
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -94,6 +101,28 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
       setQuery('');
     }
   }, [selectedCard]);
+
+  useEffect(() => {
+    if (selectedCard && isSummaryOpen) {
+      const fetchActivity = async () => {
+        setIsActivityLoading(true);
+        setActivity([]);
+        try {
+          const cardActivity = await getCardActivity(selectedCard.id);
+          setActivity(cardActivity);
+        } catch (error) {
+          toast({
+            variant: 'destructive',
+            title: 'Error al cargar actividad',
+            description: error instanceof Error ? error.message : 'No se pudo cargar la actividad de la tarjeta.',
+          });
+        } finally {
+          setIsActivityLoading(false);
+        }
+      };
+      fetchActivity();
+    }
+  }, [selectedCard, isSummaryOpen, toast]);
 
   const trelloColorToTw = (color: string | null | undefined): string => {
     if (!color) return "bg-primary text-primary-foreground hover:bg-primary/90 aria-selected:bg-primary/90";
@@ -496,6 +525,31 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     }
   };
   
+  const renderActivity = (action: TrelloAction) => {
+    switch (action.type) {
+      case 'commentCard':
+        return <p className="mt-1 bg-muted p-3 rounded-md whitespace-pre-wrap border">{action.data.text}</p>;
+      case 'updateCard':
+        if (action.data.listAfter && action.data.listBefore) {
+          return <p className="mt-1 text-muted-foreground">movió esta tarjeta de <strong>{action.data.listBefore.name}</strong> a <strong>{action.data.listAfter.name}</strong>.</p>;
+        }
+        if (action.data.old?.desc) {
+            return <p className="mt-1 text-muted-foreground">actualizó la descripción.</p>
+        }
+        if (action.data.old?.name) {
+            return <p className="mt-1 text-muted-foreground">renombró la tarjeta.</p>
+        }
+        return <p className="mt-1 text-muted-foreground">actualizó esta tarjeta.</p>;
+      case 'addMemberToCard':
+        return <p className="mt-1 text-muted-foreground">se unió a esta tarjeta.</p>;
+      case 'createCard':
+        return <p className="mt-1 text-muted-foreground">creó esta tarjeta.</p>;
+      default:
+        // A simple fallback for other actions
+        return <p className="mt-1 text-muted-foreground">realizó la acción: {action.type}</p>;
+    }
+  };
+
   return (
     <div className="flex h-full w-full flex-col justify-between">
       <div className="flex items-center gap-2">
@@ -613,7 +667,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
             if (!isOpen) setIsEditing(false);
             setIsSummaryOpen(isOpen);
         }}>
-            <DialogContent className="p-0 max-w-md">
+            <DialogContent className="p-0 max-w-2xl">
                 <DialogHeader
                     style={trelloColorToStyle(selectedCard.cover?.color)}
                     className="p-6 rounded-t-lg relative"
@@ -649,33 +703,82 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                         </div>
                     )}
                 </DialogHeader>
-                <div className="p-6 max-h-[60vh] overflow-y-auto">
-                    <h3 className="font-semibold text-foreground mb-2">Descripción</h3>
-                     {isEditing ? (
-                        <Textarea
-                            value={editedDesc}
-                            onChange={(e) => setEditedDesc(e.target.value)}
-                            className="text-xs min-h-[200px] max-h-[40vh]"
-                            disabled={isSaving}
-                        />
-                    ) : (
-                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                        {selectedCard.desc ? (
-                          selectedCard.desc.split(/\*\*(.*?)\*\*/g).map((part, index) =>
-                            index % 2 === 1 ? (
-                              <strong key={index}>{part}</strong>
-                            ) : (
-                              <span key={index}>{part}</span>
-                            )
-                          )
+                <div className="max-h-[60vh] overflow-y-auto">
+                    <div className="p-6">
+                        <h3 className="font-semibold text-foreground mb-2">Descripción</h3>
+                         {isEditing ? (
+                            <Textarea
+                                value={editedDesc}
+                                onChange={(e) => setEditedDesc(e.target.value)}
+                                className="text-xs min-h-[200px]"
+                                disabled={isSaving}
+                            />
                         ) : (
-                          'Esta tarjeta no tiene descripción.'
+                          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                            {selectedCard.desc ? (
+                              selectedCard.desc.split(/\*\*(.*?)\*\*/g).map((part, index) =>
+                                index % 2 === 1 ? (
+                                  <strong key={index}>{part}</strong>
+                                ) : (
+                                  <span key={index}>{part}</span>
+                                )
+                              )
+                            ) : (
+                              'Esta tarjeta no tiene descripción.'
+                            )}
+                          </p>
                         )}
-                      </p>
+                    </div>
+                    {!isEditing && (
+                      <>
+                        <Separator className="mx-6 w-auto" />
+                        <div className="p-6">
+                          <h3 className="font-semibold text-foreground mb-4">Actividad</h3>
+                          {isActivityLoading ? (
+                              <div className="space-y-4">
+                                  <div className="flex items-start space-x-3">
+                                      <Skeleton className="h-8 w-8 rounded-full" />
+                                      <div className="space-y-2">
+                                          <Skeleton className="h-4 w-48" />
+                                          <Skeleton className="h-4 w-32" />
+                                      </div>
+                                  </div>
+                                  <div className="flex items-start space-x-3">
+                                      <Skeleton className="h-8 w-8 rounded-full" />
+                                      <div className="space-y-2">
+                                          <Skeleton className="h-4 w-40" />
+                                          <Skeleton className="h-4 w-24" />
+                                      </div>
+                                  </div>
+                              </div>
+                          ) : (
+                              <div className="space-y-6">
+                                  {activity.map(action => (
+                                      <div key={action.id} className="flex items-start space-x-3">
+                                          <Avatar className="h-8 w-8">
+                                              <AvatarImage src={action.memberCreator.avatarUrl ? `${action.memberCreator.avatarUrl}/50.png` : undefined} alt={action.memberCreator.fullName} />
+                                              <AvatarFallback>{action.memberCreator.fullName.charAt(0)}</AvatarFallback>
+                                          </Avatar>
+                                          <div className="flex-1 text-xs">
+                                              <div className="flex items-baseline gap-2">
+                                                  <span className="font-semibold">{action.memberCreator.fullName}</span>
+                                                  <span className="text-muted-foreground text-[10px]">{formatDistanceToNow(new Date(action.date), { addSuffix: true, locale: es })}</span>
+                                              </div>
+                                              {renderActivity(action)}
+                                          </div>
+                                      </div>
+                                  ))}
+                                  {activity.length === 0 && !isActivityLoading && (
+                                      <p className="text-xs text-muted-foreground">No hay actividad reciente en esta tarjeta.</p>
+                                  )}
+                              </div>
+                          )}
+                        </div>
+                      </>
                     )}
                 </div>
                  {isEditing && (
-                    <DialogFooter className="px-6 pb-6">
+                    <DialogFooter className="border-t px-6 py-4">
                         <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving}>Cancelar</Button>
                         <Button onClick={handleSaveEdit} disabled={isSaving}>
                             {isSaving ? <Save className="mr-2 h-4 w-4 animate-spin" /> : null}
