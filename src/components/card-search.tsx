@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -24,9 +24,12 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -45,6 +48,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  const [editedDesc, setEditedDesc] = useState('');
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -447,6 +454,47 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   
     doc.save('trello-proyectos.pdf');
   };
+
+  const handleEditClick = () => {
+    if (selectedCard) {
+        setEditedName(selectedCard.name);
+        setEditedDesc(selectedCard.desc);
+        setIsEditing(true);
+    }
+  };
+
+  const handleCancelEdit = () => {
+      setIsEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedCard) return;
+
+    setIsSaving(true);
+    try {
+        const { id, boardName } = selectedCard;
+        const updatedCardData = await updateTrelloCard({ cardId: id, name: editedName, desc: editedDesc });
+
+        const fullyUpdatedCard = { ...selectedCard, ...updatedCardData, boardName };
+
+        setAllCards(prev => prev.map(c => c.id === id ? fullyUpdatedCard : c));
+        onCardSelect(fullyUpdatedCard);
+        
+        toast({
+            title: '¡Éxito!',
+            description: 'La tarjeta se actualizó correctamente en Trello.',
+        });
+        setIsEditing(false);
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error al actualizar',
+            description: error instanceof Error ? error.message : 'No se pudo guardar la tarjeta.',
+        });
+    } finally {
+        setIsSaving(false);
+    }
+  };
   
   return (
     <div className="flex h-full w-full flex-col justify-between">
@@ -561,13 +609,32 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         )}
       </div>
       {selectedCard && (
-        <Dialog open={isSummaryOpen} onOpenChange={setIsSummaryOpen}>
-            <DialogContent className="p-0 sm:max-w-md">
+        <Dialog open={isSummaryOpen} onOpenChange={(isOpen) => {
+            if (!isOpen) setIsEditing(false);
+            setIsSummaryOpen(isOpen);
+        }}>
+            <DialogContent className="p-0 max-w-md">
                 <DialogHeader
                     style={trelloColorToStyle(selectedCard.cover?.color)}
-                    className="p-6 rounded-t-lg"
+                    className="p-6 rounded-t-lg relative"
                 >
-                    <DialogTitle className="text-base font-semibold">{selectedCard.name}</DialogTitle>
+                    {isEditing ? (
+                        <Input
+                            value={editedName}
+                            onChange={(e) => setEditedName(e.target.value)}
+                            className="text-base font-semibold bg-transparent text-inherit border-white/30 placeholder-white/70 focus:bg-black/10 h-auto p-1"
+                            disabled={isSaving}
+                        />
+                    ) : (
+                      <DialogTitle className="text-sm font-semibold mr-10">{selectedCard.name}</DialogTitle>
+                    )}
+                    
+                    {!isEditing && (
+                        <Button variant="ghost" size="icon" className="absolute top-4 right-12 text-current h-8 w-8 hover:bg-white/20" onClick={handleEditClick}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                    )}
+                    
                     {selectedCard.labels && selectedCard.labels.length > 0 && (
                         <div className="flex flex-wrap gap-2 pt-2">
                             {selectedCard.labels.map(label => (
@@ -584,20 +651,38 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                 </DialogHeader>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                     <h3 className="font-semibold text-foreground mb-2">Descripción</h3>
-                    <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                      {selectedCard.desc ? (
-                        selectedCard.desc.split(/\*\*(.*?)\*\*/g).map((part, index) =>
-                          index % 2 === 1 ? (
-                            <strong key={index}>{part}</strong>
-                          ) : (
-                            <span key={index}>{part}</span>
+                     {isEditing ? (
+                        <Textarea
+                            value={editedDesc}
+                            onChange={(e) => setEditedDesc(e.target.value)}
+                            className="text-xs min-h-[200px] max-h-[40vh]"
+                            disabled={isSaving}
+                        />
+                    ) : (
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                        {selectedCard.desc ? (
+                          selectedCard.desc.split(/\*\*(.*?)\*\*/g).map((part, index) =>
+                            index % 2 === 1 ? (
+                              <strong key={index}>{part}</strong>
+                            ) : (
+                              <span key={index}>{part}</span>
+                            )
                           )
-                        )
-                      ) : (
-                        'Esta tarjeta no tiene descripción.'
-                      )}
-                    </p>
+                        ) : (
+                          'Esta tarjeta no tiene descripción.'
+                        )}
+                      </p>
+                    )}
                 </div>
+                 {isEditing && (
+                    <DialogFooter className="px-6 pb-6">
+                        <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving}>Cancelar</Button>
+                        <Button onClick={handleSaveEdit} disabled={isSaving}>
+                            {isSaving ? <Save className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {isSaving ? 'Guardando...' : 'Guardar'}
+                        </Button>
+                    </DialogFooter>
+                )}
             </DialogContent>
         </Dialog>
       )}

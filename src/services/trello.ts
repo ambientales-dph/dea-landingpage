@@ -5,14 +5,21 @@ const TRELLO_API_KEY = process.env.TRELLO_API_KEY;
 const TRELLO_API_TOKEN = process.env.TRELLO_API_TOKEN;
 const BASE_URL = 'https://api.trello.com/1';
 
-async function trelloFetch(url: string) {
+async function trelloFetch(url: string, options: RequestInit = {}) {
   if (!TRELLO_API_KEY || !TRELLO_API_TOKEN) {
     throw new Error('Faltan la API Key y el Token de Trello en el archivo .env');
   }
   const fetch = (await import('node-fetch')).default;
   const fullUrl = `${BASE_URL}${url}${url.includes('?') ? '&' : '?'}key=${TRELLO_API_KEY}&token=${TRELLO_API_TOKEN}`;
   
-  const response = await fetch(fullUrl);
+  const response = await fetch(fullUrl, {
+    ...options,
+    headers: {
+        'Accept': 'application/json',
+        ...(options.body && { 'Content-Type': 'application/json' }),
+        ...options.headers,
+    }
+  });
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -104,4 +111,20 @@ export async function getAllCardsFromAllBoards(): Promise<TrelloCard[]> {
         }
         throw new Error('Hubo un error desconocido al obtener las tarjetas.');
     }
+}
+
+export async function updateTrelloCard({ cardId, name, desc }: { cardId: string; name?: string; desc?: string }): Promise<TrelloCard> {
+  try {
+    const updatedCard = (await trelloFetch(`/cards/${cardId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, desc }),
+    })) as TrelloCard;
+    return updatedCard;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to update Trello card ${cardId}:`, error.message);
+      throw new Error(`No pudimos actualizar la tarjeta de Trello: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al actualizar la tarjeta.');
+  }
 }
