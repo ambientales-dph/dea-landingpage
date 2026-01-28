@@ -562,30 +562,27 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
       </div>
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={setIsSummaryOpen}>
-            <DialogContent className="p-0 sm:max-w-2xl">
+            <DialogContent className="p-0 sm:max-w-lg">
                 <DialogHeader
                     style={trelloColorToStyle(selectedCard.cover?.color)}
                     className="p-6 rounded-t-lg"
                 >
                     <DialogTitle>{selectedCard.name}</DialogTitle>
-                </DialogHeader>
-                <div className="p-6 max-h-[60vh] overflow-y-auto">
                     {selectedCard.labels && selectedCard.labels.length > 0 && (
-                        <div className="mb-4">
-                            <h3 className="font-semibold text-foreground mb-2">Etiquetas</h3>
-                            <div className="flex flex-wrap gap-2">
-                                {selectedCard.labels.map(label => (
-                                    <Badge
-                                        key={label.id}
-                                        style={trelloLabelColorToStyle(label.color)}
-                                        className="border-transparent"
-                                    >
-                                        {label.name}
-                                    </Badge>
-                                ))}
-                            </div>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                            {selectedCard.labels.map(label => (
+                                <Badge
+                                    key={label.id}
+                                    style={trelloLabelColorToStyle(label.color)}
+                                    className="border-transparent"
+                                >
+                                    {label.name}
+                                </Badge>
+                            ))}
                         </div>
                     )}
+                </DialogHeader>
+                <div className="p-6 max-h-[60vh] overflow-y-auto">
                     <h3 className="font-semibold text-foreground mb-2">Descripción</h3>
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                         {selectedCard.desc || 'Esta tarjeta no tiene descripción.'}
