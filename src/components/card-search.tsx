@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -18,6 +18,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { cn } from '@/lib/utils';
 
 interface CardSearchProps {
@@ -36,6 +43,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -94,11 +102,30 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     }
   };
 
+  const trelloColorToStyle = (color: string | null | undefined): React.CSSProperties => {
+    if (!color) return { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' };
+    switch (color) {
+        case 'green': return { backgroundColor: 'rgb(75,206,151)', color: 'white' };
+        case 'yellow': return { backgroundColor: 'rgb(238,209,43)', color: 'black' };
+        case 'red': return { backgroundColor: 'rgb(248,113,104)', color: 'white' };
+        case 'orange': return { backgroundColor: '#F97316', color: 'white' };
+        case 'purple': return { backgroundColor: '#8B5CF6', color: 'white' };
+        case 'blue': return { backgroundColor: 'rgb(102,157,241)', color: 'white' };
+        case 'sky': return { backgroundColor: '#38BDF8', color: 'black' };
+        case 'lime': return { backgroundColor: '#A3E635', color: 'black' };
+        case 'pink': return { backgroundColor: '#EC4899', color: 'white' };
+        case 'black': return { backgroundColor: '#374151', color: 'white' };
+        default: return { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' };
+    }
+  };
+
   const filteredCards = useMemo(() => {
+    if (selectedCard && query === selectedCard.name) return [];
+    
     if (!query && isOpen) {
       return allCards.map(card => ({ ...card, matchType: 'description' as const }));
     }
-    if (query && (!selectedCard || query !== selectedCard.name)) {
+    if (query) {
       const normalizedQuery = removeAccents(query.toLowerCase());
       const keywords = normalizedQuery.split(' ').filter(kw => kw.trim() !== '');
 
@@ -145,7 +172,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
       setIsOpen(false);
     } else {
       if (selectedCard) {
-        onCardSelect(null);
+        onClear();
       }
       if (!isOpen) {
           setIsOpen(true);
@@ -154,7 +181,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   }
 
   const handleFocus = () => {
-    if (!isOpen) {
+    if (!isOpen && !(selectedCard && query === selectedCard.name)) {
       setIsOpen(true);
     }
   };
@@ -434,10 +461,26 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                 <p>Descargá la lista de proyectos duplicados.</p>
               </TooltipContent>
             </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-primary-foreground hover:bg-primary/20" 
+                        disabled={!selectedCard}
+                        onClick={() => setIsSummaryOpen(true)}
+                    >
+                        <FileText className="h-5 w-5" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent className="text-xs">
+                    <p>Ver resumen del proyecto</p>
+                </TooltipContent>
+            </Tooltip>
           </TooltipProvider>
       </div>
       <div className="relative w-full">
-        <Popover open={isOpen && !(selectedCard && query === selectedCard.name)} onOpenChange={setIsOpen}>
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
             <Textarea
               ref={inputRef}
@@ -480,6 +523,24 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
           </Button>
         )}
       </div>
+      {selectedCard && (
+        <Dialog open={isSummaryOpen} onOpenChange={setIsSummaryOpen}>
+            <DialogContent className="p-0 sm:max-w-2xl">
+                <DialogHeader
+                    style={trelloColorToStyle(selectedCard.cover?.color)}
+                    className="p-6 rounded-t-lg"
+                >
+                    <DialogTitle>{selectedCard.name}</DialogTitle>
+                </DialogHeader>
+                <div className="p-6 max-h-[60vh] overflow-y-auto">
+                    <h3 className="font-semibold text-foreground mb-2">Descripción</h3>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {selectedCard.desc || 'Esta tarjeta no tiene descripción.'}
+                    </p>
+                </div>
+            </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
