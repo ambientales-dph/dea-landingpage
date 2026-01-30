@@ -66,6 +66,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const [attachmentToDelete, setAttachmentToDelete] = useState<TrelloAttachment | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState<{
+    file: File;
+    resolver: (resolution: 'overwrite' | 'rename' | 'skip') => void;
+  } | null>(null);
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -566,69 +570,115 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0 || !selectedCard) {
-        return;
+      return;
     }
 
     const files = Array.from(event.target.files);
+    if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
+
     const MAX_SIZE_MB = 10;
     const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-    const newAttachments: TrelloAttachment[] = [];
-    let hadError = false;
-
+    
     setIsUploadingAttachment(true);
 
+    let currentAttachments = [...selectedCard.attachments];
+    let hadError = false;
+    let uploadCount = 0;
+
     for (const file of files) {
-        if (file.size > MAX_SIZE_BYTES) {
-            toast({
-                variant: 'destructive',
-                title: 'Archivo demasiado grande',
-                description: `"${file.name}" supera los ${MAX_SIZE_MB} MB.`,
-                duration: 5000,
-            });
-            hadError = true;
-            continue; // Skip this file and proceed with the next
+      if (file.size > MAX_SIZE_BYTES) {
+        toast({
+          variant: 'destructive',
+          title: 'Archivo demasiado grande',
+          description: `"${file.name}" supera los ${MAX_SIZE_MB} MB.`,
+          duration: 5000,
+        });
+        hadError = true;
+        continue;
+      }
+
+      let fileToUpload = file;
+      const existingAttachment = currentAttachments.find(att => att.name === file.name);
+
+      if (existingAttachment) {
+        const userChoice = await new Promise<'overwrite' | 'rename' | 'skip'>(resolve => {
+          setConflictInfo({ file, resolver: resolve });
+        });
+
+        setConflictInfo(null); // Close dialog
+
+        if (userChoice === 'skip') {
+          continue;
         }
 
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('name', file.name);
-
-        try {
-            const newAttachment = await addAttachmentToCard({ cardId: selectedCard.id, formData });
-            newAttachments.push(newAttachment);
-        } catch (error) {
-            hadError = true;
+        if (userChoice === 'overwrite') {
+          try {
+            await deleteAttachmentFromCard({ cardId: selectedCard.id, attachmentId: existingAttachment.id });
+            currentAttachments = currentAttachments.filter(att => att.id !== existingAttachment.id);
+          } catch (error) {
             toast({
-                variant: 'destructive',
-                title: `Error al adjuntar "${file.name}"`,
-                description: error instanceof Error ? error.message : 'No se pudo subir el archivo.',
+              variant: 'destructive',
+              title: `Error al sobrescribir "${file.name}"`,
+              description: error instanceof Error ? error.message : 'No se pudo borrar el archivo anterior.',
             });
+            hadError = true;
+            continue;
+          }
         }
+
+        if (userChoice === 'rename') {
+          const getNewVersionName = (originalName: string, existingNames: string[]): string => {
+            const dotIndex = originalName.lastIndexOf('.');
+            const name = dotIndex > -1 ? originalName.substring(0, dotIndex) : originalName;
+            const extension = dotIndex > -1 ? originalName.substring(dotIndex) : '';
+            let version = 1;
+            let newName = '';
+            do {
+              newName = `${name} (${version})${extension}`;
+              version++;
+            } while (existingNames.includes(newName));
+            return newName;
+          };
+          const newName = getNewVersionName(file.name, currentAttachments.map(att => att.name));
+          fileToUpload = new File([file], newName, { type: file.type });
+        }
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      formData.append('name', fileToUpload.name);
+
+      try {
+        const newAttachment = await addAttachmentToCard({ cardId: selectedCard.id, formData });
+        currentAttachments.push(newAttachment);
+        uploadCount++;
+      } catch (error) {
+        hadError = true;
+        toast({
+          variant: 'destructive',
+          title: `Error al adjuntar "${fileToUpload.name}"`,
+          description: error instanceof Error ? error.message : 'No se pudo subir el archivo.',
+        });
+      }
     }
 
     setIsUploadingAttachment(false);
     
-    if (fileInputRef.current) {
-        fileInputRef.current.value = ''; // Reset file input
+    if (uploadCount > 0) {
+      const updatedCard = { ...selectedCard, attachments: currentAttachments };
+      onCardSelect(updatedCard);
+      setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
     }
-    
-    if (newAttachments.length > 0) {
-        if (selectedCard) {
-            const updatedCard = {
-                ...selectedCard,
-                attachments: [...selectedCard.attachments, ...newAttachments],
-            };
-            onCardSelect(updatedCard);
-            setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
-        }
 
-        toast({
-            title: hadError ? 'Subida parcial' : '¡Éxito!',
-            description: `Se adjuntaron ${newAttachments.length} de ${files.length} archivo(s).`,
-        });
+    if (uploadCount > 0 || hadError) {
+      toast({
+        title: hadError ? 'Subida parcial' : '¡Éxito!',
+        description: `Se adjuntaron ${uploadCount} de ${files.length} archivo(s).`,
+      });
     }
   };
-
 
   const handleDeleteAttachment = async () => {
     if (!selectedCard || !attachmentToDelete) return;
@@ -874,27 +924,17 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                                         <span className="font-semibold text-foreground">Adjuntos</span>
                                         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                     </CollapsibleTrigger>
-                                    <DropdownMenu>
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isUploadingAttachment}>
-                                                            {isUploadingAttachment ? <Save className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                                                            <span className="sr-only">Subir o adjuntar</span>
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="bottom"><p>Subir</p></TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                        <DropdownMenuContent>
-                                            <DropdownMenuItem onSelect={handleUploadClick}>
-                                                <FileIcon className="mr-2 h-4 w-4" />
-                                                <span>Subir archivo(s)</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                     <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isUploadingAttachment} onClick={handleUploadClick}>
+                                                    {isUploadingAttachment ? <Save className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                                                    <span className="sr-only">Subir archivo(s)</span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom"><p>Subir</p></TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
                                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploadingAttachment} multiple />
                                 </div>
                                 <CollapsibleContent className="mt-4 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
@@ -977,7 +1017,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                               size="icon"
                               className="shrink-0"
                             >
-                              {isCommenting ? <Save className="mr-2 h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                              {isCommenting ? <Save className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                               <span className="sr-only">Enviar comentario</span>
                             </Button>
                           </div>
@@ -1087,8 +1127,29 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
             </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={!!conflictInfo} onOpenChange={(isOpen) => {
+        if (!isOpen && conflictInfo) {
+          conflictInfo.resolver('skip');
+          setConflictInfo(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archivo duplicado</DialogTitle>
+            <DialogDescription>
+              Ya existe un archivo llamado <strong className="text-foreground">{conflictInfo?.file.name}</strong> en esta tarjeta. ¿Qué querés hacer?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between sm:space-x-2">
+            <Button variant="outline" onClick={() => conflictInfo?.resolver('skip')}>Omitir</Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:space-x-2">
+              <Button variant="secondary" onClick={() => conflictInfo?.resolver('rename')}>Guardar como copia</Button>
+              <Button onClick={() => conflictInfo?.resolver('overwrite')}>Sobrescribir</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-    
