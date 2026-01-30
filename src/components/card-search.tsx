@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -758,43 +758,53 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                         )}
                     </div>
                     {selectedCard.attachments && selectedCard.attachments.length > 0 && !isEditing && (
-                        <>
-                            <Separator className="mx-6 w-auto" />
-                            <div className="p-6">
-                                <h3 className="font-semibold text-foreground mb-4">Adjuntos</h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      <>
+                        <Separator className="mx-6 w-auto" />
+                        <div className="p-6">
+                            <Collapsible>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-start gap-2 text-sm font-medium">
+                                    <span className="font-semibold text-foreground">Adjuntos</span>
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-4 space-y-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {selectedCard.attachments.map(attachment => {
                                         const isImage = attachment.previews && attachment.previews.length > 0;
-                                        const previewUrl = isImage ? attachment.previews.sort((a, b) => b.width - a.width)[0]?.url : null;
-                                        
+                                        const isDriveLink = attachment.url.includes('drive.google.com');
+                                        const isPdf = attachment.name.toLowerCase().endsWith('.pdf');
+                                        const isGenericLink = /^(http|https):\/\/[^ "]+$/.test(attachment.name);
+
+                                        let icon;
+                                        if (isDriveLink) {
+                                            icon = <Cloud className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
+                                        } else if (isImage) {
+                                            icon = <ImageIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
+                                        } else if (isPdf) {
+                                            icon = <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
+                                        } else if (isGenericLink) {
+                                            icon = <LinkIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
+                                        } else {
+                                            icon = <FileIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
+                                        }
+
                                         return (
                                             <a
-                                            key={attachment.id}
-                                            href={attachment.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="group block"
+                                                key={attachment.id}
+                                                href={attachment.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-3 p-2 -mx-2 rounded-md hover:bg-muted group/item"
                                             >
-                                            <div className="aspect-[16/10] bg-muted rounded-md overflow-hidden flex items-center justify-center relative">
-                                                {isImage && previewUrl ? (
-                                                <img
-                                                    src={previewUrl}
-                                                    alt={attachment.name}
-                                                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                                                />
-                                                ) : (
-                                                <File className="h-8 w-8 text-muted-foreground" />
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-muted-foreground mt-2 truncate group-hover:underline" title={attachment.name}>
-                                                {attachment.name}
-                                            </p>
+                                                {icon}
+                                                <span className="text-xs text-foreground truncate group-hover/item:underline" title={attachment.name}>
+                                                    {attachment.name}
+                                                </span>
                                             </a>
                                         );
                                     })}
-                                </div>
-                            </div>
-                        </>
+                                </CollapsibleContent>
+                            </Collapsible>
+                        </div>
+                      </>
                     )}
                     {!isEditing && (
                       <>
@@ -886,5 +896,3 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     </div>
   );
 }
-
-    
