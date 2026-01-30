@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +63,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [attachmentToDelete, setAttachmentToDelete] = useState<TrelloAttachment | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -597,6 +602,36 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         }
     }
   };
+
+  const handleDeleteAttachment = async () => {
+    if (!selectedCard || !attachmentToDelete) return;
+
+    setIsDeleting(true);
+    try {
+        await deleteAttachmentFromCard({ cardId: selectedCard.id, attachmentId: attachmentToDelete.id });
+
+        const updatedAttachments = selectedCard.attachments.filter(att => att.id !== attachmentToDelete.id);
+        const updatedCard = { ...selectedCard, attachments: updatedAttachments };
+
+        onCardSelect(updatedCard);
+        setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
+        
+        toast({
+            title: '¡Adjunto borrado!',
+            description: 'El archivo se ha eliminado de la tarjeta.',
+        });
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error al borrar',
+            description: error instanceof Error ? error.message : 'No se pudo eliminar el adjunto.',
+        });
+    } finally {
+        setIsDeleting(false);
+        setAttachmentToDelete(null);
+        setDeleteConfirmation('');
+    }
+  };
   
   const renderActivity = (action: TrelloAction) => {
     switch (action.type) {
@@ -825,7 +860,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                                     </TooltipProvider>
                                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploadingAttachment} />
                                 </div>
-                                <CollapsibleContent className="mt-4 space-y-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                <CollapsibleContent className="mt-4 space-y-1 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {selectedCard.attachments.map(attachment => {
                                         const isImage = attachment.previews && attachment.previews.length > 0;
                                         const isDriveLink = attachment.url.includes('drive.google.com');
@@ -846,18 +881,39 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                                         }
 
                                         return (
-                                            <a
-                                                key={attachment.id}
-                                                href={attachment.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center gap-3 p-2 -mx-2 rounded-md hover:bg-muted group/item"
-                                            >
-                                                {icon}
-                                                <span className="text-xs text-foreground truncate group-hover/item:underline" title={attachment.name}>
-                                                    {attachment.name}
-                                                </span>
-                                            </a>
+                                            <div key={attachment.id} className="group/item flex items-center justify-between p-1 -mx-2 rounded-md hover:bg-muted">
+                                                <a
+                                                    href={attachment.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex flex-grow items-center gap-2 overflow-hidden"
+                                                >
+                                                    {icon}
+                                                    <span className="text-xs text-foreground truncate" title={attachment.name}>
+                                                        {attachment.name}
+                                                    </span>
+                                                </a>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 group-hover/item:opacity-100 hover:text-destructive"
+                                                                onClick={() => {
+                                                                    setAttachmentToDelete(attachment);
+                                                                    setDeleteConfirmation('');
+                                                                }}
+                                                            >
+                                                                <X className="h-4 w-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="right">
+                                                            <p>Borrar adjunto</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
                                         );
                                     })}
                                 </CollapsibleContent>
@@ -952,6 +1008,42 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
             </DialogContent>
         </Dialog>
       )}
+
+      <Dialog open={!!attachmentToDelete} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+            setAttachmentToDelete(null);
+            setDeleteConfirmation('');
+        }
+      }}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Confirmar borrado</DialogTitle>
+                <DialogDescription>
+                    Para confirmar que querés borrar el adjunto <strong className="text-foreground">{attachmentToDelete?.name}</strong>, por favor escribí la palabra <strong className="text-foreground">borralo</strong> en el campo de abajo. Esta acción no se puede deshacer.
+                </DialogDescription>
+            </DialogHeader>
+            <Input 
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder='borralo'
+                disabled={isDeleting}
+                className="mt-2"
+            />
+            <DialogFooter>
+                <Button variant="ghost" onClick={() => { setAttachmentToDelete(null); setDeleteConfirmation(''); }} disabled={isDeleting}>
+                    Cancelar
+                </Button>
+                <Button 
+                    variant="destructive"
+                    onClick={handleDeleteAttachment}
+                    disabled={deleteConfirmation !== 'borralo' || isDeleting}
+                >
+                    {isDeleting ? <Save className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {isDeleting ? 'Borrando...' : 'Borrar adjunto'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -223,3 +223,17 @@ export async function addAttachmentToCard({ cardId, formData }: { cardId: string
     throw new Error('Hubo un error desconocido al adjuntar el archivo.');
   }
 }
+
+export async function deleteAttachmentFromCard({ cardId, attachmentId }: { cardId: string; attachmentId: string }): Promise<void> {
+  try {
+    await trelloFetch(`/cards/${cardId}/attachments/${attachmentId}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to delete attachment ${attachmentId} from Trello card ${cardId}:`, error.message);
+      throw new Error(`No pudimos eliminar el adjunto de la tarjeta: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al eliminar el adjunto.');
+  }
+}
