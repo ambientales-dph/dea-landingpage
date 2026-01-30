@@ -198,7 +198,7 @@ export async function updateTrelloCard({ cardId, name, desc }: { cardId: string;
 
 export async function getCardActivity(cardId: string): Promise<TrelloAction[]> {
   try {
-    const actions = (await trelloFetch(`/cards/${cardId}/actions?filter=all&member_creator=true`)) as TrelloAction[];
+    const actions = (await trelloFetch(`/cards/${cardId}/actions?filter=commentCard&member_creator=true`)) as TrelloAction[];
     return actions;
   } catch (error) {
     if (error instanceof Error) {

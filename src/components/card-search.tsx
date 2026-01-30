@@ -765,28 +765,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   };
   
   const renderActivity = (action: TrelloAction) => {
-    switch (action.type) {
-      case 'commentCard':
-        return <p className="mt-1 bg-muted p-3 rounded-md whitespace-pre-wrap border">{action.data.text}</p>;
-      case 'updateCard':
-        if (action.data.listAfter && action.data.listBefore) {
-          return <p className="mt-1 text-muted-foreground">movió esta tarjeta de <strong>{action.data.listBefore.name}</strong> a <strong>{action.data.listAfter.name}</strong>.</p>;
-        }
-        if (action.data.old?.desc) {
-            return <p className="mt-1 text-muted-foreground">actualizó la descripción.</p>
-        }
-        if (action.data.old?.name) {
-            return <p className="mt-1 text-muted-foreground">renombró la tarjeta.</p>
-        }
-        return <p className="mt-1 text-muted-foreground">actualizó esta tarjeta.</p>;
-      case 'addMemberToCard':
-        return <p className="mt-1 text-muted-foreground">se unió a esta tarjeta.</p>;
-      case 'createCard':
-        return <p className="mt-1 text-muted-foreground">creó esta tarjeta.</p>;
-      default:
-        // A simple fallback for other actions
-        return <p className="mt-1 text-muted-foreground">realizó la acción: {action.type}</p>;
+    // Now we only receive comments, so we can simplify this.
+    if (action.type === 'commentCard' && action.data.text) {
+      return <p className="mt-1 bg-muted p-3 rounded-md whitespace-pre-wrap border">{action.data.text}</p>;
     }
+    return null;
   };
 
   return (
@@ -1175,7 +1158,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                           </div>
                                       ))}
                                       {activity.length === 0 && !isActivityLoading && (
-                                          <p className="text-xs text-muted-foreground">No hay actividad reciente en esta tarjeta.</p>
+                                          <p className="text-xs text-muted-foreground">No hay comentarios en esta tarjeta.</p>
                                       )}
                                   </div>
                               )}
