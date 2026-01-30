@@ -56,6 +56,18 @@ export interface TrelloLabel {
   color: string | null;
 }
 
+export interface TrelloAttachment {
+    id: string;
+    name: string;
+    url: string;
+    previews: {
+        id: string;
+        url: string;
+        width: number;
+        height: number;
+    }[];
+}
+
 export interface TrelloCard {
   id: string;
   name: string;
@@ -66,6 +78,7 @@ export interface TrelloCard {
     color: string | null;
   } | null;
   labels: TrelloLabel[];
+  attachments: TrelloAttachment[];
 }
 
 export interface TrelloAction {
@@ -103,7 +116,7 @@ export async function getTrelloBoards(): Promise<TrelloBoard[]> {
 }
 
 async function getCardsFromBoard(boardId: string): Promise<Omit<TrelloCard, 'boardName'>[]> {
-    return (await trelloFetch(`/boards/${boardId}/cards?fields=name,url,desc,cover,labels`)) as Omit<TrelloCard, 'boardName'>[];
+    return (await trelloFetch(`/boards/${boardId}/cards?fields=name,url,desc,cover,labels&attachments=true`)) as Omit<TrelloCard, 'boardName'>[];
 }
 
 export async function getAllCardsFromAllBoards(): Promise<TrelloCard[]> {

@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -757,11 +757,49 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                           </p>
                         )}
                     </div>
+                    {selectedCard.attachments && selectedCard.attachments.length > 0 && !isEditing && (
+                        <>
+                            <Separator className="mx-6 w-auto" />
+                            <div className="p-6">
+                                <h3 className="font-semibold text-foreground mb-4">Adjuntos</h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                    {selectedCard.attachments.map(attachment => {
+                                        const isImage = attachment.previews && attachment.previews.length > 0;
+                                        const previewUrl = isImage ? attachment.previews.sort((a, b) => b.width - a.width)[0]?.url : null;
+                                        
+                                        return (
+                                            <a
+                                            key={attachment.id}
+                                            href={attachment.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="group block"
+                                            >
+                                            <div className="aspect-[16/10] bg-muted rounded-md overflow-hidden flex items-center justify-center relative">
+                                                {isImage && previewUrl ? (
+                                                <img
+                                                    src={previewUrl}
+                                                    alt={attachment.name}
+                                                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                                />
+                                                ) : (
+                                                <File className="h-8 w-8 text-muted-foreground" />
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-2 truncate group-hover:underline" title={attachment.name}>
+                                                {attachment.name}
+                                            </p>
+                                            </a>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </>
+                    )}
                     {!isEditing && (
                       <>
                         <Separator className="mx-6 w-auto" />
                         <div className="p-6">
-                          <h3 className="font-semibold text-foreground mb-4">Actividad</h3>
                           <div className="flex items-start gap-2 mb-4">
                             <Textarea
                               placeholder="Escribí un comentario..."
