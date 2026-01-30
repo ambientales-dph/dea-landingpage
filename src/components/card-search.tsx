@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment, addUrlAttachmentToCard } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,6 +36,7 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Label } from '@/components/ui/label';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -66,6 +67,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const [attachmentToDelete, setAttachmentToDelete] = useState<TrelloAttachment | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAddUrlDialogOpen, setIsAddUrlDialogOpen] = useState(false);
+  const [newAttachmentUrl, setNewAttachmentUrl] = useState('');
+  const [newAttachmentName, setNewAttachmentName] = useState('');
+  const [isAddingUrl, setIsAddingUrl] = useState(false);
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -570,6 +575,22 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
     }
 
     const file = event.target.files[0];
+    const MAX_SIZE_MB = 10;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+    if (file.size > MAX_SIZE_BYTES) {
+        toast({
+            variant: 'destructive',
+            title: 'Archivo demasiado grande',
+            description: `El límite de Trello es de ${MAX_SIZE_MB} MB. Por favor, subí el archivo a un servicio en la nube y adjuntá el enlace.`,
+            duration: 5000,
+        });
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+        return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('name', file.name);
@@ -630,6 +651,40 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         setIsDeleting(false);
         setAttachmentToDelete(null);
         setDeleteConfirmation('');
+    }
+  };
+
+  const handleAddUrlAttachment = async () => {
+    if (!selectedCard || !newAttachmentUrl.trim()) return;
+
+    setIsAddingUrl(true);
+    try {
+        const newAttachment = await addUrlAttachmentToCard({
+            cardId: selectedCard.id,
+            url: newAttachmentUrl,
+            name: newAttachmentName.trim(),
+        });
+        const updatedAttachments = [...selectedCard.attachments, newAttachment];
+        const updatedCard = { ...selectedCard, attachments: updatedAttachments };
+
+        onCardSelect(updatedCard);
+        setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
+        
+        toast({
+            title: '¡Éxito!',
+            description: 'El enlace se adjuntó correctamente.',
+        });
+        setIsAddUrlDialogOpen(false);
+        setNewAttachmentUrl('');
+        setNewAttachmentName('');
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error al adjuntar enlace',
+            description: error instanceof Error ? error.message : 'No se pudo guardar el enlace.',
+        });
+    } finally {
+        setIsAddingUrl(false);
     }
   };
   
@@ -847,17 +902,31 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                                         <span className="font-semibold text-foreground">Adjuntos</span>
                                         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                     </CollapsibleTrigger>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUploadClick} disabled={isUploadingAttachment}>
-                                                    {isUploadingAttachment ? <Save className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                                                    <span className="sr-only">Subir adjunto</span>
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="bottom"><p>Subir adjunto</p></TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
+                                    <DropdownMenu>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isUploadingAttachment}>
+                                                            {isUploadingAttachment ? <Save className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                                                            <span className="sr-only">Subir o adjuntar</span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom"><p>Subir o adjuntar</p></TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem onSelect={handleUploadClick}>
+                                                <FileIcon className="mr-2 h-4 w-4" />
+                                                <span>Subir archivo</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setIsAddUrlDialogOpen(true)}>
+                                                <LinkIcon className="mr-2 h-4 w-4" />
+                                                <span>Adjuntar un enlace</span>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploadingAttachment} />
                                 </div>
                                 <CollapsibleContent className="mt-4 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
@@ -940,7 +1009,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                               size="icon"
                               className="shrink-0"
                             >
-                              {isCommenting ? <Save className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                              {isCommenting ? <Save className="mr-2 h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                               <span className="sr-only">Enviar comentario</span>
                             </Button>
                           </div>
@@ -1050,6 +1119,56 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
             </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isAddUrlDialogOpen} onOpenChange={setIsAddUrlDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjuntar un enlace</DialogTitle>
+            <DialogDescription>
+              Pegá la URL que quieras adjuntar a la tarjeta. Opcionalmente, podés darle un nombre.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="attachment-url" className="text-right">
+                URL
+              </Label>
+              <Input
+                id="attachment-url"
+                value={newAttachmentUrl}
+                onChange={(e) => setNewAttachmentUrl(e.target.value)}
+                className="col-span-3"
+                placeholder="https://..."
+                disabled={isAddingUrl}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="attachment-name" className="text-right">
+                Nombre
+              </Label>
+              <Input
+                id="attachment-name"
+                value={newAttachmentName}
+                onChange={(e) => setNewAttachmentName(e.target.value)}
+                className="col-span-3"
+                placeholder="(Opcional)"
+                disabled={isAddingUrl}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsAddUrlDialogOpen(false)} disabled={isAddingUrl}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddUrlAttachment} disabled={!newAttachmentUrl.trim() || isAddingUrl}>
+                {isAddingUrl ? <Save className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isAddingUrl ? 'Adjuntando...' : 'Adjuntar enlace'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+    

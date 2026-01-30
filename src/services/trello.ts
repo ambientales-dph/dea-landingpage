@@ -16,7 +16,7 @@ async function trelloFetch(url: string, options: RequestInit = {}) {
     ...options,
     headers: {
         'Accept': 'application/json',
-        ...(options.body && { 'Content-Type': 'application/json' }),
+        ...(options.body && typeof options.body === 'string' && { 'Content-Type': 'application/json' }),
         ...options.headers,
     }
   });
@@ -28,6 +28,12 @@ async function trelloFetch(url: string, options: RequestInit = {}) {
     const errorText = await response.text();
     console.error(`Trello API error: ${response.status} ${errorText}`);
     throw new Error(`Error de la API de Trello: ${response.status}`);
+  }
+
+  // For DELETE requests, Trello might return an empty body with 200 OK
+  if (response.status === 200) {
+      const text = await response.text();
+      return text ? JSON.parse(text) : {};
   }
 
   return response.json();
@@ -200,6 +206,7 @@ export async function addAttachmentToCard({ cardId, formData }: { cardId: string
   const url = `${BASE_URL}/cards/${cardId}/attachments?key=${TRELLO_API_KEY}&token=${TRELLO_API_TOKEN}`;
 
   try {
+    // @ts-ignore
     const response = await fetch(url, {
       method: 'POST',
       body: formData,
@@ -224,6 +231,26 @@ export async function addAttachmentToCard({ cardId, formData }: { cardId: string
   }
 }
 
+export async function addUrlAttachmentToCard({ cardId, url, name }: { cardId: string; url: string; name?: string }): Promise<TrelloAttachment> {
+  try {
+    const body: { url: string, name?: string } = { url };
+    if (name) {
+      body.name = name;
+    }
+    const newAttachment = await trelloFetch(`/cards/${cardId}/attachments`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+    }) as TrelloAttachment;
+    return newAttachment;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to add URL attachment to Trello card ${cardId}:`, error.message);
+      throw new Error(`No pudimos adjuntar el enlace a la tarjeta: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al adjuntar el enlace.');
+  }
+}
+
 export async function deleteAttachmentFromCard({ cardId, attachmentId }: { cardId: string; attachmentId: string }): Promise<void> {
   try {
     await trelloFetch(`/cards/${cardId}/attachments/${attachmentId}`, {
@@ -237,3 +264,5 @@ export async function deleteAttachmentFromCard({ cardId, attachmentId }: { cardI
     throw new Error('Hubo un error desconocido al eliminar el adjunto.');
   }
 }
+
+    
