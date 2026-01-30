@@ -41,6 +41,8 @@ interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
   selectedCard: TrelloCard | null;
   onClear: () => void;
+  isSummaryOpen: boolean;
+  onSummaryOpenChange: (isOpen: boolean) => void;
 }
 
 const removeAccents = (str: string): string => {
@@ -48,12 +50,11 @@ const removeAccents = (str: string): string => {
   return str.normalize("NFD").replace(/[\u00c0-\u024f]/g, "");
 }
 
-export default function CardSearch({ onCardSelect, selectedCard, onClear }: CardSearchProps) {
+export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
-  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -785,22 +786,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                 <p>Descargá la lista de proyectos duplicados.</p>
               </TooltipContent>
             </Tooltip>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-primary-foreground hover:bg-primary/20" 
-                        disabled={!selectedCard}
-                        onClick={() => setIsSummaryOpen(true)}
-                    >
-                        <FileText className="h-5 w-5" />
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent className="text-xs">
-                    <p>Ver resumen del proyecto</p>
-                </TooltipContent>
-            </Tooltip>
           </TooltipProvider>
       </div>
       <div className="relative w-full">
@@ -850,7 +835,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(isOpen) => {
             if (!isOpen) setIsEditing(false);
-            setIsSummaryOpen(isOpen);
+            onSummaryOpenChange(isOpen);
         }}>
             <DialogContent className="p-0 max-w-2xl">
                 <DialogHeader
@@ -865,7 +850,21 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                             disabled={isSaving}
                         />
                     ) : (
-                      <DialogTitle className="text-sm font-semibold mr-10">{selectedCard.name}</DialogTitle>
+                      <DialogTitle className="text-sm font-semibold mr-10 flex items-center gap-2">
+                        <span>{selectedCard.name}</span>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="text-current opacity-70 hover:opacity-100 transition-opacity">
+                                        <LinkIcon className="h-4 w-4" />
+                                    </a>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    <p>Abrir tarjeta en Trello</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                      </DialogTitle>
                     )}
                     
                     {!isEditing && (

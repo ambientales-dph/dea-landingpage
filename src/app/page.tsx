@@ -10,6 +10,7 @@ import {
   Clock,
   HelpCircle,
   Search,
+  FileText,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -38,6 +39,7 @@ export default function Home() {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const { toast } = useToast();
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
 
   const handleCardSelect = async (card: TrelloCard | null) => {
     setSelectedCard(card);
@@ -89,9 +91,9 @@ export default function Home() {
     return { __html: `${lines.join('<br />')} ${code}`.trim() };
   };
   
-  const handleBoardButtonClick = () => {
+  const handleCardOrBoardButtonClick = () => {
     if (selectedCard) {
-      window.open(selectedCard.url, '_blank');
+      setIsSummaryOpen(true);
     } else {
       window.open('https://trello.com/b/CgG4b3B0/proyectos-deas', '_blank');
     }
@@ -164,6 +166,8 @@ export default function Home() {
                   onCardSelect={handleCardSelect}
                   selectedCard={selectedCard}
                   onClear={handleClearSelection}
+                  isSummaryOpen={isSummaryOpen}
+                  onSummaryOpenChange={setIsSummaryOpen}
                 />
               </div>
             </div>
@@ -179,11 +183,11 @@ export default function Home() {
               <Button
                 variant="outline"
                 className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-                onClick={handleBoardButtonClick}
+                onClick={handleCardOrBoardButtonClick}
               >
-                <LayoutGrid className="h-8 w-8 text-primary" />
+                {selectedCard ? <FileText className="h-8 w-8 text-primary" /> : <LayoutGrid className="h-8 w-8 text-primary" />}
                 <div className="flex flex-col items-center text-center">
-                  <span>Tableros</span>
+                  <span>{selectedCard ? 'Tarjeta' : 'Tablero'}</span>
                   {selectedCard && (
                      <span
                         className="text-xs font-normal mt-1"
@@ -258,10 +262,10 @@ export default function Home() {
                 <Separator className="bg-primary/20" />
                 <div>
                   <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
-                    <LayoutGrid className="h-5 w-5" /> Tableros
+                    <LayoutGrid className="h-5 w-5" /> Tablero / Tarjeta
                   </h3>
                   <p className="text-sm mt-1">
-                    Si no seleccionaste ninguna tarjeta, esto te abre el tablero principal de proyectos en Trello. Si ya elegiste una, te la abre directamente.
+                    Si no seleccionaste ninguna tarjeta, el botón "Tablero" te abre el tablero principal de proyectos en Trello. Si ya elegiste una, el botón "Tarjeta" te abre un resumen detallado.
                   </p>
                 </div>
                 <Separator className="bg-primary/20" />
