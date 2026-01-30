@@ -231,26 +231,6 @@ export async function addAttachmentToCard({ cardId, formData }: { cardId: string
   }
 }
 
-export async function addUrlAttachmentToCard({ cardId, url, name }: { cardId: string; url: string; name?: string }): Promise<TrelloAttachment> {
-  try {
-    const body: { url: string, name?: string } = { url };
-    if (name) {
-      body.name = name;
-    }
-    const newAttachment = await trelloFetch(`/cards/${cardId}/attachments`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-    }) as TrelloAttachment;
-    return newAttachment;
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error(`Failed to add URL attachment to Trello card ${cardId}:`, error.message);
-      throw new Error(`No pudimos adjuntar el enlace a la tarjeta: ${error.message}`);
-    }
-    throw new Error('Hubo un error desconocido al adjuntar el enlace.');
-  }
-}
-
 export async function deleteAttachmentFromCard({ cardId, attachmentId }: { cardId: string; attachmentId: string }): Promise<void> {
   try {
     await trelloFetch(`/cards/${cardId}/attachments/${attachmentId}`, {

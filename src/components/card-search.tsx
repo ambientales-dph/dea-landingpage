@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment, addUrlAttachmentToCard } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,7 +36,6 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Label } from '@/components/ui/label';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -67,10 +66,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const [attachmentToDelete, setAttachmentToDelete] = useState<TrelloAttachment | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isAddUrlDialogOpen, setIsAddUrlDialogOpen] = useState(false);
-  const [newAttachmentUrl, setNewAttachmentUrl] = useState('');
-  const [newAttachmentName, setNewAttachmentName] = useState('');
-  const [isAddingUrl, setIsAddingUrl] = useState(false);
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -574,55 +569,66 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         return;
     }
 
-    const file = event.target.files[0];
+    const files = Array.from(event.target.files);
     const MAX_SIZE_MB = 10;
     const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-
-    if (file.size > MAX_SIZE_BYTES) {
-        toast({
-            variant: 'destructive',
-            title: 'Archivo demasiado grande',
-            description: `El límite de Trello es de ${MAX_SIZE_MB} MB. Por favor, subí el archivo a un servicio en la nube y adjuntá el enlace.`,
-            duration: 5000,
-        });
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('name', file.name);
+    const newAttachments: TrelloAttachment[] = [];
+    let hadError = false;
 
     setIsUploadingAttachment(true);
-    try {
-        const newAttachment = await addAttachmentToCard({ cardId: selectedCard.id, formData });
+
+    for (const file of files) {
+        if (file.size > MAX_SIZE_BYTES) {
+            toast({
+                variant: 'destructive',
+                title: 'Archivo demasiado grande',
+                description: `"${file.name}" supera los ${MAX_SIZE_MB} MB.`,
+                duration: 5000,
+            });
+            hadError = true;
+            continue; // Skip this file and proceed with the next
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('name', file.name);
+
+        try {
+            const newAttachment = await addAttachmentToCard({ cardId: selectedCard.id, formData });
+            newAttachments.push(newAttachment);
+        } catch (error) {
+            hadError = true;
+            toast({
+                variant: 'destructive',
+                title: `Error al adjuntar "${file.name}"`,
+                description: error instanceof Error ? error.message : 'No se pudo subir el archivo.',
+            });
+        }
+    }
+
+    setIsUploadingAttachment(false);
+    
+    if (fileInputRef.current) {
+        fileInputRef.current.value = ''; // Reset file input
+    }
+    
+    if (newAttachments.length > 0) {
         if (selectedCard) {
             const updatedCard = {
                 ...selectedCard,
-                attachments: [...selectedCard.attachments, newAttachment],
+                attachments: [...selectedCard.attachments, ...newAttachments],
             };
             onCardSelect(updatedCard);
             setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
         }
+
         toast({
-            title: '¡Éxito!',
-            description: 'El archivo se adjuntó correctamente a la tarjeta.',
+            title: hadError ? 'Subida parcial' : '¡Éxito!',
+            description: `Se adjuntaron ${newAttachments.length} de ${files.length} archivo(s).`,
         });
-    } catch (error) {
-        toast({
-            variant: 'destructive',
-            title: 'Error al adjuntar',
-            description: error instanceof Error ? error.message : 'No se pudo subir el archivo.',
-        });
-    } finally {
-        setIsUploadingAttachment(false);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
     }
   };
+
 
   const handleDeleteAttachment = async () => {
     if (!selectedCard || !attachmentToDelete) return;
@@ -651,40 +657,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
         setIsDeleting(false);
         setAttachmentToDelete(null);
         setDeleteConfirmation('');
-    }
-  };
-
-  const handleAddUrlAttachment = async () => {
-    if (!selectedCard || !newAttachmentUrl.trim()) return;
-
-    setIsAddingUrl(true);
-    try {
-        const newAttachment = await addUrlAttachmentToCard({
-            cardId: selectedCard.id,
-            url: newAttachmentUrl,
-            name: newAttachmentName.trim(),
-        });
-        const updatedAttachments = [...selectedCard.attachments, newAttachment];
-        const updatedCard = { ...selectedCard, attachments: updatedAttachments };
-
-        onCardSelect(updatedCard);
-        setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
-        
-        toast({
-            title: '¡Éxito!',
-            description: 'El enlace se adjuntó correctamente.',
-        });
-        setIsAddUrlDialogOpen(false);
-        setNewAttachmentUrl('');
-        setNewAttachmentName('');
-    } catch (error) {
-        toast({
-            variant: 'destructive',
-            title: 'Error al adjuntar enlace',
-            description: error instanceof Error ? error.message : 'No se pudo guardar el enlace.',
-        });
-    } finally {
-        setIsAddingUrl(false);
     }
   };
   
@@ -913,21 +885,17 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                 </TooltipTrigger>
-                                                <TooltipContent side="bottom"><p>Subir o adjuntar</p></TooltipContent>
+                                                <TooltipContent side="bottom"><p>Subir</p></TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
                                         <DropdownMenuContent>
                                             <DropdownMenuItem onSelect={handleUploadClick}>
                                                 <FileIcon className="mr-2 h-4 w-4" />
-                                                <span>Subir archivo</span>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setIsAddUrlDialogOpen(true)}>
-                                                <LinkIcon className="mr-2 h-4 w-4" />
-                                                <span>Adjuntar un enlace</span>
+                                                <span>Subir archivo(s)</span>
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-                                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploadingAttachment} />
+                                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploadingAttachment} multiple />
                                 </div>
                                 <CollapsibleContent className="mt-4 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {selectedCard.attachments.map(attachment => {
@@ -1117,54 +1085,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                     {isDeleting ? 'Borrando...' : 'Borrar adjunto'}
                 </Button>
             </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isAddUrlDialogOpen} onOpenChange={setIsAddUrlDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adjuntar un enlace</DialogTitle>
-            <DialogDescription>
-              Pegá la URL que quieras adjuntar a la tarjeta. Opcionalmente, podés darle un nombre.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="attachment-url" className="text-right">
-                URL
-              </Label>
-              <Input
-                id="attachment-url"
-                value={newAttachmentUrl}
-                onChange={(e) => setNewAttachmentUrl(e.target.value)}
-                className="col-span-3"
-                placeholder="https://..."
-                disabled={isAddingUrl}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="attachment-name" className="text-right">
-                Nombre
-              </Label>
-              <Input
-                id="attachment-name"
-                value={newAttachmentName}
-                onChange={(e) => setNewAttachmentName(e.target.value)}
-                className="col-span-3"
-                placeholder="(Opcional)"
-                disabled={isAddingUrl}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsAddUrlDialogOpen(false)} disabled={isAddingUrl}>
-              Cancelar
-            </Button>
-            <Button onClick={handleAddUrlAttachment} disabled={!newAttachmentUrl.trim() || isAddingUrl}>
-                {isAddingUrl ? <Save className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {isAddingUrl ? 'Adjuntando...' : 'Adjuntar enlace'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
