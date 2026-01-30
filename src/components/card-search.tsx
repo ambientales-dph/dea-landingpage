@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
@@ -881,7 +881,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                                         }
 
                                         return (
-                                            <div key={attachment.id} className="group/item flex items-center justify-between rounded-md hover:bg-muted py-0.5 px-1">
+                                            <div key={attachment.id} className="group/item flex items-center justify-between rounded-md hover:bg-muted py-0.5 px-1 -mx-1">
                                                 <a
                                                     href={attachment.url}
                                                     target="_blank"
@@ -973,12 +973,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                                       {activity.map(action => (
                                           <div key={action.id} className="flex items-start space-x-3">
                                               <Avatar className="h-8 w-8">
-                                                  <AvatarImage src={action.memberCreator.avatarUrl ? `${action.memberCreator.avatarUrl}/50.png` : undefined} alt={action.memberCreator.fullName} />
-                                                  <AvatarFallback>{action.memberCreator.fullName.charAt(0)}</AvatarFallback>
+                                                {action.memberCreator ? (
+                                                  <>
+                                                    <AvatarImage src={action.memberCreator.avatarUrl ? `${action.memberCreator.avatarUrl}/50.png` : undefined} alt={action.memberCreator.fullName} />
+                                                    <AvatarFallback>{action.memberCreator.fullName.charAt(0)}</AvatarFallback>
+                                                  </>
+                                                ) : (
+                                                  <AvatarFallback>T</AvatarFallback>
+                                                )}
                                               </Avatar>
                                               <div className="flex-1 text-xs">
                                                   <div className="flex items-baseline gap-2">
-                                                      <span className="font-semibold">{action.memberCreator.fullName}</span>
+                                                      <span className="font-semibold">{action.memberCreator ? action.memberCreator.fullName : 'Trello'}</span>
                                                       <span className="text-muted-foreground text-[10px]">{formatDistanceToNow(new Date(action.date), { addSuffix: true, locale: es })}</span>
                                                   </div>
                                                   {renderActivity(action)}
