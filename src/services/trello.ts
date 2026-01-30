@@ -191,3 +191,35 @@ export async function addCommentToCard({ cardId, text }: { cardId: string; text:
     throw new Error('Hubo un error desconocido al añadir el comentario.');
   }
 }
+
+export async function addAttachmentToCard({ cardId, formData }: { cardId: string; formData: FormData }): Promise<TrelloAttachment> {
+  if (!TRELLO_API_KEY || !TRELLO_API_TOKEN) {
+    throw new Error('Faltan la API Key y el Token de Trello en el archivo .env');
+  }
+  const fetch = (await import('node-fetch')).default;
+  const url = `${BASE_URL}/cards/${cardId}/attachments?key=${TRELLO_API_KEY}&token=${TRELLO_API_TOKEN}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Las credenciales de Trello son inválidas. ¡Revisá tu API Key y Token!');
+      }
+      const errorText = await response.text();
+      console.error(`Trello API error on attachment: ${response.status} ${errorText}`);
+      throw new Error(`Error de la API de Trello al adjuntar: ${response.status}`);
+    }
+
+    return response.json() as Promise<TrelloAttachment>;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to add attachment to Trello card ${cardId}:`, error.message);
+      throw new Error(`No pudimos adjuntar el archivo a la tarjeta: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al adjuntar el archivo.');
+  }
+}

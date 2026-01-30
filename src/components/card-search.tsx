@@ -3,12 +3,12 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -61,8 +61,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
   const [isActivityLoading, setIsActivityLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getProjectInfo = useCallback((name: string): { code: string | null; nameWithoutCode: string } => {
     const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
@@ -552,6 +554,49 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
       setIsCommenting(false);
     }
   };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0 || !selectedCard) {
+        return;
+    }
+
+    const file = event.target.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', file.name);
+
+    setIsUploadingAttachment(true);
+    try {
+        const newAttachment = await addAttachmentToCard({ cardId: selectedCard.id, formData });
+        if (selectedCard) {
+            const updatedCard = {
+                ...selectedCard,
+                attachments: [...selectedCard.attachments, newAttachment],
+            };
+            onCardSelect(updatedCard);
+            setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
+        }
+        toast({
+            title: '¡Éxito!',
+            description: 'El archivo se adjuntó correctamente a la tarjeta.',
+        });
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error al adjuntar',
+            description: error instanceof Error ? error.message : 'No se pudo subir el archivo.',
+        });
+    } finally {
+        setIsUploadingAttachment(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    }
+  };
   
   const renderActivity = (action: TrelloAction) => {
     switch (action.type) {
@@ -762,10 +807,24 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                         <Separator className="mx-6 w-auto" />
                         <div className="p-6">
                             <Collapsible>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-start gap-2 text-sm font-medium">
-                                    <span className="font-semibold text-foreground">Adjuntos</span>
-                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                </CollapsibleTrigger>
+                                <div className="flex items-center justify-between">
+                                    <CollapsibleTrigger className="group flex flex-grow items-center justify-start gap-2 text-sm font-medium">
+                                        <span className="font-semibold text-foreground">Adjuntos</span>
+                                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                    </CollapsibleTrigger>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUploadClick} disabled={isUploadingAttachment}>
+                                                    {isUploadingAttachment ? <Save className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                                                    <span className="sr-only">Subir adjunto</span>
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom"><p>Subir adjunto</p></TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploadingAttachment} />
+                                </div>
                                 <CollapsibleContent className="mt-4 space-y-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {selectedCard.attachments.map(attachment => {
                                         const isImage = attachment.previews && attachment.previews.length > 0;
