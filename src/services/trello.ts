@@ -109,6 +109,31 @@ export interface TrelloAction {
   };
 }
 
+export async function getCardById(cardId: string): Promise<TrelloCard> {
+    try {
+        const cardData = await trelloFetch(`/cards/${cardId}?fields=name,url,desc,cover,labels,idBoard&attachments=true`) as any;
+
+        if (!cardData || !cardData.idBoard) {
+            throw new Error('Datos de tarjeta incompletos.');
+        }
+
+        const boardData = await trelloFetch(`/boards/${cardData.idBoard}?fields=name`) as { name: string };
+
+        return {
+            ...cardData,
+            boardId: cardData.idBoard,
+            boardName: boardData.name
+        };
+
+    } catch (error) {
+        if (error instanceof Error) {
+            console.error(`Failed to get Trello card ${cardId}:`, error.message);
+            throw new Error(`No pudimos obtener los datos de la tarjeta de Trello: ${error.message}`);
+        }
+        throw new Error('Hubo un error desconocido al obtener la tarjeta.');
+    }
+}
+
 export async function getTrelloBoards(): Promise<TrelloBoard[]> {
   try {
     const boards = (await trelloFetch('/members/me/boards?fields=name,id')) as TrelloBoard[];

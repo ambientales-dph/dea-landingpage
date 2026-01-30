@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard, getCardById } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Upload, Plus } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Upload, Plus, RefreshCw } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -73,10 +73,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     file: File;
     resolver: (resolution: 'overwrite' | 'rename' | 'skip') => void;
   } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const prevIsSummaryOpen = useRef(isSummaryOpen);
 
   const getProjectInfo = useCallback((name: string): { code: string | null; nameWithoutCode: string } => {
     const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
@@ -121,18 +123,22 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const fetchCardData = useCallback(async () => {
     if (!selectedCard) return;
 
+    setIsRefreshing(true);
     setIsActivityLoading(true);
     setIsLabelsLoading(true);
-    setActivity([]);
-    setBoardLabels([]);
 
     try {
-        const [cardActivity, labels] = await Promise.all([
+        const [refreshedCard, cardActivity, labels] = await Promise.all([
+            getCardById(selectedCard.id),
             getCardActivity(selectedCard.id),
             getBoardLabels(selectedCard.boardId)
         ]);
+        
+        onCardSelect(refreshedCard);
+        setAllCards(prev => prev.map(c => c.id === refreshedCard.id ? refreshedCard : c));
         setActivity(cardActivity);
         setBoardLabels(labels);
+
     } catch (error) {
         toast({
             variant: 'destructive',
@@ -140,16 +146,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             description: error instanceof Error ? error.message : 'No se pudo cargar la información de la tarjeta.',
         });
     } finally {
+        setIsRefreshing(false);
         setIsActivityLoading(false);
         setIsLabelsLoading(false);
     }
-  }, [selectedCard, toast]);
+  }, [selectedCard, toast, onCardSelect]);
 
   useEffect(() => {
-    if (selectedCard && isSummaryOpen) {
-      fetchCardData();
+    if (isSummaryOpen && !prevIsSummaryOpen.current) {
+        fetchCardData();
     }
-  }, [selectedCard, isSummaryOpen, fetchCardData]);
+    prevIsSummaryOpen.current = isSummaryOpen;
+  }, [isSummaryOpen, fetchCardData]);
 
   const trelloColorToTw = (color: string | null | undefined): string => {
     if (!color) return "bg-primary text-primary-foreground hover:bg-primary/90 aria-selected:bg-primary/90";
@@ -891,11 +899,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <Input
                             value={editedName}
                             onChange={(e) => setEditedName(e.target.value)}
-                            className="text-base font-semibold bg-transparent text-inherit border-white/30 placeholder-white/70 focus:bg-black/10 h-auto p-1"
+                            className="text-base font-semibold bg-transparent text-inherit border-white/30 placeholder-white/70 focus:bg-black/10 h-auto p-1 mr-28"
                             disabled={isSaving}
                         />
                     ) : (
-                      <DialogTitle className="text-sm font-semibold mr-10 flex items-center gap-2">
+                      <DialogTitle className="text-sm font-semibold mr-28 flex items-center gap-2">
                         <span>{selectedCard.name}</span>
                         <TooltipProvider>
                             <Tooltip>
@@ -913,9 +921,28 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     )}
                     
                     {!isEditing && (
-                        <Button variant="ghost" size="icon" className="absolute top-4 right-12 text-current h-8 w-8 hover:bg-white/20" onClick={handleEditClick}>
-                            <Edit className="h-4 w-4" />
-                        </Button>
+                        <>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="absolute top-4 right-20 text-current h-8 w-8 hover:bg-white/20" onClick={handleEditClick}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom"><p>Editar</p></TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                             <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="absolute top-4 right-12 text-current h-8 w-8 hover:bg-white/20" onClick={fetchCardData} disabled={isRefreshing}>
+                                            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom"><p>Actualizar desde Trello</p></TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </>
                     )}
                     
                     <div className="flex items-start gap-2 pt-2">
@@ -1080,8 +1107,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     )}
                     {!isEditing && (
                       <>
-                        <Separator className="mx-6 w-auto" />
-                        <div className="p-6">
+                        <div className="p-6 pt-0">
                           <div className="flex items-start gap-2 mb-4">
                             <Textarea
                               placeholder="Escribí un comentario..."
