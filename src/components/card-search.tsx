@@ -860,7 +860,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                                     </TooltipProvider>
                                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploadingAttachment} />
                                 </div>
-                                <CollapsibleContent className="mt-4 space-y-1 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                <CollapsibleContent className="mt-4 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {selectedCard.attachments.map(attachment => {
                                         const isImage = attachment.previews && attachment.previews.length > 0;
                                         const isDriveLink = attachment.url.includes('drive.google.com');
@@ -881,7 +881,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear }: Card
                                         }
 
                                         return (
-                                            <div key={attachment.id} className="group/item flex items-center justify-between p-1 -mx-2 rounded-md hover:bg-muted">
+                                            <div key={attachment.id} className="group/item flex items-center justify-between rounded-md hover:bg-muted py-0.5 px-1">
                                                 <a
                                                     href={attachment.url}
                                                     target="_blank"
