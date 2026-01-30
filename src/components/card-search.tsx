@@ -1,14 +1,13 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Upload } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Upload, Plus } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -20,6 +19,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -61,6 +61,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [editedDesc, setEditedDesc] = useState('');
   const [activity, setActivity] = useState<TrelloAction[]>([]);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
+  const [boardLabels, setBoardLabels] = useState<TrelloLabel[]>([]);
+  const [isLabelsLoading, setIsLabelsLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
@@ -116,30 +118,38 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
   }, [selectedCard]);
 
-  const fetchActivity = useCallback(async () => {
+  const fetchCardData = useCallback(async () => {
     if (!selectedCard) return;
 
     setIsActivityLoading(true);
+    setIsLabelsLoading(true);
     setActivity([]);
+    setBoardLabels([]);
+
     try {
-      const cardActivity = await getCardActivity(selectedCard.id);
-      setActivity(cardActivity);
+        const [cardActivity, labels] = await Promise.all([
+            getCardActivity(selectedCard.id),
+            getBoardLabels(selectedCard.boardId)
+        ]);
+        setActivity(cardActivity);
+        setBoardLabels(labels);
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error al cargar actividad',
-        description: error instanceof Error ? error.message : 'No se pudo cargar la actividad de la tarjeta.',
-      });
+        toast({
+            variant: 'destructive',
+            title: 'Error al cargar datos',
+            description: error instanceof Error ? error.message : 'No se pudo cargar la información de la tarjeta.',
+        });
     } finally {
-      setIsActivityLoading(false);
+        setIsActivityLoading(false);
+        setIsLabelsLoading(false);
     }
   }, [selectedCard, toast]);
 
   useEffect(() => {
     if (selectedCard && isSummaryOpen) {
-      fetchActivity();
+      fetchCardData();
     }
-  }, [selectedCard, isSummaryOpen, fetchActivity]);
+  }, [selectedCard, isSummaryOpen, fetchCardData]);
 
   const trelloColorToTw = (color: string | null | undefined): string => {
     if (!color) return "bg-primary text-primary-foreground hover:bg-primary/90 aria-selected:bg-primary/90";
@@ -518,10 +528,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
     setIsSaving(true);
     try {
-        const { id, boardName } = selectedCard;
+        const { id, boardName, boardId } = selectedCard;
         const updatedCardData = await updateTrelloCard({ cardId: id, name: editedName, desc: editedDesc });
 
-        const fullyUpdatedCard = { ...selectedCard, ...updatedCardData, boardName };
+        const fullyUpdatedCard = { ...selectedCard, ...updatedCardData, boardName, boardId };
 
         setAllCards(prev => prev.map(c => c.id === id ? fullyUpdatedCard : c));
         onCardSelect(fullyUpdatedCard);
@@ -542,6 +552,41 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
   };
 
+  const handleLabelToggle = async (label: TrelloLabel, checked: boolean) => {
+    if (!selectedCard) return;
+
+    const originalLabels = selectedCard.labels;
+    let updatedLabels: TrelloLabel[];
+
+    if (checked) {
+        updatedLabels = [...originalLabels, label];
+    } else {
+        updatedLabels = originalLabels.filter(l => l.id !== label.id);
+    }
+    const updatedCard = { ...selectedCard, labels: updatedLabels };
+    onCardSelect(updatedCard);
+
+    try {
+        if (checked) {
+            await addLabelToCard({ cardId: selectedCard.id, labelId: label.id });
+        } else {
+            await removeLabelFromCard({ cardId: selectedCard.id, labelId: label.id });
+        }
+        
+        setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
+
+    } catch (error) {
+        onCardSelect({ ...selectedCard, labels: originalLabels });
+        setAllCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, labels: originalLabels } : c));
+        
+        toast({
+            variant: 'destructive',
+            title: 'Error al actualizar etiquetas',
+            description: error instanceof Error ? error.message : 'No se pudo modificar la etiqueta.',
+        });
+    }
+  };
+
   const handlePostComment = async () => {
     if (!selectedCard || !newComment.trim()) return;
 
@@ -553,7 +598,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         title: '¡Éxito!',
         description: 'Tu comentario se ha añadido a la tarjeta.',
       });
-      await fetchActivity(); // Re-fetch activity to show the new comment
+      await fetchCardData(); // Re-fetch data to show the new comment
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -873,19 +918,55 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         </Button>
                     )}
                     
-                    {selectedCard.labels && selectedCard.labels.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-2">
+                    <div className="flex items-start gap-2 pt-2">
+                        <div className="flex flex-grow flex-wrap gap-2">
                             {selectedCard.labels.map(label => (
                                 <Badge
                                     key={label.id}
                                     style={trelloLabelColorToStyle(label.color)}
                                     className="border-transparent"
                                 >
-                                    {label.name}
+                                    {label.name || <span className="italic">Etiqueta sin nombre</span>}
                                 </Badge>
                             ))}
                         </div>
-                    )}
+                        {!isEditing && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-current hover:bg-white/20">
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Etiquetas disponibles</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    {isLabelsLoading ? (
+                                        <DropdownMenuItem disabled>Cargando etiquetas...</DropdownMenuItem>
+                                    ) : boardLabels.length > 0 ? (
+                                        boardLabels.map(boardLabel => {
+                                            const isChecked = selectedCard.labels.some(cardLabel => cardLabel.id === boardLabel.id);
+                                            return (
+                                                <DropdownMenuCheckboxItem
+                                                    key={boardLabel.id}
+                                                    checked={isChecked}
+                                                    onCheckedChange={(checked) => handleLabelToggle(boardLabel, !!checked)}
+                                                    onSelect={(e) => e.preventDefault()}
+                                                >
+                                                    <div
+                                                        className="mr-2 h-4 w-4 rounded-sm"
+                                                        style={{ backgroundColor: trelloLabelColorToStyle(boardLabel.color).backgroundColor }}
+                                                    />
+                                                    <span>{boardLabel.name || <span className="italic">Etiqueta sin nombre</span>}</span>
+                                                </DropdownMenuCheckboxItem>
+                                            )
+                                        })
+                                    ) : (
+                                        <DropdownMenuItem disabled>No hay etiquetas en este tablero.</DropdownMenuItem>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </div>
                 </DialogHeader>
                 <div className="max-h-[60vh] overflow-y-auto">
                     <div className="p-6">
@@ -957,7 +1038,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                         }
 
                                         return (
-                                            <div key={attachment.id} className="group/item flex items-center justify-between rounded-md hover:bg-muted py-0.5 px-1 -mx-1">
+                                            <div key={attachment.id} className="group/item flex items-center justify-between rounded-md hover:bg-muted py-0.5 px-1">
                                                 <a
                                                     href={attachment.url}
                                                     target="_blank"

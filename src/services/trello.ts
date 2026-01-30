@@ -79,6 +79,7 @@ export interface TrelloCard {
   name: string;
   url: string;
   desc: string;
+  boardId: string;
   boardName: string;
   cover: {
     color: string | null;
@@ -121,17 +122,18 @@ export async function getTrelloBoards(): Promise<TrelloBoard[]> {
   }
 }
 
-async function getCardsFromBoard(boardId: string): Promise<Omit<TrelloCard, 'boardName'>[]> {
-    return (await trelloFetch(`/boards/${boardId}/cards?fields=name,url,desc,cover,labels&attachments=true`)) as Omit<TrelloCard, 'boardName'>[];
+async function getCardsFromBoard(boardId: string): Promise<any[]> {
+    return (await trelloFetch(`/boards/${boardId}/cards?fields=name,url,desc,cover,labels,idBoard&attachments=true`)) as any[];
 }
 
 export async function getAllCardsFromAllBoards(): Promise<TrelloCard[]> {
     try {
         const boards = await getTrelloBoards();
         const allCardsPromises = boards.map(async (board) => {
-            const cards = await getCardsFromBoard(board.id);
-            return cards.map(card => ({
+            const cardsFromApi = await getCardsFromBoard(board.id);
+            return cardsFromApi.map((card: any) => ({
                 ...card,
+                boardId: card.idBoard,
                 boardName: board.name
             }));
         });
@@ -245,4 +247,44 @@ export async function deleteAttachmentFromCard({ cardId, attachmentId }: { cardI
   }
 }
 
-    
+export async function getBoardLabels(boardId: string): Promise<TrelloLabel[]> {
+  try {
+    const labels = (await trelloFetch(`/boards/${boardId}/labels?fields=name,color,id`)) as TrelloLabel[];
+    return labels;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to get labels for Trello board ${boardId}:`, error.message);
+      throw new Error(`No pudimos obtener las etiquetas del tablero: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al obtener las etiquetas.');
+  }
+}
+
+export async function addLabelToCard({ cardId, labelId }: { cardId: string; labelId: string }): Promise<void> {
+  try {
+    await trelloFetch(`/cards/${cardId}/idLabels`, {
+      method: 'POST',
+      body: JSON.stringify({ value: labelId }),
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to add label ${labelId} to Trello card ${cardId}:`, error.message);
+      throw new Error(`No pudimos añadir la etiqueta a la tarjeta: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al añadir la etiqueta.');
+  }
+}
+
+export async function removeLabelFromCard({ cardId, labelId }: { cardId: string; labelId: string }): Promise<void> {
+  try {
+    await trelloFetch(`/cards/${cardId}/idLabels/${labelId}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to remove label ${labelId} from Trello card ${cardId}:`, error.message);
+      throw new Error(`No pudimos quitar la etiqueta de la tarjeta: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al quitar la etiqueta.');
+  }
+}
