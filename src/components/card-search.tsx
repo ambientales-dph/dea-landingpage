@@ -36,6 +36,7 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import React from 'react';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -49,6 +50,68 @@ const removeAccents = (str: string): string => {
   if (!str) return '';
   return str.normalize("NFD").replace(/[\u00c0-\u024f]/g, "");
 }
+
+const renderDescription = (desc: string) => {
+    // Regular expression to find Markdown links and bold text
+    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*/g;
+    let lastIndex = 0;
+    const parts = [];
+
+    let match;
+    while ((match = regex.exec(desc)) !== null) {
+        // Push the text before the match
+        if (match.index > lastIndex) {
+            parts.push(desc.substring(lastIndex, match.index));
+        }
+
+        // Match 1 & 2 are for links: [text](url)
+        if (match[1] !== undefined && match[2] !== undefined) {
+            const linkText = match[1];
+            const urlAndTitle = match[2].trim();
+            const urlMatch = urlAndTitle.match(/^\S+/);
+            if (!urlMatch) continue;
+            const linkUrl = urlMatch[0];
+
+            let displayLabel = linkText;
+            let IconComponent = LinkIcon;
+            
+            // Heuristic for the user's specific case where link text is a URL
+            if (displayLabel.startsWith('http')) {
+                if (linkUrl.includes('drive.google.com')) {
+                    displayLabel = 'Abrir en Drive';
+                    IconComponent = Cloud;
+                } else {
+                    displayLabel = 'Abrir enlace';
+                }
+            }
+
+            parts.push(
+                <a 
+                    href={linkUrl} 
+                    key={match.index} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground ring-offset-background transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                    <IconComponent className="h-3.5 w-3.5" />
+                    <span>{displayLabel}</span>
+                </a>
+            );
+        // Match 3 is for bold text: **text**
+        } else if (match[3] !== undefined) {
+            parts.push(<strong key={match.index}>{match[3]}</strong>);
+        }
+
+        lastIndex = regex.lastIndex;
+    }
+
+    // Push the remaining text after the last match
+    if (lastIndex < desc.length) {
+        parts.push(desc.substring(lastIndex));
+    }
+
+    return parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>);
+};
 
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
@@ -990,17 +1053,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             />
                         ) : (
                           <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                            {selectedCard.desc ? (
-                              selectedCard.desc.split(/\*\*(.*?)\*\*/g).map((part, index) =>
-                                index % 2 === 1 ? (
-                                  <strong key={index}>{part}</strong>
-                                ) : (
-                                  <span key={index}>{part}</span>
-                                )
-                              )
-                            ) : (
-                              'Esta tarjeta no tiene descripción.'
-                            )}
+                            {selectedCard.desc ? renderDescription(selectedCard.desc) : 'Esta tarjeta no tiene descripción.'}
                           </p>
                         )}
                     </div>
