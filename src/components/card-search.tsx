@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Upload, Plus, RefreshCw } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Upload, Plus, RefreshCw, Palette } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -112,6 +112,19 @@ const renderDescription = (desc: string) => {
 
     return parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>);
 };
+
+const trelloCoverColors = [
+    { name: 'green', hex: 'rgb(75,206,151)', label: 'Verde' },
+    { name: 'yellow', hex: 'rgb(238,209,43)', label: 'Amarillo' },
+    { name: 'red', hex: 'rgb(248,113,104)', label: 'Rojo' },
+    { name: 'orange', hex: '#F97316', label: 'Naranja' },
+    { name: 'purple', hex: '#8B5CF6', label: 'Púrpura' },
+    { name: 'blue', hex: 'rgb(102,157,241)', label: 'Azul' },
+    { name: 'sky', hex: '#38BDF8', label: 'Cielo' },
+    { name: 'lime', hex: '#A3E635', label: 'Lima' },
+    { name: 'pink', hex: '#EC4899', label: 'Rosa' },
+    { name: 'black', hex: '#374151', label: 'Negro' },
+];
 
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
@@ -622,6 +635,30 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         setIsSaving(false);
     }
   };
+  
+  const handleCoverColorChange = async (color: string | null) => {
+    if (!selectedCard) return;
+
+    const originalCover = selectedCard.cover;
+    const newCover = { color };
+
+    const updatedCard = { ...selectedCard, cover: newCover };
+    onCardSelect(updatedCard); // Optimistic update
+
+    try {
+        await updateTrelloCard({ cardId: selectedCard.id, cover: newCover });
+        setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
+    } catch (error) {
+        onCardSelect({ ...selectedCard, cover: originalCover }); // Revert on error
+        setAllCards(prev => prev.map(c => c.id === selectedCard.id ? { ...c, cover: originalCover } : c));
+        
+        toast({
+            variant: 'destructive',
+            title: 'Error al cambiar el color',
+            description: error instanceof Error ? error.message : 'No se pudo actualizar la portada.',
+        });
+    }
+  };
 
   const handleLabelToggle = async (label: TrelloLabel, checked: boolean) => {
     if (!selectedCard) return;
@@ -949,7 +986,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             disabled={isSaving}
                         />
                     ) : (
-                      <DialogTitle className="text-sm font-semibold mr-28 flex items-center gap-2">
+                      <DialogTitle className="text-sm font-semibold mr-36 flex items-center gap-2">
                         <span>{selectedCard.name}</span>
                         <TooltipProvider>
                             <Tooltip>
@@ -968,6 +1005,35 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     
                     {!isEditing && (
                         <>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="absolute top-4 right-28 text-current h-8 w-8 hover:bg-white/20">
+                                                <Palette className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuLabel>Cambiar portada</DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
+                                            {trelloCoverColors.map(color => (
+                                                <DropdownMenuItem key={color.name} onSelect={() => handleCoverColorChange(color.name)}>
+                                                    <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: color.hex }} />
+                                                    <span>{color.label}</span>
+                                                </DropdownMenuItem>
+                                            ))}
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onSelect={() => handleCoverColorChange(null)}>
+                                                <X className="mr-2 h-4 w-4" />
+                                                <span>Quitar portada</span>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom"><p>Cambiar color de portada</p></TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>

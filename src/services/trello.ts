@@ -180,11 +180,16 @@ export async function getAllCardsFromAllBoards(): Promise<TrelloCard[]> {
     }
 }
 
-export async function updateTrelloCard({ cardId, name, desc }: { cardId: string; name?: string; desc?: string }): Promise<TrelloCard> {
+export async function updateTrelloCard({ cardId, name, desc, cover }: { cardId: string; name?: string; desc?: string; cover?: { color: string | null } }): Promise<TrelloCard> {
   try {
+    const body: { [key: string]: any } = {};
+    if (name !== undefined) body.name = name;
+    if (desc !== undefined) body.desc = desc;
+    if (cover !== undefined) body.cover = cover;
+
     const updatedCard = (await trelloFetch(`/cards/${cardId}`, {
       method: 'PUT',
-      body: JSON.stringify({ name, desc }),
+      body: JSON.stringify(body),
     })) as TrelloCard;
     return updatedCard;
   } catch (error) {
