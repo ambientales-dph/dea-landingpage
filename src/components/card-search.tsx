@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, addAttachmentToCard, deleteAttachmentFromCard, TrelloAttachment, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard, getCardById } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, TrelloAttachment, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard, getCardById } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Upload, Plus, RefreshCw, Palette } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -20,6 +20,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -141,19 +143,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [isLabelsLoading, setIsLabelsLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
-  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
-  const [attachmentToDelete, setAttachmentToDelete] = useState<TrelloAttachment | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [conflictInfo, setConflictInfo] = useState<{
-    file: File;
-    resolver: (resolution: 'overwrite' | 'rename' | 'skip') => void;
-  } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [attachmentSort, setAttachmentSort] = useState<'name' | 'type'>('name');
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const prevIsSummaryOpen = useRef(isSummaryOpen);
 
   const getProjectInfo = useCallback((name: string): { code: string | null; nameWithoutCode: string } => {
@@ -718,152 +712,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
   };
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || event.target.files.length === 0 || !selectedCard) {
-      return;
-    }
-
-    const files = Array.from(event.target.files);
-    if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-    }
-
-    const MAX_SIZE_MB = 10;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-    
-    setIsUploadingAttachment(true);
-
-    let currentAttachments = [...selectedCard.attachments];
-    let hadError = false;
-    let uploadCount = 0;
-
-    for (const file of files) {
-      if (file.size > MAX_SIZE_BYTES) {
-        toast({
-          variant: 'destructive',
-          title: 'Archivo demasiado grande',
-          description: `"${file.name}" supera los ${MAX_SIZE_MB} MB.`,
-          duration: 5000,
-        });
-        hadError = true;
-        continue;
-      }
-
-      let fileToUpload = file;
-      const existingAttachment = currentAttachments.find(att => att.name === file.name);
-
-      if (existingAttachment) {
-        const userChoice = await new Promise<'overwrite' | 'rename' | 'skip'>(resolve => {
-          setConflictInfo({ file, resolver: resolve });
-        });
-
-        setConflictInfo(null); // Close dialog
-
-        if (userChoice === 'skip') {
-          continue;
-        }
-
-        if (userChoice === 'overwrite') {
-          try {
-            await deleteAttachmentFromCard({ cardId: selectedCard.id, attachmentId: existingAttachment.id });
-            currentAttachments = currentAttachments.filter(att => att.id !== existingAttachment.id);
-          } catch (error) {
-            toast({
-              variant: 'destructive',
-              title: `Error al sobrescribir "${file.name}"`,
-              description: error instanceof Error ? error.message : 'No se pudo borrar el archivo anterior.',
-            });
-            hadError = true;
-            continue;
-          }
-        }
-
-        if (userChoice === 'rename') {
-          const getNewVersionName = (originalName: string, existingNames: string[]): string => {
-            const dotIndex = originalName.lastIndexOf('.');
-            const name = dotIndex > -1 ? originalName.substring(0, dotIndex) : originalName;
-            const extension = dotIndex > -1 ? originalName.substring(dotIndex) : '';
-            let version = 1;
-            let newName = '';
-            do {
-              newName = `${name} (${version})${extension}`;
-              version++;
-            } while (existingNames.includes(newName));
-            return newName;
-          };
-          const newName = getNewVersionName(file.name, currentAttachments.map(att => att.name));
-          fileToUpload = new File([file], newName, { type: file.type });
-        }
-      }
-
-      const formData = new FormData();
-      formData.append('file', fileToUpload);
-      formData.append('name', fileToUpload.name);
-
-      try {
-        const newAttachment = await addAttachmentToCard({ cardId: selectedCard.id, formData });
-        currentAttachments.push(newAttachment);
-        uploadCount++;
-      } catch (error) {
-        hadError = true;
-        toast({
-          variant: 'destructive',
-          title: `Error al adjuntar "${fileToUpload.name}"`,
-          description: error instanceof Error ? error.message : 'No se pudo subir el archivo.',
-        });
-      }
-    }
-
-    setIsUploadingAttachment(false);
-    
-    if (uploadCount > 0) {
-      const updatedCard = { ...selectedCard, attachments: currentAttachments };
-      onCardSelect(updatedCard);
-      setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
-    }
-
-    if (uploadCount > 0 || hadError) {
-      toast({
-        title: hadError ? 'Subida parcial' : '¡Éxito!',
-        description: `Se adjuntaron ${uploadCount} de ${files.length} archivo(s).`,
-      });
-    }
-  };
-
-  const handleDeleteAttachment = async () => {
-    if (!selectedCard || !attachmentToDelete) return;
-
-    setIsDeleting(true);
-    try {
-        await deleteAttachmentFromCard({ cardId: selectedCard.id, attachmentId: attachmentToDelete.id });
-
-        const updatedAttachments = selectedCard.attachments.filter(att => att.id !== attachmentToDelete.id);
-        const updatedCard = { ...selectedCard, attachments: updatedAttachments };
-
-        onCardSelect(updatedCard);
-        setAllCards(prev => prev.map(c => c.id === selectedCard.id ? updatedCard : c));
-        
-        toast({
-            title: '¡Adjunto borrado!',
-            description: 'El archivo se ha eliminado de la tarjeta.',
-        });
-    } catch (error) {
-        toast({
-            variant: 'destructive',
-            title: 'Error al borrar',
-            description: error instanceof Error ? error.message : 'No se pudo eliminar el adjunto.',
-        });
-    } finally {
-        setIsDeleting(false);
-        setAttachmentToDelete(null);
-        setDeleteConfirmation('');
-    }
-  };
-  
   const renderActivity = (action: TrelloAction) => {
     // Now we only receive comments, so we can simplify this.
     if (action.type === 'commentCard' && action.data.text) {
@@ -871,6 +719,68 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
     return null;
   };
+  
+  const getAttachmentIcon = (attachment: TrelloAttachment): { component: JSX.Element; typeOrder: number } => {
+    const name = attachment.name.toLowerCase();
+    
+    // Heuristics for Folders (e.g., from Drive)
+    if (attachment.url.includes('drive.google.com/drive/folders/')) {
+        return { component: <Folder className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 1 };
+    }
+
+    // Images
+    if (/\.(jpe?g|png|gif|webp|svg|bmp|tiff)$/i.test(name)) {
+        return { component: <ImageIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 2 };
+    }
+    
+    // PDFs
+    if (/\.pdf$/i.test(name)) {
+        return { component: <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 3 };
+    }
+
+    // Word Documents
+    if (/\.docx?$/i.test(name)) {
+        return { component: <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 3 };
+    }
+
+    // Excel Spreadsheets
+     if (/\.xlsx?$/i.test(name)) {
+        return { component: <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 3 };
+    }
+    
+    // Generic Links
+    if (/^(http|https):\/\/[^ "]+$/.test(attachment.name)) {
+        return { component: <LinkIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 4 };
+    }
+
+    // Default to a generic file
+    return { component: <FileIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 5 };
+  };
+
+  const sortedAttachments = useMemo(() => {
+    if (!selectedCard?.attachments) return [];
+    
+    const attachmentsWithInfo = selectedCard.attachments.map(att => ({
+        ...att,
+        typeOrder: getAttachmentIcon(att).typeOrder,
+    }));
+    
+    if (attachmentSort === 'name') {
+        return attachmentsWithInfo.sort((a, b) => a.name.localeCompare(b.name, 'es', { numeric: true }));
+    }
+    
+    if (attachmentSort === 'type') {
+        return attachmentsWithInfo.sort((a, b) => {
+            if (a.typeOrder !== b.typeOrder) {
+                return a.typeOrder - b.typeOrder;
+            }
+            return a.name.localeCompare(b.name, 'es', { numeric: true });
+        });
+    }
+
+    return attachmentsWithInfo;
+  }, [selectedCard?.attachments, attachmentSort]);
+
 
   return (
     <div className="flex h-full w-full flex-col justify-between">
@@ -1127,81 +1037,44 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                       <>
                         <Separator className="mx-6 w-auto" />
                         <div className="p-6">
-                            <Collapsible>
+                            <Collapsible defaultOpen>
                                 <div className="flex items-center justify-between">
                                     <CollapsibleTrigger className="group flex flex-grow items-center justify-start gap-2 text-sm font-medium">
                                         <span className="font-semibold text-foreground">Adjuntos</span>
                                         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                     </CollapsibleTrigger>
-                                     <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isUploadingAttachment} onClick={handleUploadClick}>
-                                                    {isUploadingAttachment ? <Save className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                                                    <span className="sr-only">Subir archivo(s)</span>
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="bottom"><p>Subir</p></TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" disabled={isUploadingAttachment} multiple />
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                          <ArrowDownUp className="h-4 w-4" />
+                                          <span className="sr-only">Ordenar adjuntos</span>
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+                                        <DropdownMenuRadioGroup value={attachmentSort} onValueChange={(value) => setAttachmentSort(value as 'name' | 'type')}>
+                                          <DropdownMenuRadioItem value="name">Nombre</DropdownMenuRadioItem>
+                                          <DropdownMenuRadioItem value="type">Tipo</DropdownMenuRadioItem>
+                                        </DropdownMenuRadioGroup>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                                 <CollapsibleContent className="mt-4 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-                                    {selectedCard.attachments.map(attachment => {
-                                        const isImage = attachment.previews && attachment.previews.length > 0;
-                                        const isDriveLink = attachment.url.includes('drive.google.com');
-                                        const isPdf = attachment.name.toLowerCase().endsWith('.pdf');
-                                        const isGenericLink = /^(http|https):\/\/[^ "]+$/.test(attachment.name);
-
-                                        let icon;
-                                        if (isDriveLink) {
-                                            icon = <Cloud className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
-                                        } else if (isImage) {
-                                            icon = <ImageIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
-                                        } else if (isPdf) {
-                                            icon = <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
-                                        } else if (isGenericLink) {
-                                            icon = <LinkIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
-                                        } else {
-                                            icon = <FileIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
-                                        }
-
-                                        return (
-                                            <div key={attachment.id} className="group/item flex items-center justify-between rounded-md hover:bg-muted py-0.5 px-1">
-                                                <a
-                                                    href={attachment.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex flex-grow items-center gap-2 overflow-hidden"
-                                                >
-                                                    {icon}
-                                                    <span className="text-xs text-foreground truncate" title={attachment.name}>
-                                                        {attachment.name}
-                                                    </span>
-                                                </a>
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 group-hover/item:opacity-100 hover:text-destructive"
-                                                                onClick={() => {
-                                                                    setAttachmentToDelete(attachment);
-                                                                    setDeleteConfirmation('');
-                                                                }}
-                                                            >
-                                                                <X className="h-4 w-4" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="right">
-                                                            <p>Borrar adjunto</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </div>
-                                        );
-                                    })}
+                                    {sortedAttachments.map(attachment => (
+                                        <div key={attachment.id} className="group/item flex items-center justify-between rounded-md hover:bg-muted py-0.5 px-1">
+                                            <a
+                                                href={attachment.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex flex-grow items-center gap-2 overflow-hidden"
+                                            >
+                                                {getAttachmentIcon(attachment).component}
+                                                <span className="text-xs text-foreground truncate" title={attachment.name}>
+                                                    {attachment.name}
+                                                </span>
+                                            </a>
+                                        </div>
+                                    ))}
                                 </CollapsibleContent>
                             </Collapsible>
                         </div>
@@ -1299,65 +1172,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             </DialogContent>
         </Dialog>
       )}
-
-      <Dialog open={!!attachmentToDelete} onOpenChange={(isOpen) => {
-        if (!isOpen) {
-            setAttachmentToDelete(null);
-            setDeleteConfirmation('');
-        }
-      }}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Confirmar borrado</DialogTitle>
-                <DialogDescription>
-                    Para confirmar que querés borrar el adjunto <strong className="text-foreground">{attachmentToDelete?.name}</strong>, por favor escribí la palabra <strong className="text-foreground">borralo</strong> en el campo de abajo. Esta acción no se puede deshacer.
-                </DialogDescription>
-            </DialogHeader>
-            <Input 
-                value={deleteConfirmation}
-                onChange={(e) => setDeleteConfirmation(e.target.value)}
-                placeholder='borralo'
-                disabled={isDeleting}
-                className="mt-2"
-            />
-            <DialogFooter>
-                <Button variant="ghost" onClick={() => { setAttachmentToDelete(null); setDeleteConfirmation(''); }} disabled={isDeleting}>
-                    Cancelar
-                </Button>
-                <Button 
-                    variant="destructive"
-                    onClick={handleDeleteAttachment}
-                    disabled={deleteConfirmation !== 'borralo' || isDeleting}
-                >
-                    {isDeleting ? <Save className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isDeleting ? 'Borrando...' : 'Borrar adjunto'}
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={!!conflictInfo} onOpenChange={(isOpen) => {
-        if (!isOpen && conflictInfo) {
-          conflictInfo.resolver('skip');
-          setConflictInfo(null);
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Archivo duplicado</DialogTitle>
-            <DialogDescription>
-              Ya existe un archivo llamado <strong className="text-foreground">{conflictInfo?.file.name}</strong> en esta tarjeta. ¿Qué querés hacer?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between sm:space-x-2">
-            <Button variant="outline" onClick={() => conflictInfo?.resolver('skip')}>Omitir</Button>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:space-x-2">
-              <Button variant="secondary" onClick={() => conflictInfo?.resolver('rename')}>Guardar como copia</Button>
-              <Button onClick={() => conflictInfo?.resolver('overwrite')}>Sobrescribir</Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
