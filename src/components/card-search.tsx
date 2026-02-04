@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, addCommentToCard, TrelloAttachment, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard, getCardById } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard, getCardById, deleteAttachmentFromCard } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -54,19 +54,16 @@ const removeAccents = (str: string): string => {
 }
 
 const renderDescription = (desc: string) => {
-    // Regular expression to find Markdown links and bold text
     const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*/g;
     let lastIndex = 0;
     const parts = [];
 
     let match;
     while ((match = regex.exec(desc)) !== null) {
-        // Push the text before the match
         if (match.index > lastIndex) {
             parts.push(desc.substring(lastIndex, match.index));
         }
 
-        // Match 1 & 2 are for links: [text](url)
         if (match[1] !== undefined && match[2] !== undefined) {
             const linkText = match[1];
             const urlAndTitle = match[2].trim();
@@ -77,7 +74,6 @@ const renderDescription = (desc: string) => {
             let displayLabel = linkText;
             let IconComponent = LinkIcon;
             
-            // Heuristic for the user's specific case where link text is a URL
             if (displayLabel.startsWith('http')) {
                 if (linkUrl.includes('drive.google.com')) {
                     displayLabel = 'Abrir en Drive';
@@ -99,7 +95,6 @@ const renderDescription = (desc: string) => {
                     <span>{displayLabel}</span>
                 </a>
             );
-        // Match 3 is for bold text: **text**
         } else if (match[3] !== undefined) {
             parts.push(<strong key={match.index}>{match[3]}</strong>);
         }
@@ -107,7 +102,6 @@ const renderDescription = (desc: string) => {
         lastIndex = regex.lastIndex;
     }
 
-    // Push the remaining text after the last match
     if (lastIndex < desc.length) {
         parts.push(desc.substring(lastIndex));
     }
@@ -131,7 +125,8 @@ const trelloCoverColors = [
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
   const [query, setQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -145,7 +140,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [isCommenting, setIsCommenting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [attachmentSort, setAttachmentSort] = useState<'name' | 'type'>('name');
-
+  
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const prevIsSummaryOpen = useRef(isSummaryOpen);
@@ -162,25 +157,25 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return { code: null, nameWithoutCode: name };
   }, []);
 
-  useEffect(() => {
-    async function fetchAllCards() {
-      try {
-        const fetchedCards = await getAllCardsFromAllBoards();
-        const projectCards = fetchedCards.filter(card => getProjectInfo(card.name).code !== null);
-        setAllCards(projectCards);
-      } catch (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Error al cargar las tarjetas',
-          description: error instanceof Error ? error.message : 'Hubo un error desconocido.',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    }
+  const fetchAllCards = useCallback(async () => {
+    if (hasFetched || isLoading) return;
 
-    fetchAllCards();
-  }, [toast, getProjectInfo]);
+    setIsLoading(true);
+    try {
+      const fetchedCards = await getAllCardsFromAllBoards();
+      const projectCards = fetchedCards.filter(card => getProjectInfo(card.name).code !== null);
+      setAllCards(projectCards);
+      setHasFetched(true);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al cargar las tarjetas',
+        description: error instanceof Error ? error.message : 'Hubo un error desconocido.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [hasFetched, isLoading, getProjectInfo, toast]);
 
   useEffect(() => {
     if (selectedCard) {
@@ -339,8 +334,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setIsOpen(false);
   };
   
-  const handleInputChange = async (inputValue: string) => {
+  const handleInputChange = (inputValue: string) => {
     setQuery(inputValue);
+
+    if (inputValue.trim().length > 0 && !hasFetched) {
+      fetchAllCards();
+    }
     
     const exactMatch = allCards.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
     if (exactMatch) {
@@ -359,6 +358,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   }
 
   const handleFocus = () => {
+    if (!hasFetched) {
+      fetchAllCards();
+    }
     if (!isOpen && !(selectedCard && query === selectedCard.name)) {
       setIsOpen(true);
     }
@@ -713,7 +715,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   };
 
   const renderActivity = (action: TrelloAction) => {
-    // Now we only receive comments, so we can simplify this.
     if (action.type === 'commentCard' && action.data.text) {
       return <p className="mt-1 bg-muted p-3 rounded-md whitespace-pre-wrap border">{action.data.text}</p>;
     }
@@ -723,37 +724,26 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const getAttachmentIcon = (attachment: TrelloAttachment): { component: JSX.Element; typeOrder: number } => {
     const name = attachment.name.toLowerCase();
     
-    // Heuristics for Folders (e.g., from Drive)
     if (attachment.url.includes('drive.google.com/drive/folders/')) {
         return { component: <Folder className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 1 };
     }
 
-    // Images
     if (/\.(jpe?g|png|gif|webp|svg|bmp|tiff)$/i.test(name)) {
         return { component: <ImageIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 2 };
     }
     
-    // PDFs
     if (/\.pdf$/i.test(name)) {
         return { component: <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 3 };
     }
 
-    // Word Documents
-    if (/\.docx?$/i.test(name)) {
-        return { component: <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 3 };
-    }
-
-    // Excel Spreadsheets
-     if (/\.xlsx?$/i.test(name)) {
+    if (/\.docx?$/i.test(name) || /\.xlsx?$/i.test(name)) {
         return { component: <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 3 };
     }
     
-    // Generic Links
     if (/^(http|https):\/\/[^ "]+$/.test(attachment.name)) {
         return { component: <LinkIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 4 };
     }
 
-    // Default to a generic file
     return { component: <FileIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />, typeOrder: 5 };
   };
 
@@ -790,13 +780,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isLoading}>
+                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isLoading || !hasFetched}>
                     <Download className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent className="text-xs">
-                <p>Descargá la lista de proyectos.</p>
+                 {hasFetched ? <p>Descargá la lista de proyectos.</p> : <p>Realizá una búsqueda para habilitar las descargas.</p>}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -822,14 +812,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                   variant="ghost" 
                   size="icon" 
                   className="text-primary-foreground hover:bg-primary/20" 
-                  disabled={isLoading}
+                  disabled={isLoading || !hasFetched}
                   onClick={handleDownloadDuplicatesPdf}
                 >
                   <AlertTriangle className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="text-xs">
-                <p>Descargá la lista de proyectos duplicados.</p>
+                {hasFetched ? <p>Descargá la lista de proyectos duplicados.</p> : <p>Realizá una búsqueda para habilitar las descargas.</p> }
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -842,7 +832,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
               value={query}
               onFocus={handleFocus}
               onChange={(e) => handleInputChange(e.target.value)}
-              placeholder='Buscá por palabra clave o por código de proyecto...'
+              placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o por código de proyecto...'}
               className="w-full min-h-24 bg-primary-foreground text-foreground pr-10 text-xs"
               disabled={isLoading}
             />
@@ -1060,21 +1050,23 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     </DropdownMenu>
                                 </div>
                                 <CollapsibleContent className="mt-4 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-                                    {sortedAttachments.map(attachment => (
-                                        <div key={attachment.id} className="group/item flex items-center justify-between rounded-md hover:bg-muted py-0.5 px-1">
-                                            <a
-                                                href={attachment.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex flex-grow items-center gap-2 overflow-hidden"
-                                            >
-                                                {getAttachmentIcon(attachment).component}
-                                                <span className="text-xs text-foreground truncate" title={attachment.name}>
-                                                    {attachment.name}
-                                                </span>
-                                            </a>
-                                        </div>
-                                    ))}
+                                    <div className="space-y-1">
+                                        {sortedAttachments.map(attachment => (
+                                            <div key={attachment.id} className="group/item flex items-center justify-between rounded-md hover:bg-muted py-0.5">
+                                                <a
+                                                    href={attachment.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex flex-grow items-center gap-2 overflow-hidden"
+                                                >
+                                                    {getAttachmentIcon(attachment).component}
+                                                    <span className="text-xs text-foreground truncate" title={attachment.name}>
+                                                        {attachment.name}
+                                                    </span>
+                                                </a>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </CollapsibleContent>
                             </Collapsible>
                         </div>
