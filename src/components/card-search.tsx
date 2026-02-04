@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard, getCardById, deleteAttachmentFromCard } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard, getCardById, deleteAttachmentFromCard, addCommentToCard, addAttachmentToCard } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, Trash2 } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, Trash2, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -54,33 +54,35 @@ const removeAccents = (str: string): string => {
 }
 
 const renderDescription = (desc: string) => {
-    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*/g;
-    let lastIndex = 0;
-    const parts = [];
+    const parts: (string | JSX.Element)[] = [];
+    if (!desc) return parts;
 
+    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*|(\S+\.(?:jpg|jpeg|png|gif|bmp|webp|svg|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)\S*)/gi;
+    let lastIndex = 0;
     let match;
+
     while ((match = regex.exec(desc)) !== null) {
         if (match.index > lastIndex) {
             parts.push(desc.substring(lastIndex, match.index));
         }
 
-        if (match[1] !== undefined && match[2] !== undefined) {
-            const linkText = match[1];
-            const urlAndTitle = match[2].trim();
+        const [fullMatch, linkText, linkUrlRaw, boldText, standaloneUrl] = match;
+
+        if (linkText !== undefined && linkUrlRaw !== undefined) {
+            // Markdown-style link: [text](url)
+            const urlAndTitle = linkUrlRaw.trim();
             const urlMatch = urlAndTitle.match(/^\S+/);
             if (!urlMatch) continue;
             const linkUrl = urlMatch[0];
 
-            let displayLabel = linkText;
-            let IconComponent = LinkIcon;
-            
-            if (displayLabel.startsWith('http')) {
-                if (linkUrl.includes('drive.google.com')) {
-                    displayLabel = 'Abrir en Drive';
-                    IconComponent = Cloud;
-                } else {
-                    displayLabel = 'Abrir enlace';
-                }
+            let displayLabel = linkText || linkUrl;
+            let IconComponent: React.ElementType = LinkIcon;
+
+            if (linkUrl.includes('drive.google.com')) {
+                displayLabel = linkText || 'Abrir en Drive';
+                IconComponent = Cloud;
+            } else if (!linkText) {
+                displayLabel = 'Abrir enlace';
             }
 
             parts.push(
@@ -95,10 +97,24 @@ const renderDescription = (desc: string) => {
                     <span>{displayLabel}</span>
                 </a>
             );
-        } else if (match[3] !== undefined) {
-            parts.push(<strong key={match.index}>{match[3]}</strong>);
+        } else if (boldText !== undefined) {
+            // Bold text: **text**
+            parts.push(<strong key={match.index}>{boldText}</strong>);
+        } else if (standaloneUrl !== undefined) {
+            // Standalone URL that looks like a file
+             parts.push(
+                <a 
+                    href={standaloneUrl} 
+                    key={match.index} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground ring-offset-background transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                    <FileIcon className="h-3.5 w-3.5" />
+                    <span>{standaloneUrl.split('/').pop()}</span>
+                </a>
+            );
         }
-
         lastIndex = regex.lastIndex;
     }
 
@@ -126,7 +142,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -140,6 +155,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [isCommenting, setIsCommenting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [attachmentSort, setAttachmentSort] = useState<'name' | 'type'>('name');
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -157,15 +173,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return { code: null, nameWithoutCode: name };
   }, []);
 
-  const fetchAllCards = useCallback(async () => {
-    if (hasFetched || isLoading) return;
+  const fetchAllCards = async () => {
+    if (isLoading) return;
 
     setIsLoading(true);
     try {
       const fetchedCards = await getAllCardsFromAllBoards();
       const projectCards = fetchedCards.filter(card => getProjectInfo(card.name).code !== null);
       setAllCards(projectCards);
-      setHasFetched(true);
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -175,7 +190,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     } finally {
       setIsLoading(false);
     }
-  }, [hasFetched, isLoading, getProjectInfo, toast]);
+  };
 
   useEffect(() => {
     if (selectedCard) {
@@ -336,10 +351,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   
   const handleInputChange = (inputValue: string) => {
     setQuery(inputValue);
-
-    if (inputValue.trim().length > 0 && !hasFetched) {
-      fetchAllCards();
-    }
     
     const exactMatch = allCards.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
     if (exactMatch) {
@@ -358,9 +369,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   }
 
   const handleFocus = () => {
-    if (!hasFetched) {
-      fetchAllCards();
-    }
+    fetchAllCards();
     if (!isOpen && !(selectedCard && query === selectedCard.name)) {
       setIsOpen(true);
     }
@@ -378,217 +387,237 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return [...new Set(names)].sort((a, b) => a.localeCompare(b));
   }, [allCards]);
 
-  const handleDownloadDuplicatesPdf = () => {
-    const doc = new jsPDF();
-    doc.setFont('Helvetica', 'normal');
-    doc.setFontSize(10);
+  const handleDownloadDuplicatesPdf = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    toast({ title: 'Preparando lista de duplicados...' });
 
-    const title = 'Lista de Proyectos Duplicados';
-    doc.text(title, 10, 10);
-
-    const cardsByCode: Record<string, TrelloCard[]> = {};
-
-    // Group cards by project code, excluding the template
-    for (const card of allCards) {
-      if (card.name.includes('(XXX000)')) continue;
-
-      const { code } = getProjectInfo(card.name);
-      if (code) {
-        if (!cardsByCode[code]) {
-          cardsByCode[code] = [];
-        }
-        cardsByCode[code].push(card);
-      }
-    }
-
-    // Filter for groups with more than one card (duplicates) and sort by code
-    const duplicates = Object.entries(cardsByCode)
-      .filter(([, cards]) => cards.length > 1)
-      .sort(([codeA], [codeB]) => codeA.localeCompare(codeB));
-
-    if (duplicates.length === 0) {
-      toast({
-        title: 'No se encontraron duplicados',
-        description: 'Todos los códigos de proyecto son únicos.',
-      });
-      return;
-    }
-
-    const lineHeight = 7;
-    const margin = 10;
-    const nameColX = margin;
-    const boardColX = 120;
-    const pageHeight = doc.internal.pageSize.height;
-    let y = 20;
-
-    const checkPageBreak = (neededHeight: number) => {
-        if (y + neededHeight > pageHeight - margin) {
-            doc.addPage();
-            y = margin;
-            return true;
-        }
-        return false;
-    }
-    
-    let isFirstDuplicate = true;
-    for (const [code, cards] of duplicates) {
-        const headerHeight = isFirstDuplicate ? lineHeight : lineHeight * 2;
-        if (checkPageBreak(headerHeight)) {
-            isFirstDuplicate = true;
-        }
-
-        if (!isFirstDuplicate) {
-            y += lineHeight;
-        }
-
-        doc.setFont('Helvetica', 'bold');
-        doc.text(`Código duplicado: ${code}`, nameColX, y);
-        y += lineHeight;
+    try {
+        const doc = new jsPDF();
         doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(10);
 
-        // Sort cards within the duplicate group by board name for consistent ordering
-        cards.sort((a, b) => a.boardName.localeCompare(b.boardName));
+        const title = 'Lista de Proyectos Duplicados';
+        doc.text(title, 10, 10);
+
+        const cardsFromTrello = await getAllCardsFromAllBoards();
+        const cardsByCode: Record<string, TrelloCard[]> = {};
+
+        // Group cards by project code, excluding the template
+        for (const card of cardsFromTrello) {
+          if (card.name.includes('(XXX000)')) continue;
+
+          const { code } = getProjectInfo(card.name);
+          if (code) {
+            if (!cardsByCode[code]) {
+              cardsByCode[code] = [];
+            }
+            cardsByCode[code].push(card);
+          }
+        }
+
+        // Filter for groups with more than one card (duplicates) and sort by code
+        const duplicates = Object.entries(cardsByCode)
+          .filter(([, cards]) => cards.length > 1)
+          .sort(([codeA], [codeB]) => codeA.localeCompare(codeB));
+
+        if (duplicates.length === 0) {
+          toast({
+            title: 'No se encontraron duplicados',
+            description: 'Todos los códigos de proyecto son únicos.',
+          });
+          setIsDownloading(false);
+          return;
+        }
+
+        const lineHeight = 7;
+        const margin = 10;
+        const nameColX = margin;
+        const boardColX = 120;
+        const pageHeight = doc.internal.pageSize.height;
+        let y = 20;
+
+        const checkPageBreak = (neededHeight: number) => {
+            if (y + neededHeight > pageHeight - margin) {
+                doc.addPage();
+                y = margin;
+                return true;
+            }
+            return false;
+        }
         
-        for (const card of cards) {
-            const { code: cardCode, nameWithoutCode } = getProjectInfo(card.name);
-            const formattedName = cardCode ? `${cardCode} - ${nameWithoutCode}` : nameWithoutCode;
-            
-            const nameLines = doc.splitTextToSize(formattedName, boardColX - nameColX - 2);
-            const boardLines = doc.splitTextToSize(card.boardName, doc.internal.pageSize.width - boardColX - margin);
-            const requiredHeight = Math.max(nameLines.length, boardLines.length) * lineHeight;
-
-            if (checkPageBreak(requiredHeight + 2)) {
-                doc.setFont('Helvetica', 'bold');
-                doc.text(`Código duplicado: ${code} (cont.)`, nameColX, y);
-                y += lineHeight;
-                doc.setFont('Helvetica', 'normal');
+        let isFirstDuplicate = true;
+        for (const [code, cards] of duplicates) {
+            const headerHeight = isFirstDuplicate ? lineHeight : lineHeight * 2;
+            if (checkPageBreak(headerHeight)) {
+                isFirstDuplicate = true;
             }
 
-            doc.text(nameLines, nameColX, y);
-            doc.text(boardLines, boardColX, y);
-            y += requiredHeight;
+            if (!isFirstDuplicate) {
+                y += lineHeight;
+            }
+
+            doc.setFont('Helvetica', 'bold');
+            doc.text(`Código duplicado: ${code}`, nameColX, y);
+            y += lineHeight;
+            doc.setFont('Helvetica', 'normal');
+
+            // Sort cards within the duplicate group by board name for consistent ordering
+            cards.sort((a, b) => a.boardName.localeCompare(b.boardName));
+            
+            for (const card of cards) {
+                const { code: cardCode, nameWithoutCode } = getProjectInfo(card.name);
+                const formattedName = cardCode ? `${cardCode} - ${nameWithoutCode}` : nameWithoutCode;
+                
+                const nameLines = doc.splitTextToSize(formattedName, boardColX - nameColX - 2);
+                const boardLines = doc.splitTextToSize(card.boardName, doc.internal.pageSize.width - boardColX - margin);
+                const requiredHeight = Math.max(nameLines.length, boardLines.length) * lineHeight;
+
+                if (checkPageBreak(requiredHeight + 2)) {
+                    doc.setFont('Helvetica', 'bold');
+                    doc.text(`Código duplicado: ${code} (cont.)`, nameColX, y);
+                    y += lineHeight;
+                    doc.setFont('Helvetica', 'normal');
+                }
+
+                doc.text(nameLines, nameColX, y);
+                doc.text(boardLines, boardColX, y);
+                y += requiredHeight;
+            }
+            isFirstDuplicate = false;
         }
-        isFirstDuplicate = false;
+      
+        doc.save('trello-proyectos-duplicados.pdf');
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error al generar el PDF',
+            description: error instanceof Error ? error.message : 'No se pudo generar la lista de duplicados.',
+        });
+    } finally {
+        setIsDownloading(false);
     }
-  
-    doc.save('trello-proyectos-duplicados.pdf');
   };
 
-  const handleDownloadPdf = (boardNameToFilter?: string) => {
-    const doc = new jsPDF();
-    doc.setFont('Helvetica', 'normal');
-
-    let cardsToProcess: TrelloCard[];
-    let title: string;
-
-    const isSearching = query.trim() && filteredCards.length > 0;
+  const handleDownloadPdf = async (boardNameToFilter?: string) => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    toast({ title: 'Generando PDF...', description: 'Obteniendo los datos más recientes de Trello.' });
     
-    if (boardNameToFilter) {
-      const baseCards = isSearching ? filteredCards : allCards;
-      cardsToProcess = baseCards.filter(card => 
-        card.boardName === boardNameToFilter && 
-        getProjectInfo(card.name).code &&
-        !card.name.includes('(XXX000)')
-      );
-      title = `Proyectos del tablero: ${boardNameToFilter}`;
-      if (isSearching) {
-        title += ` (filtrado por "${query}")`;
-      }
-    } else {
-      const baseCards = isSearching ? filteredCards : allCards;
-      cardsToProcess = baseCards.filter(card => 
-        getProjectInfo(card.name).code &&
-        !card.name.includes('(XXX000)')
-      );
-      if (isSearching) {
-        title = `Resultados de la búsqueda para: "${query}"`;
-      } else {
-        title = 'Lista de todos los proyectos';
-      }
-    }
-
-    const groupedByBoard: Record<string, TrelloCard[]> = cardsToProcess.reduce((acc, card) => {
-        const boardName = card.boardName || 'Sin tablero';
-        if (!acc[boardName]) {
-            acc[boardName] = [];
-        }
-        acc[boardName].push(card);
-        return acc;
-    }, {} as Record<string, TrelloCard[]>);
-
-    const sortedBoardNames = Object.keys(groupedByBoard).sort((a, b) => a.localeCompare(b));
-
-    for (const boardName of sortedBoardNames) {
-        groupedByBoard[boardName].sort((a, b) => {
-            const codeA = getProjectInfo(a.name).code;
-            const codeB = getProjectInfo(b.name).code;
-            if (codeA && codeB) {
-                return codeA.localeCompare(codeB);
-            }
-            return codeA ? -1 : 1;
-        });
-    }
-
-    doc.setFontSize(10);
-    doc.text(title, 10, 10);
-  
-    const lineHeight = 7;
-    const margin = 10;
-    const nameColWidth = doc.internal.pageSize.width - (2 * margin);
-    const pageHeight = doc.internal.pageSize.height;
-    let y = 20;
-
-    const checkPageBreak = (neededHeight: number) => {
-        if (y + neededHeight > pageHeight - margin) {
-            doc.addPage();
-            y = margin;
-            return true;
-        }
-        return false;
-    }
-
-    let isFirstBoard = true;
-    for (const boardName of sortedBoardNames) {
-        if (groupedByBoard[boardName].length === 0) continue;
-
-        const boardHeaderHeight = isFirstBoard ? lineHeight : lineHeight * 2;
-        if (checkPageBreak(boardHeaderHeight)) {
-            isFirstBoard = true;
-        }
-
-        if (!isFirstBoard) {
-            y += lineHeight;
-        }
-        
-        const nameColX = margin;
-        doc.setFont('Helvetica', 'bold');
-        doc.text(boardName, nameColX, y);
-        y += lineHeight;
+    try {
+        const doc = new jsPDF();
         doc.setFont('Helvetica', 'normal');
-        
-        for (const card of groupedByBoard[boardName]) {
-            const { code, nameWithoutCode } = getProjectInfo(card.name);
-            
-            if (!code) continue; 
-    
-            const formattedName = `${code.replace(/[()]/g, '')} - ${nameWithoutCode}`;
-            const nameLines = doc.splitTextToSize(formattedName, nameColWidth);
-            const requiredHeight = nameLines.length * lineHeight;
 
-            if (checkPageBreak(requiredHeight + lineHeight)) {
-                doc.setFont('Helvetica', 'bold');
-                doc.text(boardName + " (cont.)", margin, y);
+        const allCardsFromTrello = await getAllCardsFromAllBoards();
+        let cardsToProcess: TrelloCard[];
+        let title: string;
+        
+        if (boardNameToFilter) {
+          cardsToProcess = allCardsFromTrello.filter(card => 
+            card.boardName === boardNameToFilter && 
+            getProjectInfo(card.name).code &&
+            !card.name.includes('(XXX000)')
+          );
+          title = `Proyectos del tablero: ${boardNameToFilter}`;
+        } else {
+          cardsToProcess = allCardsFromTrello.filter(card => 
+            getProjectInfo(card.name).code &&
+            !card.name.includes('(XXX000)')
+          );
+          title = 'Lista de todos los proyectos';
+        }
+
+        const groupedByBoard: Record<string, TrelloCard[]> = cardsToProcess.reduce((acc, card) => {
+            const boardName = card.boardName || 'Sin tablero';
+            if (!acc[boardName]) {
+                acc[boardName] = [];
+            }
+            acc[boardName].push(card);
+            return acc;
+        }, {} as Record<string, TrelloCard[]>);
+
+        const sortedBoardNames = Object.keys(groupedByBoard).sort((a, b) => a.localeCompare(b));
+
+        for (const boardName of sortedBoardNames) {
+            groupedByBoard[boardName].sort((a, b) => {
+                const codeA = getProjectInfo(a.name).code;
+                const codeB = getProjectInfo(b.name).code;
+                if (codeA && codeB) {
+                    return codeA.localeCompare(codeB);
+                }
+                return codeA ? -1 : 1;
+            });
+        }
+
+        doc.setFontSize(10);
+        doc.text(title, 10, 10);
+      
+        const lineHeight = 7;
+        const margin = 10;
+        const nameColWidth = doc.internal.pageSize.width - (2 * margin);
+        const pageHeight = doc.internal.pageSize.height;
+        let y = 20;
+
+        const checkPageBreak = (neededHeight: number) => {
+            if (y + neededHeight > pageHeight - margin) {
+                doc.addPage();
+                y = margin;
+                return true;
+            }
+            return false;
+        }
+
+        let isFirstBoard = true;
+        for (const boardName of sortedBoardNames) {
+            if (groupedByBoard[boardName].length === 0) continue;
+
+            const boardHeaderHeight = isFirstBoard ? lineHeight : lineHeight * 2;
+            if (checkPageBreak(boardHeaderHeight)) {
+                isFirstBoard = true;
+            }
+
+            if (!isFirstBoard) {
                 y += lineHeight;
-                doc.setFont('Helvetica', 'normal');
             }
             
-            doc.text(nameLines, margin, y);
-            y += requiredHeight;
+            const nameColX = margin;
+            doc.setFont('Helvetica', 'bold');
+            doc.text(boardName, nameColX, y);
+            y += lineHeight;
+            doc.setFont('Helvetica', 'normal');
+            
+            for (const card of groupedByBoard[boardName]) {
+                const { code, nameWithoutCode } = getProjectInfo(card.name);
+                
+                if (!code) continue; 
+        
+                const formattedName = `${code.replace(/[()]/g, '')} - ${nameWithoutCode}`;
+                const nameLines = doc.splitTextToSize(formattedName, nameColWidth);
+                const requiredHeight = nameLines.length * lineHeight;
+
+                if (checkPageBreak(requiredHeight + lineHeight)) {
+                    doc.setFont('Helvetica', 'bold');
+                    doc.text(boardName + " (cont.)", margin, y);
+                    y += lineHeight;
+                    doc.setFont('Helvetica', 'normal');
+                }
+                
+                doc.text(nameLines, margin, y);
+                y += requiredHeight;
+            }
+            isFirstBoard = false;
         }
-        isFirstBoard = false;
+      
+        doc.save('trello-proyectos.pdf');
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error al generar el PDF',
+            description: error instanceof Error ? error.message : 'No se pudo generar el listado.',
+        });
+    } finally {
+        setIsDownloading(false);
     }
-  
-    doc.save('trello-proyectos.pdf');
   };
 
   const handleEditClick = () => {
@@ -780,13 +809,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isLoading || !hasFetched}>
+                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20">
                     <Download className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent className="text-xs">
-                 {hasFetched ? <p>Descargá la lista de proyectos.</p> : <p>Realizá una búsqueda para habilitar las descargas.</p>}
+                 <p>Descargá la lista de proyectos.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -794,7 +823,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
               <DropdownMenuLabel>Descargar Proyectos</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => handleDownloadPdf()}>
-                {query.trim() && filteredCards.length > 0 ? 'Resultados de la búsqueda' : 'Todos los proyectos'}
+                Lista completa de proyectos
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Por tablero</DropdownMenuLabel>
@@ -812,14 +841,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                   variant="ghost" 
                   size="icon" 
                   className="text-primary-foreground hover:bg-primary/20" 
-                  disabled={isLoading || !hasFetched}
                   onClick={handleDownloadDuplicatesPdf}
                 >
                   <AlertTriangle className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="text-xs">
-                {hasFetched ? <p>Descargá la lista de proyectos duplicados.</p> : <p>Realizá una búsqueda para habilitar las descargas.</p> }
+                <p>Descargá la lista de proyectos duplicados.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -1018,9 +1046,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 disabled={isSaving}
                             />
                         ) : (
-                          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          <div className="text-xs text-muted-foreground whitespace-pre-wrap space-y-2">
                             {selectedCard.desc ? renderDescription(selectedCard.desc) : 'Esta tarjeta no tiene descripción.'}
-                          </p>
+                          </div>
                         )}
                     </div>
                     {selectedCard.attachments && selectedCard.attachments.length > 0 && !isEditing && (
