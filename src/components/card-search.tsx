@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, Trash2, Upload } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, Trash2, Upload, GripVertical } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -173,7 +173,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return { code: null, nameWithoutCode: name };
   }, []);
 
-  const fetchAllCards = async () => {
+  const fetchAllCards = useCallback(async () => {
     if (isLoading) return;
 
     setIsLoading(true);
@@ -190,7 +190,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isLoading, toast, getProjectInfo]);
 
   useEffect(() => {
     if (selectedCard) {
@@ -809,7 +809,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20">
+                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isDownloading}>
                     <Download className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -822,13 +822,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
           <DropdownMenuContent>
               <DropdownMenuLabel>Descargar Proyectos</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => handleDownloadPdf()}>
+              <DropdownMenuItem onSelect={() => handleDownloadPdf()} disabled={isDownloading}>
                 Lista completa de proyectos
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Por tablero</DropdownMenuLabel>
               {boardNames.map((name) => (
-                <DropdownMenuItem key={name} onSelect={() => handleDownloadPdf(name)}>
+                <DropdownMenuItem key={name} onSelect={() => handleDownloadPdf(name)} disabled={isDownloading}>
                     {name}
                 </DropdownMenuItem>
               ))}
@@ -842,6 +842,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                   size="icon" 
                   className="text-primary-foreground hover:bg-primary/20" 
                   onClick={handleDownloadDuplicatesPdf}
+                  disabled={isDownloading}
                 >
                   <AlertTriangle className="h-5 w-5" />
                 </Button>
@@ -862,7 +863,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
               onChange={(e) => handleInputChange(e.target.value)}
               placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o por código de proyecto...'}
               className="w-full min-h-24 bg-primary-foreground text-foreground pr-10 text-xs"
-              disabled={isLoading}
             />
           </PopoverTrigger>
           <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -1085,7 +1085,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                     href={attachment.url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="flex flex-grow items-center gap-2 overflow-hidden"
+                                                    className="flex flex-grow items-center gap-2 overflow-hidden p-1"
                                                 >
                                                     {getAttachmentIcon(attachment).component}
                                                     <span className="text-xs text-foreground truncate" title={attachment.name}>
