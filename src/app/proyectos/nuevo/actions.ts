@@ -6,7 +6,7 @@ import { createTrelloCard, getListsOnBoard, getNextProjectCode } from '@/service
 
 const PROYECTOS_BOARD_ID = 'CgG4b3B0';
 
-export const CreateProjectSchema = z.object({
+const CreateProjectSchema = z.object({
   nombre: z.string().min(1, { message: 'El nombre del proyecto es obligatorio.' }),
   cuenca: z.string().min(1, { message: 'Debe seleccionar una cuenca.' }),
   // Optional fields
