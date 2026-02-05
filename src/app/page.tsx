@@ -27,6 +27,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import CreateProjectForm from '@/components/create-project-form';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
@@ -41,6 +47,7 @@ export default function Home() {
   const { toast } = useToast();
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
 
   const handleCardSelect = async (card: TrelloCard | null) => {
     setSelectedCard(card);
@@ -190,14 +197,20 @@ export default function Home() {
                   )}
                 </div>
               </Button>
-              <Button
-                variant="outline"
-                className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-                onClick={() => window.open('/proyectos/nuevo', '_blank')}
-              >
-                <FolderKanban className="h-8 w-8 text-primary" />
-                <span>Gestión de proyectos</span>
-              </Button>
+              <Dialog open={isCreateProjectOpen} onOpenChange={setCreateProjectOpen}>
+                <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
+                    >
+                      <FolderKanban className="h-8 w-8 text-primary" />
+                      <span>Gestión de proyectos</span>
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="h-screen w-screen max-w-full rounded-none border-0 p-0">
+                  <CreateProjectForm setOpen={setCreateProjectOpen} />
+                </DialogContent>
+              </Dialog>
               <Button
                 variant="outline"
                 className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
