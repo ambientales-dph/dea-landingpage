@@ -30,6 +30,9 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import CreateProjectForm from '@/components/create-project-form';
@@ -197,20 +200,6 @@ export default function Home() {
                   )}
                 </div>
               </Button>
-              <Dialog open={isCreateProjectOpen} onOpenChange={setCreateProjectOpen}>
-                <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-                    >
-                      <FolderKanban className="h-8 w-8 text-primary" />
-                      <span>Gestión de proyectos</span>
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="h-screen w-screen max-w-full rounded-none border-0 p-0">
-                  <CreateProjectForm setOpen={setCreateProjectOpen} />
-                </DialogContent>
-              </Dialog>
               <Button
                 variant="outline"
                 className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
@@ -227,6 +216,30 @@ export default function Home() {
                   )}
                 </div>
               </Button>
+              <Dialog open={isCreateProjectOpen} onOpenChange={setCreateProjectOpen}>
+                <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
+                      disabled
+                    >
+                      <FolderKanban className="h-8 w-8 text-primary" />
+                      <div className="flex items-center gap-2">
+                        <span>Gestión de proyectos</span>
+                        <Construction className="h-5 w-5" />
+                      </div>
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="h-screen w-screen max-w-full rounded-none border-0 p-0">
+                  <DialogHeader className="sr-only">
+                    <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
+                    <DialogDescription>
+                      Complete el formulario para crear una nueva tarjeta de proyecto en Trello.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <CreateProjectForm setOpen={setCreateProjectOpen} />
+                </DialogContent>
+              </Dialog>
               <Button
                 variant="outline"
                 className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
