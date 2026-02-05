@@ -4,6 +4,7 @@
 const TRELLO_API_KEY = process.env.TRELLO_API_KEY;
 const TRELLO_API_TOKEN = process.env.TRELLO_API_TOKEN;
 const BASE_URL = 'https://api.trello.com/1';
+const PROYECTOS_BOARD_ID = 'CgG4b3B0';
 
 async function trelloFetch(url: string, options: RequestInit = {}) {
   if (!TRELLO_API_KEY || !TRELLO_API_TOKEN) {
@@ -147,7 +148,7 @@ export async function getTrelloBoards(): Promise<TrelloBoard[]> {
   }
 }
 
-async function getCardsFromBoard(boardId: string): Promise<any[]> {
+export async function getCardsFromBoard(boardId: string): Promise<any[]> {
     return (await trelloFetch(`/boards/${boardId}/cards?fields=name,url,desc,cover,labels,idBoard&attachments=true`)) as any[];
 }
 
@@ -269,5 +270,68 @@ export async function removeLabelFromCard({ cardId, labelId }: { cardId: string;
       throw new Error(`No pudimos quitar la etiqueta de la tarjeta: ${error.message}`);
     }
     throw new Error('Hubo un error desconocido al quitar la etiqueta.');
+  }
+}
+
+export async function getListsOnBoard(boardId: string): Promise<{ id: string, name: string }[]> {
+  try {
+    const lists = await trelloFetch(`/boards/${boardId}/lists?fields=name,id`) as { id: string, name: string }[];
+    return lists;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to get lists for Trello board ${boardId}:`, error.message);
+      throw new Error(`No pudimos obtener las listas del tablero de Trello: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al obtener las listas del tablero.');
+  }
+}
+
+export async function getNextProjectCode(boardId: string, cuencaCode: string): Promise<string> {
+  try {
+    const cards = await getCardsFromBoard(boardId);
+    const codeRegex = new RegExp(`\\((${cuencaCode}(\\d{3}))\\)`);
+    let maxNum = 0;
+
+    for (const card of cards) {
+      const match = card.name.match(codeRegex);
+      if (match && match[2]) {
+        const num = parseInt(match[2], 10);
+        if (num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+
+    const newNum = maxNum + 1;
+    const newNumPadded = newNum.toString().padStart(3, '0');
+    
+    return `${cuencaCode}${newNumPadded}`;
+  } catch (error) {
+    console.error('Error calculating next project code:', error);
+    throw new Error('No se pudo calcular el siguiente código de proyecto.');
+  }
+}
+
+export interface NewCardInfo {
+    name: string;
+    idList: string;
+    desc: string;
+    cover?: {
+        color: string;
+    };
+}
+export async function createTrelloCard(cardInfo: NewCardInfo): Promise<TrelloCard> {
+  try {
+    const newCard = (await trelloFetch('/cards', {
+      method: 'POST',
+      body: JSON.stringify(cardInfo),
+    })) as TrelloCard;
+    return newCard;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to create Trello card:`, error.message);
+      throw new Error(`No pudimos crear la tarjeta en Trello: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al crear la tarjeta.');
   }
 }

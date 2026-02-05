@@ -193,6 +193,14 @@ export default function Home() {
               <Button
                 variant="outline"
                 className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
+                onClick={() => window.open('/proyectos/nuevo', '_blank')}
+              >
+                <FolderKanban className="h-8 w-8 text-primary" />
+                <span>Gestión de proyectos</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
                 onClick={handleCardOrBoardButtonClick}
               >
                 {selectedCard ? <FileText className="h-8 w-8 text-primary" /> : <LayoutGrid className="h-8 w-8 text-primary" />}
@@ -204,17 +212,6 @@ export default function Home() {
                         dangerouslySetInnerHTML={formatCardName(selectedCard.name)}
                      />
                   )}
-                </div>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-                disabled
-              >
-                <FolderKanban className="h-8 w-8 text-primary" />
-                <div className="flex items-center gap-2">
-                  <span>Gestión de proyectos</span>
-                  <Construction className="h-5 w-5" />
                 </div>
               </Button>
               <Button
