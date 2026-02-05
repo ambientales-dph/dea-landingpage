@@ -184,7 +184,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Button
+               <Button
                 variant="outline"
                 className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
                 onClick={handleTimelineButtonClick}
@@ -221,13 +221,9 @@ export default function Home() {
                     <Button
                       variant="outline"
                       className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-                      disabled
                     >
                       <FolderKanban className="h-8 w-8 text-primary" />
-                      <div className="flex items-center gap-2">
-                        <span>Gestión de proyectos</span>
-                        <Construction className="h-5 w-5" />
-                      </div>
+                      <span>Gestión de proyectos</span>
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="h-screen w-screen max-w-full rounded-none border-0 p-0">
