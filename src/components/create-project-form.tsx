@@ -1,7 +1,7 @@
+
 'use client';
 
-import { useFormState } from 'react-dom';
-import { useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,7 @@ interface CreateProjectFormProps {
 }
 
 export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
-  const [state, formAction] = useFormState(createProject, initialState);
+  const [state, formAction] = useActionState(createProject, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
 
