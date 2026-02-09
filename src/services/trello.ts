@@ -82,6 +82,7 @@ export interface TrelloCard {
   desc: string;
   boardId: string;
   boardName: string;
+  idList: string;
   cover: {
     color: string | null;
   } | null;
@@ -112,7 +113,7 @@ export interface TrelloAction {
 
 export async function getCardById(cardId: string): Promise<TrelloCard> {
     try {
-        const cardData = await trelloFetch(`/cards/${cardId}?fields=name,url,desc,cover,labels,idBoard&attachments=true`) as any;
+        const cardData = await trelloFetch(`/cards/${cardId}?fields=name,url,desc,cover,labels,idBoard,idList&attachments=true`) as any;
 
         if (!cardData || !cardData.idBoard) {
             throw new Error('Datos de tarjeta incompletos.');
@@ -149,7 +150,7 @@ export async function getTrelloBoards(): Promise<TrelloBoard[]> {
 }
 
 export async function getCardsFromBoard(boardId: string): Promise<any[]> {
-    return (await trelloFetch(`/boards/${boardId}/cards?fields=name,url,desc,cover,labels,idBoard&attachments=true`)) as any[];
+    return (await trelloFetch(`/boards/${boardId}/cards?fields=name,url,desc,cover,labels,idBoard,idList&attachments=true`)) as any[];
 }
 
 export async function getAllCardsFromAllBoards(): Promise<TrelloCard[]> {
@@ -181,12 +182,14 @@ export async function getAllCardsFromAllBoards(): Promise<TrelloCard[]> {
     }
 }
 
-export async function updateTrelloCard({ cardId, name, desc, cover }: { cardId: string; name?: string; desc?: string; cover?: { color: string | null } }): Promise<TrelloCard> {
+export async function updateTrelloCard({ cardId, name, desc, cover, idBoard, idList }: { cardId: string; name?: string; desc?: string; cover?: { color: string | null }, idBoard?: string, idList?: string }): Promise<TrelloCard> {
   try {
     const body: { [key: string]: any } = {};
     if (name !== undefined) body.name = name;
     if (desc !== undefined) body.desc = desc;
     if (cover !== undefined) body.cover = cover;
+    if (idBoard !== undefined) body.idBoard = idBoard;
+    if (idList !== undefined) body.idList = idList;
 
     const updatedCard = (await trelloFetch(`/cards/${cardId}`, {
       method: 'PUT',

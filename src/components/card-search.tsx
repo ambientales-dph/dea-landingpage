@@ -1,13 +1,28 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
-import { getAllCardsFromAllBoards, TrelloCard, updateTrelloCard, getCardActivity, TrelloAction, getBoardLabels, TrelloLabel, addLabelToCard, removeLabelFromCard, getCardById, deleteAttachmentFromCard, addCommentToCard, addAttachmentToCard } from '@/services/trello';
+import { 
+    getAllCardsFromAllBoards, 
+    TrelloCard, 
+    updateTrelloCard, 
+    getCardActivity, 
+    TrelloAction, 
+    getBoardLabels, 
+    TrelloLabel, 
+    addLabelToCard, 
+    removeLabelFromCard, 
+    getCardById, 
+    getTrelloBoards,
+    getListsOnBoard,
+    TrelloBoard
+} from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, Trash2, Upload, GripVertical } from 'lucide-react';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, GripVertical, Settings } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -34,11 +49,13 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import React from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -155,8 +172,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [isCommenting, setIsCommenting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [attachmentSort, setAttachmentSort] = useState<'name' | 'type'>('name');
-  const [isDownloading, setIsDownloading] = useState(false);
   
+  const [allBoards, setAllBoards] = useState<TrelloBoard[]>([]);
+  const [boardLists, setBoardLists] = useState<{ id: string, name: string }[]>([]);
+  const [isBoardsLoading, setIsBoardsLoading] = useState(false);
+  const [isListsLoading, setIsListsLoading] = useState(false);
+  const [editedBoardId, setEditedBoardId] = useState('');
+  const [editedListId, setEditedListId] = useState('');
+
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const prevIsSummaryOpen = useRef(isSummaryOpen);
@@ -309,39 +332,34 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
   const filteredCards = useMemo(() => {
     if (selectedCard && query === selectedCard.name) return [];
+    if (!query) return [];
+
+    const normalizedQuery = removeAccents(query.toLowerCase());
+    const keywords = normalizedQuery.split(' ').filter(kw => kw.trim() !== '');
+
+    if (keywords.length === 0) {
+      return [];
+    }
     
-    if (!query && isOpen) {
-      return allCards.map(card => ({ ...card, matchType: 'description' as const }));
-    }
-    if (query) {
-      const normalizedQuery = removeAccents(query.toLowerCase());
-      const keywords = normalizedQuery.split(' ').filter(kw => kw.trim() !== '');
+    return allCards
+      .map(card => {
+        const cardNameLower = removeAccents(card.name.toLowerCase());
+        const cardDescLower = removeAccents(card.desc ? card.desc.toLowerCase() : '');
 
-      if (keywords.length === 0) {
-        return isOpen ? allCards.map(card => ({ ...card, matchType: 'description' as const })) : [];
-      }
-      
-      return allCards
-        .map(card => {
-          const cardNameLower = removeAccents(card.name.toLowerCase());
-          const cardDescLower = removeAccents(card.desc ? card.desc.toLowerCase() : '');
+        const nameMatch = keywords.some(keyword => cardNameLower.includes(keyword));
+        if (nameMatch) {
+          return { ...card, matchType: 'name' as const };
+        }
 
-          const nameMatch = keywords.some(keyword => cardNameLower.includes(keyword));
-          if (nameMatch) {
-            return { ...card, matchType: 'name' as const };
-          }
+        const descMatch = keywords.some(keyword => cardDescLower.includes(keyword));
+        if (descMatch) {
+          return { ...card, matchType: 'description' as const };
+        }
 
-          const descMatch = keywords.some(keyword => cardDescLower.includes(keyword));
-          if (descMatch) {
-            return { ...card, matchType: 'description' as const };
-          }
-
-          return null;
-        })
-        .filter((c): c is TrelloCard & { matchType: 'name' | 'description' } => c !== null);
-    }
-    return [];
-  }, [query, allCards, selectedCard, isOpen]);
+        return null;
+      })
+      .filter((c): c is TrelloCard & { matchType: 'name' | 'description' } => c !== null);
+  }, [query, allCards, selectedCard]);
   
   const handleSelect = (card: TrelloCard) => {
     onCardSelect(card);
@@ -360,9 +378,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       setIsOpen(false);
     } else {
       if (selectedCard) {
-        onClear();
+        onCardSelect(null);
       }
-      if (!isOpen) {
+      if (!isOpen && inputValue) {
           setIsOpen(true);
       }
     }
@@ -376,260 +394,62 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   };
 
   const handleClear = () => {
-    setQuery('');
-    setIsOpen(false);
     onClear();
   };
 
-  const boardNames = useMemo(() => {
-    if (allCards.length === 0) return [];
-    const names = allCards.map(card => card.boardName);
-    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
-  }, [allCards]);
-
-  const handleDownloadDuplicatesPdf = async () => {
-    if (isDownloading) return;
-    setIsDownloading(true);
-    toast({ title: 'Preparando lista de duplicados...' });
-
-    try {
-        const doc = new jsPDF();
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(10);
-
-        const title = 'Lista de Proyectos Duplicados';
-        doc.text(title, 10, 10);
-
-        const cardsFromTrello = await getAllCardsFromAllBoards();
-        const cardsByCode: Record<string, TrelloCard[]> = {};
-
-        // Group cards by project code, excluding the template
-        for (const card of cardsFromTrello) {
-          if (card.name.includes('(XXX000)')) continue;
-
-          const { code } = getProjectInfo(card.name);
-          if (code) {
-            if (!cardsByCode[code]) {
-              cardsByCode[code] = [];
-            }
-            cardsByCode[code].push(card);
-          }
-        }
-
-        // Filter for groups with more than one card (duplicates) and sort by code
-        const duplicates = Object.entries(cardsByCode)
-          .filter(([, cards]) => cards.length > 1)
-          .sort(([codeA], [codeB]) => codeA.localeCompare(codeB));
-
-        if (duplicates.length === 0) {
-          toast({
-            title: 'No se encontraron duplicados',
-            description: 'Todos los códigos de proyecto son únicos.',
-          });
-          setIsDownloading(false);
-          return;
-        }
-
-        const lineHeight = 7;
-        const margin = 10;
-        const nameColX = margin;
-        const boardColX = 120;
-        const pageHeight = doc.internal.pageSize.height;
-        let y = 20;
-
-        const checkPageBreak = (neededHeight: number) => {
-            if (y + neededHeight > pageHeight - margin) {
-                doc.addPage();
-                y = margin;
-                return true;
-            }
-            return false;
-        }
-        
-        let isFirstDuplicate = true;
-        for (const [code, cards] of duplicates) {
-            const headerHeight = isFirstDuplicate ? lineHeight : lineHeight * 2;
-            if (checkPageBreak(headerHeight)) {
-                isFirstDuplicate = true;
-            }
-
-            if (!isFirstDuplicate) {
-                y += lineHeight;
-            }
-
-            doc.setFont('Helvetica', 'bold');
-            doc.text(`Código duplicado: ${code}`, nameColX, y);
-            y += lineHeight;
-            doc.setFont('Helvetica', 'normal');
-
-            // Sort cards within the duplicate group by board name for consistent ordering
-            cards.sort((a, b) => a.boardName.localeCompare(b.boardName));
-            
-            for (const card of cards) {
-                const { code: cardCode, nameWithoutCode } = getProjectInfo(card.name);
-                const formattedName = cardCode ? `${cardCode} - ${nameWithoutCode}` : nameWithoutCode;
-                
-                const nameLines = doc.splitTextToSize(formattedName, boardColX - nameColX - 2);
-                const boardLines = doc.splitTextToSize(card.boardName, doc.internal.pageSize.width - boardColX - margin);
-                const requiredHeight = Math.max(nameLines.length, boardLines.length) * lineHeight;
-
-                if (checkPageBreak(requiredHeight + 2)) {
-                    doc.setFont('Helvetica', 'bold');
-                    doc.text(`Código duplicado: ${code} (cont.)`, nameColX, y);
-                    y += lineHeight;
-                    doc.setFont('Helvetica', 'normal');
-                }
-
-                doc.text(nameLines, nameColX, y);
-                doc.text(boardLines, boardColX, y);
-                y += requiredHeight;
-            }
-            isFirstDuplicate = false;
-        }
-      
-        doc.save('trello-proyectos-duplicados.pdf');
-    } catch (error) {
-        toast({
-            variant: 'destructive',
-            title: 'Error al generar el PDF',
-            description: error instanceof Error ? error.message : 'No se pudo generar la lista de duplicados.',
-        });
-    } finally {
-        setIsDownloading(false);
-    }
-  };
-
-  const handleDownloadPdf = async (boardNameToFilter?: string) => {
-    if (isDownloading) return;
-    setIsDownloading(true);
-    toast({ title: 'Generando PDF...', description: 'Obteniendo los datos más recientes de Trello.' });
-    
-    try {
-        const doc = new jsPDF();
-        doc.setFont('Helvetica', 'normal');
-
-        const allCardsFromTrello = await getAllCardsFromAllBoards();
-        let cardsToProcess: TrelloCard[];
-        let title: string;
-        
-        if (boardNameToFilter) {
-          cardsToProcess = allCardsFromTrello.filter(card => 
-            card.boardName === boardNameToFilter && 
-            getProjectInfo(card.name).code &&
-            !card.name.includes('(XXX000)')
-          );
-          title = `Proyectos del tablero: ${boardNameToFilter}`;
-        } else {
-          cardsToProcess = allCardsFromTrello.filter(card => 
-            getProjectInfo(card.name).code &&
-            !card.name.includes('(XXX000)')
-          );
-          title = 'Lista de todos los proyectos';
-        }
-
-        const groupedByBoard: Record<string, TrelloCard[]> = cardsToProcess.reduce((acc, card) => {
-            const boardName = card.boardName || 'Sin tablero';
-            if (!acc[boardName]) {
-                acc[boardName] = [];
-            }
-            acc[boardName].push(card);
-            return acc;
-        }, {} as Record<string, TrelloCard[]>);
-
-        const sortedBoardNames = Object.keys(groupedByBoard).sort((a, b) => a.localeCompare(b));
-
-        for (const boardName of sortedBoardNames) {
-            groupedByBoard[boardName].sort((a, b) => {
-                const codeA = getProjectInfo(a.name).code;
-                const codeB = getProjectInfo(b.name).code;
-                if (codeA && codeB) {
-                    return codeA.localeCompare(codeB);
-                }
-                return codeA ? -1 : 1;
-            });
-        }
-
-        doc.setFontSize(10);
-        doc.text(title, 10, 10);
-      
-        const lineHeight = 7;
-        const margin = 10;
-        const nameColWidth = doc.internal.pageSize.width - (2 * margin);
-        const pageHeight = doc.internal.pageSize.height;
-        let y = 20;
-
-        const checkPageBreak = (neededHeight: number) => {
-            if (y + neededHeight > pageHeight - margin) {
-                doc.addPage();
-                y = margin;
-                return true;
-            }
-            return false;
-        }
-
-        let isFirstBoard = true;
-        for (const boardName of sortedBoardNames) {
-            if (groupedByBoard[boardName].length === 0) continue;
-
-            const boardHeaderHeight = isFirstBoard ? lineHeight : lineHeight * 2;
-            if (checkPageBreak(boardHeaderHeight)) {
-                isFirstBoard = true;
-            }
-
-            if (!isFirstBoard) {
-                y += lineHeight;
-            }
-            
-            const nameColX = margin;
-            doc.setFont('Helvetica', 'bold');
-            doc.text(boardName, nameColX, y);
-            y += lineHeight;
-            doc.setFont('Helvetica', 'normal');
-            
-            for (const card of groupedByBoard[boardName]) {
-                const { code, nameWithoutCode } = getProjectInfo(card.name);
-                
-                if (!code) continue; 
-        
-                const formattedName = `${code.replace(/[()]/g, '')} - ${nameWithoutCode}`;
-                const nameLines = doc.splitTextToSize(formattedName, nameColWidth);
-                const requiredHeight = nameLines.length * lineHeight;
-
-                if (checkPageBreak(requiredHeight + lineHeight)) {
-                    doc.setFont('Helvetica', 'bold');
-                    doc.text(boardName + " (cont.)", margin, y);
-                    y += lineHeight;
-                    doc.setFont('Helvetica', 'normal');
-                }
-                
-                doc.text(nameLines, margin, y);
-                y += requiredHeight;
-            }
-            isFirstBoard = false;
-        }
-      
-        doc.save('trello-proyectos.pdf');
-    } catch (error) {
-        toast({
-            variant: 'destructive',
-            title: 'Error al generar el PDF',
-            description: error instanceof Error ? error.message : 'No se pudo generar el listado.',
-        });
-    } finally {
-        setIsDownloading(false);
-    }
-  };
-
-  const handleEditClick = () => {
+  const handleEditClick = async () => {
     if (selectedCard) {
         setEditedName(selectedCard.name);
         setEditedDesc(selectedCard.desc);
+        setEditedBoardId(selectedCard.boardId);
+        setEditedListId(selectedCard.idList);
         setIsEditing(true);
+
+        setIsBoardsLoading(true);
+        try {
+            const boards = await getTrelloBoards();
+            setAllBoards(boards);
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Error al cargar tableros",
+                description: "No se pudieron obtener los tableros de Trello.",
+            });
+        } finally {
+            setIsBoardsLoading(false);
+        }
     }
   };
 
+  useEffect(() => {
+    if (isEditing && editedBoardId) {
+      const fetchLists = async () => {
+        setIsListsLoading(true);
+        try {
+          const lists = await getListsOnBoard(editedBoardId);
+          setBoardLists(lists);
+          
+          if (!lists.some(l => l.id === editedListId)) {
+            setEditedListId(lists[0]?.id || '');
+          }
+        } catch (error) {
+           toast({
+                variant: "destructive",
+                title: "Error al cargar listas",
+                description: "No se pudieron obtener las listas del tablero seleccionado.",
+            });
+            setBoardLists([]);
+        } finally {
+            setIsListsLoading(false);
+        }
+      };
+      fetchLists();
+    }
+  }, [isEditing, editedBoardId, toast]);
+
   const handleCancelEdit = () => {
       setIsEditing(false);
+      setBoardLists([]);
   };
 
   const handleSaveEdit = async () => {
@@ -637,19 +457,34 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
     setIsSaving(true);
     try {
-        const { id, boardName, boardId } = selectedCard;
-        const updatedCardData = await updateTrelloCard({ cardId: id, name: editedName, desc: editedDesc });
-
-        const fullyUpdatedCard = { ...selectedCard, ...updatedCardData, boardName, boardId };
-
-        setAllCards(prev => prev.map(c => c.id === id ? fullyUpdatedCard : c));
-        onCardSelect(fullyUpdatedCard);
+        const hasMoved = editedBoardId !== selectedCard.boardId || editedListId !== selectedCard.idList;
         
+        await updateTrelloCard({
+          cardId: selectedCard.id,
+          name: editedName,
+          desc: editedDesc,
+          idBoard: editedBoardId,
+          idList: editedListId,
+        });
+
         toast({
             title: '¡Éxito!',
-            description: 'La tarjeta se actualizó correctamente en Trello.',
+            description: hasMoved ? 'La tarjeta se movió y actualizó correctamente.' : 'La tarjeta se actualizó correctamente en Trello.',
         });
+        
         setIsEditing(false);
+        setBoardLists([]);
+
+        if (hasMoved) {
+           setAllCards(prev => prev.filter(c => c.id !== selectedCard.id));
+           onCardSelect(null);
+           onSummaryOpenChange(false);
+        } else {
+            const refreshedCard = await getCardById(selectedCard.id);
+            onCardSelect(refreshedCard);
+            setAllCards(prev => prev.map(c => c.id === selectedCard.id ? refreshedCard : c));
+        }
+        
     } catch (error) {
         toast({
             variant: 'destructive',
@@ -802,57 +637,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
 
   return (
-    <div className="flex h-full w-full flex-col justify-between">
-      <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/20" disabled={isDownloading}>
-                    <Download className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent className="text-xs">
-                 <p>Descargá la lista de proyectos.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <DropdownMenuContent>
-              <DropdownMenuLabel>Descargar Proyectos</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => handleDownloadPdf()} disabled={isDownloading}>
-                Lista completa de proyectos
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Por tablero</DropdownMenuLabel>
-              {boardNames.map((name) => (
-                <DropdownMenuItem key={name} onSelect={() => handleDownloadPdf(name)} disabled={isDownloading}>
-                    {name}
-                </DropdownMenuItem>
-              ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-primary-foreground hover:bg-primary/20" 
-                  onClick={handleDownloadDuplicatesPdf}
-                  disabled={isDownloading}
-                >
-                  <AlertTriangle className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="text-xs">
-                <p>Descargá la lista de proyectos duplicados.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-      </div>
+    <div className="flex h-full w-full flex-col justify-end">
       <div className="relative w-full">
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
@@ -868,7 +653,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
           <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" onOpenAutoFocus={(e) => e.preventDefault()}>
             <Command>
               <CommandList>
-                {filteredCards.length === 0 && query.length > 0 && !isOpen && (
+                {filteredCards.length === 0 && query.length > 0 && (
                   <CommandEmpty>No encontramos resultados.</CommandEmpty>
                 )}
                 <CommandGroup>
@@ -929,6 +714,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             </Tooltip>
                         </TooltipProvider>
                       </DialogTitle>
+                    )}
+                    
+                    {!isEditing && (
+                        <DialogDescription className="text-xs text-white/80 pt-1 text-left">
+                            En el tablero: <strong>{selectedCard.boardName}</strong>
+                        </DialogDescription>
                     )}
                     
                     {!isEditing && (
@@ -1051,6 +842,53 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                           </div>
                         )}
                     </div>
+                    
+                    {isEditing && (
+                        <>
+                            <Separator className="mx-6 w-auto" />
+                            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="board-select" className="text-sm font-medium mb-2 block">Tablero</Label>
+                                    <Select
+                                        value={editedBoardId}
+                                        onValueChange={setEditedBoardId}
+                                        disabled={isBoardsLoading || isSaving}
+                                    >
+                                        <SelectTrigger id="board-select">
+                                            <SelectValue placeholder="Seleccioná un tablero..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {isBoardsLoading ? <SelectItem value="loading" disabled>Cargando...</SelectItem> :
+                                                allBoards.map(board => (
+                                                    <SelectItem key={board.id} value={board.id}>{board.name}</SelectItem>
+                                                ))
+                                            }
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="list-select" className="text-sm font-medium mb-2 block">Lista</Label>
+                                    <Select
+                                        value={editedListId}
+                                        onValueChange={setEditedListId}
+                                        disabled={isListsLoading || isSaving || !editedBoardId}
+                                    >
+                                        <SelectTrigger id="list-select">
+                                            <SelectValue placeholder="Seleccioná una lista..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {isListsLoading ? <SelectItem value="loading" disabled>Cargando...</SelectItem> :
+                                                boardLists.map(list => (
+                                                    <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
+                                                ))
+                                            }
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    
                     {selectedCard.attachments && selectedCard.attachments.length > 0 && !isEditing && (
                       <>
                         <Separator className="mx-6 w-auto" />
