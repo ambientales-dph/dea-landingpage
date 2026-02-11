@@ -16,8 +16,10 @@ import {
     getCardById, 
     getTrelloBoards,
     getListsOnBoard,
-    TrelloBoard
+    TrelloBoard,
+    addCommentToCard
 } from '@/services/trello';
+import type { TrelloAttachment } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
@@ -346,12 +348,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         const cardNameLower = removeAccents(card.name.toLowerCase());
         const cardDescLower = removeAccents(card.desc ? card.desc.toLowerCase() : '');
 
-        const nameMatch = keywords.some(keyword => cardNameLower.includes(keyword));
+        const nameMatch = keywords.every(keyword => cardNameLower.includes(keyword));
         if (nameMatch) {
           return { ...card, matchType: 'name' as const };
         }
 
-        const descMatch = keywords.some(keyword => cardDescLower.includes(keyword));
+        const descMatch = keywords.every(keyword => cardDescLower.includes(keyword));
         if (descMatch) {
           return { ...card, matchType: 'description' as const };
         }
@@ -377,8 +379,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       }
       setIsOpen(false);
     } else {
-      if (selectedCard) {
-        onCardSelect(null);
+      if (selectedCard && !inputValue) {
+         onCardSelect(null);
+      } else if (selectedCard && inputValue !== selectedCard.name) {
+         onCardSelect(null);
       }
       if (!isOpen && inputValue) {
           setIsOpen(true);
@@ -388,7 +392,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
   const handleFocus = () => {
     fetchAllCards();
-    if (!isOpen && !(selectedCard && query === selectedCard.name)) {
+    if (!isOpen && query && !(selectedCard && query === selectedCard.name)) {
       setIsOpen(true);
     }
   };
@@ -648,14 +652,15 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
               onChange={(e) => handleInputChange(e.target.value)}
               placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o por código de proyecto...'}
               className="w-full min-h-24 bg-primary-foreground text-foreground pr-10 text-xs"
+              autoComplete="off"
             />
           </PopoverTrigger>
           <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" onOpenAutoFocus={(e) => e.preventDefault()}>
             <Command>
               <CommandList>
-                {filteredCards.length === 0 && query.length > 0 && (
+                {filteredCards.length === 0 && query.length > 0 ? (
                   <CommandEmpty>No encontramos resultados.</CommandEmpty>
-                )}
+                ) : null}
                 <CommandGroup>
                   {filteredCards.map((card) => (
                     <CommandItem
@@ -1033,3 +1038,5 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     </div>
   );
 }
+
+    
