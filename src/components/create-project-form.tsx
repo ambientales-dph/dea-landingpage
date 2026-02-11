@@ -22,12 +22,10 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from '@/components/ui/table';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const initialState: CreateProjectState = {
@@ -40,12 +38,19 @@ interface CreateProjectFormProps {
   setOpen: (open: boolean) => void;
 }
 
+const removeAccents = (str: string): string => {
+    if (!str) return '';
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
   const [state, formAction] = useActionState(createProject, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const [projects, setProjects] = useState<TrelloCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredProjects, setFilteredProjects] = useState<TrelloCard[]>([]);
 
   const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
     const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
@@ -72,6 +77,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
             return codeA.localeCompare(codeB);
           });
         setProjects(projectCards);
+        setFilteredProjects(projectCards);
       } catch (error) {
         toast({
           variant: 'destructive',
@@ -110,6 +116,28 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
       }
     }
   }, [state, toast, setOpen]);
+  
+  useEffect(() => {
+      const normalizedQuery = removeAccents(searchQuery.toLowerCase());
+      const keywords = normalizedQuery.split(' ').filter(kw => kw.trim() !== '');
+
+      if (keywords.length === 0) {
+          setFilteredProjects(projects);
+          return;
+      }
+
+      const filtered = projects.filter(project => {
+          const cardNameLower = removeAccents(project.name.toLowerCase());
+          const cardDescLower = removeAccents(project.desc ? project.desc.toLowerCase() : '');
+
+          const nameMatch = keywords.every(keyword => cardNameLower.includes(keyword));
+          const descMatch = keywords.every(keyword => cardDescLower.includes(keyword));
+          
+          return nameMatch || descMatch;
+      });
+
+      setFilteredProjects(filtered);
+  }, [searchQuery, projects]);
 
   return (
     <div className="flex h-full w-full items-center justify-center bg-muted/40 p-4 font-body">
@@ -125,37 +153,47 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
             <ResizablePanelGroup direction="vertical">
               <ResizablePanel defaultSize={40} minSize={20}>
                 <div className="flex h-full flex-col p-1">
-                  <div className="border rounded-md flex-grow min-h-0">
-                    <ScrollArea className="h-full">
+                  <div className="border rounded-md flex-grow min-h-0 flex flex-col">
+                    <div className="p-2 border-b relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar por código, nombre o descripción..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-8 h-9"
+                      />
+                    </div>
+                    <ScrollArea className="flex-grow">
                       {isLoading ? (
                         <p className="p-4 text-sm text-muted-foreground">Cargando proyectos...</p>
                       ) : (
                         <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[120px] h-auto py-2">Código</TableHead>
-                              <TableHead className="h-auto py-2">Nombre</TableHead>
-                              <TableHead className="text-right w-[100px] h-auto py-2">Acciones</TableHead>
-                            </TableRow>
-                          </TableHeader>
                           <TableBody>
-                            {projects.map((project, index) => {
-                              const { code, nameWithoutCode } = getProjectInfo(project.name);
-                              return (
-                                <TableRow key={project.id} className={cn(index % 2 === 0 ? 'bg-muted/20' : 'bg-[#cceeff]/40')}>
-                                  <TableCell className="font-mono text-xs py-1">{code}</TableCell>
-                                  <TableCell className="text-xs py-1">{nameWithoutCode}</TableCell>
-                                  <TableCell className="p-1 text-right">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TableCell>
+                            {filteredProjects.length > 0 ? (
+                                filteredProjects.map((project, index) => {
+                                const { code, nameWithoutCode } = getProjectInfo(project.name);
+                                return (
+                                    <TableRow key={project.id} className={cn(index % 2 === 0 ? 'bg-muted/20' : 'bg-[#cceeff]/40')}>
+                                    <TableCell className="font-mono text-xs py-1 w-[120px]">{code}</TableCell>
+                                    <TableCell className="text-xs py-1">{nameWithoutCode}</TableCell>
+                                    <TableCell className="p-1 text-right w-[100px]">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
+                                        <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
+                                        <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                    </TableRow>
+                                );
+                                })
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-4">
+                                        No se encontraron proyectos.
+                                    </TableCell>
                                 </TableRow>
-                              );
-                            })}
+                            )}
                           </TableBody>
                         </Table>
                       )}
