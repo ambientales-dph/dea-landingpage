@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Separator } from './ui/separator';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 const initialState: CreateProjectState = {
   message: undefined,
@@ -119,84 +119,86 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[70vh] flex flex-col">
-            <div className="flex-shrink-0">
-              <h3 className="text-lg font-semibold mb-2">Proyectos Existentes</h3>
-              <div className="border rounded-md h-64">
-                <ScrollArea className="h-full">
-                  {isLoading ? (
-                    <p className="p-4 text-sm text-muted-foreground">Cargando proyectos...</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[120px]">Código</TableHead>
-                          <TableHead>Nombre</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {projects.map(project => {
-                          const { code, nameWithoutCode } = getProjectInfo(project.name);
-                          return (
-                            <TableRow key={project.id}>
-                              <TableCell className="font-mono text-xs">{code}</TableCell>
-                              <TableCell className="text-xs">{nameWithoutCode}</TableCell>
+          <div className="h-[70vh]">
+            <ResizablePanelGroup direction="vertical">
+              <ResizablePanel defaultSize={40} minSize={20}>
+                <div className="flex h-full flex-col p-1">
+                  <h3 className="text-lg font-semibold mb-2 flex-shrink-0">Proyectos Existentes</h3>
+                  <div className="border rounded-md flex-grow min-h-0">
+                    <ScrollArea className="h-full">
+                      {isLoading ? (
+                        <p className="p-4 text-sm text-muted-foreground">Cargando proyectos...</p>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[120px]">Código</TableHead>
+                              <TableHead>Nombre</TableHead>
                             </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
-                </ScrollArea>
-              </div>
-            </div>
-
-            <Separator className="my-6" />
-
-            <div className="flex-grow min-h-0">
-              <form ref={formRef} action={formAction} className="flex flex-col h-full">
-                <h3 className="text-lg font-semibold mb-4 flex-shrink-0">Crear Nuevo Proyecto</h3>
-                <ScrollArea className="flex-grow pr-4">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="nombre">Nombre del Proyecto (obligatorio)</Label>
-                      <Input id="nombre" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required />
-                      {state.errors?.nombre && <p className="text-sm font-medium text-destructive">{state.errors.nombre[0]}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="cuenca">Cuenca (obligatorio)</Label>
-                      <Select name="cuenca" required>
-                        <SelectTrigger id="cuenca"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
-                        <SelectContent>
-                          {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      {state.errors?.cuenca && <p className="text-sm font-medium text-destructive">{state.errors.cuenca[0]}</p>}
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="proyectistas">Proyectistas</Label>
-                      <Input id="proyectistas" name="proyectistas" placeholder="Nombres de los proyectistas" />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="personasAsignadas">Personas Asignadas</Label>
-                      <Textarea id="personasAsignadas" name="personasAsignadas" placeholder="Equipo de trabajo nominado" />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="financiamiento">Financiamiento</Label>
-                      <Input id="financiamiento" name="financiamiento" placeholder="Fuente de financiamiento del proyecto" />
-                    </div>
+                          </TableHeader>
+                          <TableBody>
+                            {projects.map(project => {
+                              const { code, nameWithoutCode } = getProjectInfo(project.name);
+                              return (
+                                <TableRow key={project.id}>
+                                  <TableCell className="font-mono text-xs">{code}</TableCell>
+                                  <TableCell className="text-xs">{nameWithoutCode}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </ScrollArea>
                   </div>
-                </ScrollArea>
-                <div className="flex justify-end gap-2 pt-4 flex-shrink-0">
-                  <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Volver</Button>
-                  <Button type="submit">Crear Proyecto</Button>
                 </div>
-              </form>
-            </div>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={60} minSize={30}>
+                <form ref={formRef} action={formAction} className="flex flex-col h-full p-1">
+                  <h3 className="text-lg font-semibold mb-4 flex-shrink-0">Crear Nuevo Proyecto</h3>
+                  <ScrollArea className="flex-grow pr-4 min-h-0">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="nombre">Nombre del Proyecto (obligatorio)</Label>
+                        <Input id="nombre" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required />
+                        {state.errors?.nombre && <p className="text-sm font-medium text-destructive">{state.errors.nombre[0]}</p>}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="cuenca">Cuenca (obligatorio)</Label>
+                        <Select name="cuenca" required>
+                          <SelectTrigger id="cuenca"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
+                          <SelectContent>
+                            {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        {state.errors?.cuenca && <p className="text-sm font-medium text-destructive">{state.errors.cuenca[0]}</p>}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="proyectistas">Proyectistas</Label>
+                        <Input id="proyectistas" name="proyectistas" placeholder="Nombres de los proyectistas" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="personasAsignadas">Personas Asignadas</Label>
+                        <Textarea id="personasAsignadas" name="personasAsignadas" placeholder="Equipo de trabajo nominado" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="financiamiento">Financiamiento</Label>
+                        <Input id="financiamiento" name="financiamiento" placeholder="Fuente de financiamiento del proyecto" />
+                      </div>
+                    </div>
+                  </ScrollArea>
+                  <div className="flex justify-end gap-2 pt-4 flex-shrink-0">
+                    <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Volver</Button>
+                    <Button type="submit">Crear Proyecto</Button>
+                  </div>
+                </form>
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </div>
         </CardContent>
       </Card>
