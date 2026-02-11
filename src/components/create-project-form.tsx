@@ -27,6 +27,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { Pencil, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const initialState: CreateProjectState = {
   message: undefined,
@@ -123,7 +125,6 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
             <ResizablePanelGroup direction="vertical">
               <ResizablePanel defaultSize={40} minSize={20}>
                 <div className="flex h-full flex-col p-1">
-                  <h3 className="text-lg font-semibold mb-2 flex-shrink-0">Proyectos Existentes</h3>
                   <div className="border rounded-md flex-grow min-h-0">
                     <ScrollArea className="h-full">
                       {isLoading ? (
@@ -134,15 +135,24 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                             <TableRow>
                               <TableHead className="w-[120px]">Código</TableHead>
                               <TableHead>Nombre</TableHead>
+                              <TableHead className="text-right w-[100px]">Acciones</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {projects.map(project => {
+                            {projects.map((project, index) => {
                               const { code, nameWithoutCode } = getProjectInfo(project.name);
                               return (
-                                <TableRow key={project.id}>
+                                <TableRow key={project.id} className={cn(index % 2 === 0 ? 'bg-muted/20' : 'bg-[#cceeff]/40')}>
                                   <TableCell className="font-mono text-xs">{code}</TableCell>
                                   <TableCell className="text-xs">{nameWithoutCode}</TableCell>
+                                  <TableCell className="p-1 text-right">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
                                 </TableRow>
                               );
                             })}
