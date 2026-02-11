@@ -25,7 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { Pencil, Trash2, Search } from 'lucide-react';
+import { Pencil, Trash2, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const initialState: CreateProjectState = {
@@ -160,8 +160,18 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                         placeholder="Buscar por código, nombre o descripción..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-8 h-9"
+                        className="pl-8 h-9 pr-8"
                       />
+                      {searchQuery && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                     <ScrollArea className="flex-grow">
                       {isLoading ? (
