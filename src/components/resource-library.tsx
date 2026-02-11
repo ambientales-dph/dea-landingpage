@@ -4,11 +4,13 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { RECURSOS } from '@/lib/recursos';
 import { Link2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 
 interface ResourceLibraryProps {
   isOpen: boolean;
@@ -30,12 +32,16 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0">
+          <DialogTitle className="sr-only">Biblioteca de Recursos</DialogTitle>
+          <DialogDescription className="sr-only">
+            Una colección de enlaces útiles y recursos externos, ordenados alfabéticamente.
+          </DialogDescription>
           <Card className="w-full h-full flex flex-col border-0 rounded-lg">
               <CardHeader>
-                  <CardTitle>Biblioteca de Recursos</CardTitle>
-                  <CardDescription>
+                  <CardTitleComponent>Biblioteca de Recursos</CardTitleComponent>
+                  <CardDescriptionComponent>
                       Una colección de enlaces útiles y recursos externos, ordenados alfabéticamente.
-                  </CardDescription>
+                  </CardDescriptionComponent>
               </CardHeader>
               <CardContent className="flex-grow min-h-0">
                   <ScrollArea className="h-full pr-4">
@@ -67,3 +73,5 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
     </Dialog>
   );
 }
+
+    

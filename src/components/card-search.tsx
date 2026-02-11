@@ -697,12 +697,15 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     className="p-6 rounded-t-lg relative"
                 >
                     {isEditing ? (
-                        <Input
-                            value={editedName}
-                            onChange={(e) => setEditedName(e.target.value)}
-                            className="text-base font-semibold bg-transparent text-inherit border-white/30 placeholder-white/70 focus:bg-black/10 h-auto p-1 mr-28"
-                            disabled={isSaving}
-                        />
+                        <>
+                            <DialogTitle className="sr-only">{editedName}</DialogTitle>
+                            <Input
+                                value={editedName}
+                                onChange={(e) => setEditedName(e.target.value)}
+                                className="text-base font-semibold bg-transparent text-inherit border-white/30 placeholder-white/70 focus:bg-black/10 h-auto p-1 mr-28"
+                                disabled={isSaving}
+                            />
+                        </>
                     ) : (
                       <DialogTitle className="text-sm font-semibold mr-36 flex items-center gap-2">
                         <span>{selectedCard.name}</span>
@@ -1038,5 +1041,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     </div>
   );
 }
+
+    
 
     
