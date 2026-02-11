@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,9 +15,18 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter
 } from '@/components/ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import { getAllCardsFromAllBoards, TrelloCard } from '@/services/trello';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Separator } from './ui/separator';
 
 const initialState: CreateProjectState = {
   message: undefined,
@@ -34,6 +42,46 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
   const [state, formAction] = useActionState(createProject, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  const [projects, setProjects] = useState<TrelloCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
+    const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
+    const match = name.match(projectRegex);
+    if (match && match[1]) {
+      return {
+        code: match[1],
+        nameWithoutCode: name.replace(projectRegex, '').trim()
+      };
+    }
+    return { code: null, nameWithoutCode: name };
+  };
+
+  useEffect(() => {
+    async function fetchProjects() {
+      setIsLoading(true);
+      try {
+        const allCards = await getAllCardsFromAllBoards();
+        const projectCards = allCards
+          .filter(card => getProjectInfo(card.name).code)
+          .sort((a, b) => {
+            const codeA = getProjectInfo(a.name).code || '';
+            const codeB = getProjectInfo(b.name).code || '';
+            return codeA.localeCompare(codeB);
+          });
+        setProjects(projectCards);
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Error al cargar proyectos',
+          description: 'No se pudo obtener la lista de proyectos existentes.',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchProjects();
+  }, [toast]);
 
   useEffect(() => {
     if (state.message) {
@@ -63,57 +111,95 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
 
   return (
     <div className="flex h-full w-full items-center justify-center bg-muted/40 p-4 font-body">
-        <form ref={formRef} action={formAction}>
-            <Card className="w-full max-w-2xl">
-                <CardHeader>
-                <CardTitle>Crear Nuevo Proyecto</CardTitle>
-                <CardDescription>
-                    Completá los datos para crear una nueva tarjeta de proyecto en Trello.
-                </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ScrollArea className="h-[60vh] pr-6">
-                        <div className="space-y-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="nombre">Nombre del Proyecto (obligatorio)</Label>
-                                <Input id="nombre" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required />
-                                {state.errors?.nombre && <p className="text-sm font-medium text-destructive">{state.errors.nombre[0]}</p>}
-                            </div>
+      <Card className="w-full max-w-4xl">
+        <CardHeader>
+          <CardTitle>Gestión de Proyectos</CardTitle>
+          <CardDescription>
+            Creá un nuevo proyecto o consultá la lista de proyectos existentes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[70vh] flex flex-col">
+            <div className="flex-shrink-0">
+              <h3 className="text-lg font-semibold mb-2">Proyectos Existentes</h3>
+              <div className="border rounded-md h-64">
+                <ScrollArea className="h-full">
+                  {isLoading ? (
+                    <p className="p-4 text-sm text-muted-foreground">Cargando proyectos...</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[120px]">Código</TableHead>
+                          <TableHead>Nombre</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {projects.map(project => {
+                          const { code, nameWithoutCode } = getProjectInfo(project.name);
+                          return (
+                            <TableRow key={project.id}>
+                              <TableCell className="font-mono text-xs">{code}</TableCell>
+                              <TableCell className="text-xs">{nameWithoutCode}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </ScrollArea>
+              </div>
+            </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="cuenca">Cuenca (obligatorio)</Label>
-                                <Select name="cuenca" required>
-                                    <SelectTrigger id="cuenca"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
-                                    <SelectContent>
-                                        {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                {state.errors?.cuenca && <p className="text-sm font-medium text-destructive">{state.errors.cuenca[0]}</p>}
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <Label htmlFor="proyectistas">Proyectistas</Label>
-                                <Input id="proyectistas" name="proyectistas" placeholder="Nombres de los proyectistas" />
-                            </div>
+            <Separator className="my-6" />
 
-                            <div className="space-y-2">
-                                <Label htmlFor="personasAsignadas">Personas Asignadas</Label>
-                                <Textarea id="personasAsignadas" name="personasAsignadas" placeholder="Equipo de trabajo nominado" />
-                            </div>
+            <div className="flex-grow min-h-0">
+              <form ref={formRef} action={formAction} className="flex flex-col h-full">
+                <h3 className="text-lg font-semibold mb-4 flex-shrink-0">Crear Nuevo Proyecto</h3>
+                <ScrollArea className="flex-grow pr-4">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="nombre">Nombre del Proyecto (obligatorio)</Label>
+                      <Input id="nombre" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required />
+                      {state.errors?.nombre && <p className="text-sm font-medium text-destructive">{state.errors.nombre[0]}</p>}
+                    </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="financiamiento">Financiamiento</Label>
-                                <Input id="financiamiento" name="financiamiento" placeholder="Fuente de financiamiento del proyecto" />
-                            </div>
-                        </div>
-                    </ScrollArea>
-                </CardContent>
-                <CardFooter className="flex justify-end gap-2">
-                    <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Volver</Button>
-                    <Button type="submit">Crear Proyecto</Button>
-                </CardFooter>
-            </Card>
-        </form>
+                    <div className="space-y-2">
+                      <Label htmlFor="cuenca">Cuenca (obligatorio)</Label>
+                      <Select name="cuenca" required>
+                        <SelectTrigger id="cuenca"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
+                        <SelectContent>
+                          {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      {state.errors?.cuenca && <p className="text-sm font-medium text-destructive">{state.errors.cuenca[0]}</p>}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="proyectistas">Proyectistas</Label>
+                      <Input id="proyectistas" name="proyectistas" placeholder="Nombres de los proyectistas" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="personasAsignadas">Personas Asignadas</Label>
+                      <Textarea id="personasAsignadas" name="personasAsignadas" placeholder="Equipo de trabajo nominado" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="financiamiento">Financiamiento</Label>
+                      <Input id="financiamiento" name="financiamiento" placeholder="Fuente de financiamiento del proyecto" />
+                    </div>
+                  </div>
+                </ScrollArea>
+                <div className="flex justify-end gap-2 pt-4 flex-shrink-0">
+                  <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Volver</Button>
+                  <Button type="submit">Crear Proyecto</Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
