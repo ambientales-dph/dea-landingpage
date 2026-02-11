@@ -133,9 +133,9 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[120px]">Código</TableHead>
-                              <TableHead>Nombre</TableHead>
-                              <TableHead className="text-right w-[100px]">Acciones</TableHead>
+                              <TableHead className="w-[120px] h-auto py-2">Código</TableHead>
+                              <TableHead className="h-auto py-2">Nombre</TableHead>
+                              <TableHead className="text-right w-[100px] h-auto py-2">Acciones</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -143,8 +143,8 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                               const { code, nameWithoutCode } = getProjectInfo(project.name);
                               return (
                                 <TableRow key={project.id} className={cn(index % 2 === 0 ? 'bg-muted/20' : 'bg-[#cceeff]/40')}>
-                                  <TableCell className="font-mono text-xs">{code}</TableCell>
-                                  <TableCell className="text-xs">{nameWithoutCode}</TableCell>
+                                  <TableCell className="font-mono text-xs py-1">{code}</TableCell>
+                                  <TableCell className="text-xs py-1">{nameWithoutCode}</TableCell>
                                   <TableCell className="p-1 text-right">
                                     <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
                                       <Pencil className="h-4 w-4" />
