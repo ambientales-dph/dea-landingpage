@@ -16,6 +16,7 @@ import {
   Settings,
   Download,
   AlertTriangle,
+  Library,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -427,13 +428,11 @@ export default function Home() {
         <main className="flex-1 flex flex-col p-4 md:p-16">
           <div className="w-full md:w-4/5 mx-auto flex flex-col gap-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg">
-                <h2 className="text-xl font-bold mb-4 text-primary">Búsqueda avanzada de proyectos</h2>
-                <p className="text-sm mb-2">Con este buscador podés encontrar proyectos por su nombre o descripción.</p>
-                <p className="text-sm mb-2">Ingresá palabras clave para encontrar la tarjeta de Trello que buscás.</p>
-                <p className="text-sm mb-2">Si el proyecto tiene una ubicación, la vas a ver en el mapa.</p>
+              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg">
+                <h2 className="text-xl font-bold mb-2 text-primary">Búsqueda avanzada de proyectos</h2>
+                <p className="text-sm">Encontrá proyectos por nombre o descripción. Si tiene una ubicación asignada, la verás en el mapa.</p>
               </div>
-              <div className="bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-end shadow-lg">
+              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-end shadow-lg">
                 <CardSearch
                   onCardSelect={handleCardSelect}
                   selectedCard={selectedCard}
@@ -500,6 +499,17 @@ export default function Home() {
               <Button
                 variant="outline"
                 className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
+                disabled
+              >
+                <Library className="h-8 w-8 text-primary" />
+                <div className="flex items-center gap-2">
+                  <span>Biblioteca de Recursos</span>
+                  <Construction className="h-5 w-5" />
+                </div>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80 md:col-span-2"
                 disabled
               >
                 <Waypoints className="h-8 w-8 text-primary" />
