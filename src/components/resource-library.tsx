@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -11,6 +10,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { RECURSOS } from '@/lib/recursos';
 import { Link2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
+import { cn } from '@/lib/utils';
 
 interface ResourceLibraryProps {
   isOpen: boolean;
@@ -18,16 +18,9 @@ interface ResourceLibraryProps {
 }
 
 export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibraryProps) {
-  const groupedResources = RECURSOS.reduce((acc, resource) => {
-    const { category } = resource;
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(resource);
-    return acc;
-  }, {} as Record<string, typeof RECURSOS>);
-
-  const sortedCategories = Object.keys(groupedResources).sort();
+  const sortedResources = [...RECURSOS].sort((a, b) =>
+    a.title.localeCompare(b.title)
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -45,25 +38,21 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
               </CardHeader>
               <CardContent className="flex-grow min-h-0">
                   <ScrollArea className="h-full pr-4">
-                      <div className="space-y-6">
-                          {sortedCategories.map(category => (
-                              <div key={category}>
-                                  <h3 className="text-lg font-semibold text-primary mb-3 sticky top-0 bg-card/95 backdrop-blur-sm py-1">{category}</h3>
-                                  <div className="flex flex-col gap-1">
-                                      {groupedResources[category].map((resource) => (
-                                          <a
-                                            key={resource.url}
-                                            href={resource.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-start gap-3 p-2 rounded-md hover:bg-muted"
-                                          >
-                                            <Link2 className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
-                                            <span className="text-sm text-foreground">{resource.title}</span>
-                                          </a>
-                                      ))}
-                                  </div>
-                              </div>
+                      <div className="flex flex-col">
+                          {sortedResources.map((resource, index) => (
+                              <a
+                                key={resource.url}
+                                href={resource.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={cn(
+                                  "flex items-center gap-3 py-1.5 px-2 rounded-md hover:bg-muted/50",
+                                  index % 2 === 0 ? 'bg-muted/20' : 'bg-[#cceeff]/40'
+                                )}
+                              >
+                                <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                <span className="text-sm text-foreground">{resource.title}</span>
+                              </a>
                           ))}
                       </div>
                   </ScrollArea>
@@ -73,5 +62,3 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
     </Dialog>
   );
 }
-
-    
