@@ -41,6 +41,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import CreateProjectForm from '@/components/create-project-form';
+import ResourceLibrary from '@/components/resource-library';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -61,6 +62,7 @@ export default function Home() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   
   const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
     const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
@@ -429,7 +431,7 @@ export default function Home() {
           <div className="w-full md:w-4/5 mx-auto flex flex-col gap-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="h-32 bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg">
-                <h2 className="text-xl font-bold mb-2 text-primary">Búsqueda avanzada de proyectos</h2>
+                <h2 className="text-xl font-bold mb-2 text-primary">Búsqueda de proyectos</h2>
                 <p className="text-sm">Encontrá proyectos por nombre o descripción. Si tiene una ubicación asignada, la verás en el mapa.</p>
               </div>
               <div className="h-32 bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-end shadow-lg">
@@ -499,12 +501,11 @@ export default function Home() {
               <Button
                 variant="outline"
                 className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary dark:bg-neutral-800/60 dark:hover:bg-neutral-800/80"
-                disabled
+                onClick={() => setIsLibraryOpen(true)}
               >
                 <Library className="h-8 w-8 text-primary" />
                 <div className="flex items-center gap-2">
                   <span>Biblioteca de Recursos</span>
-                  <Construction className="h-5 w-5" />
                 </div>
               </Button>
               <Button
@@ -589,6 +590,7 @@ export default function Home() {
             </ScrollArea>
           </SheetContent>
         </Sheet>
+        <ResourceLibrary isOpen={isLibraryOpen} onOpenChange={setIsLibraryOpen} />
       </div>
     </div>
   );
