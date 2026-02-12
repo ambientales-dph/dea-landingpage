@@ -197,7 +197,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                         filteredProjects.map((project, index) => {
                         const { code, nameWithoutCode } = getProjectInfo(project.name);
                         return (
-                            <TableRow key={project.id} className={cn(index % 2 === 0 ? 'bg-muted/20' : 'bg-[#cceeff]/40', 'hover:bg-white')}>
+                            <TableRow key={project.id} className={cn(index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20', 'hover:bg-white')}>
                             <TableCell className="font-mono text-xs py-1 w-[120px]">{code}</TableCell>
                             <TableCell className="text-xs py-1">{nameWithoutCode}</TableCell>
                             <TableCell className="p-1 text-right w-[100px]">

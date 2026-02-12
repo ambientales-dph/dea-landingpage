@@ -87,7 +87,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                   rel="noopener noreferrer"
                                   className={cn(
                                     "flex items-center gap-3 py-1.5 px-2 rounded-md hover:bg-white",
-                                    index % 2 === 0 ? 'bg-muted/20' : 'bg-[#cceeff]/40'
+                                    index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20'
                                   )}
                                 >
                                   <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
