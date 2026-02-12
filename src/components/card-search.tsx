@@ -651,7 +651,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
               onFocus={handleFocus}
               onChange={(e) => handleInputChange(e.target.value)}
               placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o por código de proyecto...'}
-              className="w-full min-h-24 bg-primary-foreground text-foreground pr-10 text-xs"
+              className="w-full min-h-20 bg-primary-foreground text-foreground pr-10 text-xs"
               autoComplete="off"
             />
           </PopoverTrigger>
@@ -1041,6 +1041,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     </div>
   );
 }
+
+    
 
     
 
