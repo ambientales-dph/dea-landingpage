@@ -111,6 +111,81 @@ export interface TrelloAction {
   };
 }
 
+export interface TrelloBoardAction {
+  id: string;
+  data: {
+    text?: string;
+    card: { id: string; name: string; idShort: number; };
+    board: { id: string; name: string; };
+    list?: { id: string; name: string; };
+    listBefore?: { name: string };
+    listAfter?: { name: string };
+    old?: {
+        name?: string;
+        desc?: string;
+        idList?: string;
+    }
+  };
+  type: string;
+  date: string;
+  memberCreator: {
+    id:string;
+    avatarUrl: string | null;
+    fullName: string;
+    username: string;
+  };
+}
+
+export async function getAllRecentActions(hours: number = 48): Promise<TrelloBoardAction[]> {
+    try {
+        const boards = await getTrelloBoards();
+        if (!boards || boards.length === 0) {
+            return [];
+        }
+        const sinceDate = new Date();
+        sinceDate.setHours(sinceDate.getHours() - hours);
+        const sinceIso = sinceDate.toISOString();
+
+        const significantActionTypes = [
+            'commentCard',
+            'updateCard',
+            'addAttachmentToCard',
+            'createCard',
+            'moveCardToBoard',
+        ].join(',');
+
+        const allActionsPromises = boards.map(async (board) => {
+            try {
+                const actions = await trelloFetch(
+                    `/boards/${board.id}/actions?filter=${significantActionTypes}&limit=100&since=${sinceIso}&member_creator=true`
+                ) as TrelloBoardAction[];
+                // Filter out actions without a card or member associated
+                return actions.filter(a => a.data.card && a.memberCreator);
+            } catch (e) {
+                console.error(`Failed to get actions for board ${board.id}:`, e);
+                return []; // Return empty array for this board if it fails
+            }
+        });
+        
+        const actionsPerBoard = await Promise.all(allActionsPromises);
+        const allActions = actionsPerBoard.flat();
+
+        // Sort by date, most recent first
+        allActions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        return allActions;
+
+    } catch (error) {
+        if (error instanceof Error) {
+            console.error('Failed to get all recent actions:', error.message);
+            // Don't throw, just return empty array so the UI doesn't break
+            return [];
+        }
+        return [];
+    }
+}
+
+
 export async function getCardById(cardId: string): Promise<TrelloCard> {
     try {
         const cardData = await trelloFetch(`/cards/${cardId}?fields=name,url,desc,cover,labels,idBoard,idList&attachments=true`) as any;
@@ -338,3 +413,5 @@ export async function createTrelloCard(cardInfo: NewCardInfo): Promise<TrelloCar
     throw new Error('Hubo un error desconocido al crear la tarjeta.');
   }
 }
+
+    

@@ -47,6 +47,7 @@ import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { getAllCardsFromAllBoards } from '@/services/trello';
 import jsPDF from 'jspdf';
+import NotificationsBell from '@/components/notifications-bell';
 
 
 const INITIAL_VIEW_STATE = {
@@ -74,6 +75,11 @@ export default function Home() {
         };
     }
     return { code: null, nameWithoutCode: name };
+  };
+
+  const handleNotificationClick = (card: TrelloCard) => {
+    handleCardSelect(card);
+    setIsSummaryOpen(true);
   };
 
   const handleDownloadDuplicatesPdf = async () => {
@@ -401,6 +407,7 @@ export default function Home() {
               Departamento de Estudios Ambientales
             </h1>
             <div className='flex items-center gap-2'>
+              <NotificationsBell onNotificationClick={handleNotificationClick} />
               <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/80">
@@ -598,3 +605,6 @@ export default function Home() {
 
     
 
+
+
+    
