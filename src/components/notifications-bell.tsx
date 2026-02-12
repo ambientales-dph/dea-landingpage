@@ -33,7 +33,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
     useEffect(() => {
         const fetchNotifications = async () => {
             setIsLoading(true);
-            const actions = await getAllRecentActions(48); // Last 48 hours
+            const actions = await getAllRecentActions(8); // Last 8 hours
             setNotifications(actions);
             setIsLoading(false);
         };
@@ -94,7 +94,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                     )}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 md:w-96">
+            <DropdownMenuContent align="end" className="w-80 md:w-96 max-h-[60vh] overflow-y-auto">
                 <DropdownMenuLabel>Notificaciones recientes</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {isLoading ? (

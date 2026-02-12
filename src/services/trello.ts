@@ -136,7 +136,7 @@ export interface TrelloBoardAction {
   };
 }
 
-export async function getAllRecentActions(hours: number = 48): Promise<TrelloBoardAction[]> {
+export async function getAllRecentActions(hours: number = 8): Promise<TrelloBoardAction[]> {
     try {
         const boards = await getTrelloBoards();
         if (!boards || boards.length === 0) {
