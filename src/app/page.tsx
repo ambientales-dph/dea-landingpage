@@ -489,6 +489,12 @@ export default function Home() {
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-0">
+                  <DialogHeader className="sr-only">
+                    <DialogTitle>Gestión de Proyectos</DialogTitle>
+                    <DialogDescription>
+                      Consultá la lista de proyectos o creá uno nuevo.
+                    </DialogDescription>
+                  </DialogHeader>
                   <CreateProjectForm setOpen={setCreateProjectOpen} />
                 </DialogContent>
               </Dialog>
@@ -591,3 +597,4 @@ export default function Home() {
 }
 
     
+
