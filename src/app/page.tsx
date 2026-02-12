@@ -488,13 +488,7 @@ export default function Home() {
                       <span>Gestión de proyectos</span>
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="h-screen w-screen max-w-full rounded-none border-0 p-0">
-                  <DialogHeader className="sr-only">
-                    <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
-                    <DialogDescription>
-                      Complete el formulario para crear una nueva tarjeta de proyecto en Trello.
-                    </DialogDescription>
-                  </DialogHeader>
+                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-0">
                   <CreateProjectForm setOpen={setCreateProjectOpen} />
                 </DialogContent>
               </Dialog>
