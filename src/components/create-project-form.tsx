@@ -152,7 +152,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
   return (
     <Dialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen}>
       <Card className="w-full h-full flex flex-col rounded-lg border-0 shadow-none">
-        <CardHeader>
+        <CardHeader className="pr-12">
           <div className="flex justify-between items-start">
               <div>
                   <CardTitle>Gestión de Proyectos</CardTitle>
