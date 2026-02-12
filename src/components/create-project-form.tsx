@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useActionState, useEffect, useRef, useState, useCallback } from 'react';
@@ -162,9 +161,8 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                   </CardDescription>
               </div>
               <DialogTrigger asChild>
-                  <Button variant="outline">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Nuevo Proyecto
+                  <Button size="icon">
+                      <Plus />
                   </Button>
               </DialogTrigger>
           </div>
