@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { CUENCAS, DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
-import { createTrelloCard, getListsOnBoard, getNextProjectCode } from '@/services/trello';
+import { createTrelloCard, getListsOnBoard, getNextProjectCode, updateTrelloCard } from '@/services/trello';
 
 const PROYECTOS_BOARD_ID = 'CgG4b3B0';
 
@@ -66,14 +66,20 @@ export async function createProject(
 
     // 3. Create the card in Trello
     const cardName = `${nombre} (${projectCode})`;
+    
+    // 3.1 Create the card
     const card = await createTrelloCard({
       name: cardName,
       idList: targetList.id,
       desc: DESCRIPCION_PLANTILLA,
-      cover: {
-        color: 'red',
-      },
     });
+
+    // 3.2 Update the newly created card to set the cover color
+    await updateTrelloCard({
+      cardId: card.id,
+      cover: { color: 'red' },
+    });
+
 
     return {
       message: `¡Proyecto "${cardName}" creado con éxito!`,

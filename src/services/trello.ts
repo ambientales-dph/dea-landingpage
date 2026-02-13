@@ -394,9 +394,6 @@ export interface NewCardInfo {
     name: string;
     idList: string;
     desc: string;
-    cover?: {
-        color: string;
-    };
 }
 export async function createTrelloCard(cardInfo: NewCardInfo): Promise<TrelloCard> {
   try {
