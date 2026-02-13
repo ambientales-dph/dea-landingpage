@@ -17,6 +17,7 @@ import {
   Download,
   AlertTriangle,
   Library,
+  Bell,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -540,39 +541,52 @@ export default function Home() {
         </footer>
 
         <Sheet open={isHelpPanelOpen} onOpenChange={setIsHelpPanelOpen}>
-          <SheetContent className="bg-neutral-700/95 text-primary-foreground border-l-primary/20">
+          <SheetContent className="bg-neutral-700/95 text-primary-foreground border-l-primary/20 sm:max-w-md">
             <SheetHeader>
-              <SheetTitle className="text-primary">Ayuda</SheetTitle>
+              <SheetTitle className="text-primary">Centro de Ayuda</SheetTitle>
               <SheetDescription className="text-primary-foreground/80">
-                Acá te contamos para qué sirve cada control.
+                Acá te contamos para qué sirve cada función de la aplicación.
               </SheetDescription>
             </SheetHeader>
-            <ScrollArea className="h-[calc(100%-4rem)] w-full mt-4">
+            <ScrollArea className="h-[calc(100%-4rem)] w-full mt-4 pr-4">
               <div className="space-y-6 p-1">
                 <div>
                   <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
-                    <Search className="h-5 w-5" /> Búsqueda avanzada
+                    <Bell className="h-5 w-5" /> Notificaciones
                   </h3>
                   <p className="text-sm mt-1">
-                    Te permite buscar proyectos por nombre o por lo que dicen en su descripción. Cuando elegís una tarjeta, el mapa te va a mostrar dónde está el proyecto, siempre y cuando la ubicación esté en la descripción de la tarjeta con el formato <strong># Ubicación</strong>.
+                    La campana te avisa sobre la actividad reciente en Trello (últimas 8 horas). Un círculo rojo indica notificaciones nuevas. Al hacer clic, verás una lista de acciones (comentarios, tarjetas movidas, etc.). Si seleccionás una notificación, se abrirá la ventana de detalles de esa tarjeta.
                   </p>
                 </div>
                 <Separator className="bg-primary/20" />
                 <div>
                   <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
-                    <FolderKanban className="h-5 w-5" /> Gestión de proyectos
+                    <Settings className="h-5 w-5" /> Herramientas
                   </h3>
                   <p className="text-sm mt-1">
-                    Abre en una pestaña nueva el panel para gestionar todos los proyectos del departamento.
+                    Este menú contiene herramientas administrativas:
+                  </p>
+                  <ul className="list-disc pl-5 mt-2 space-y-1 text-sm">
+                    <li><strong>Descargar listado de proyectos:</strong> Genera un PDF con todos los proyectos, ordenados y agrupados por tablero.</li>
+                    <li><strong>Detectar duplicados:</strong> Crea un informe en PDF que resalta los proyectos que tienen códigos duplicados en Trello.</li>
+                  </ul>
+                </div>
+                <Separator className="bg-primary/20" />
+                <div>
+                  <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
+                    <Search className="h-5 w-5" /> Búsqueda de proyectos
+                  </h3>
+                  <p className="text-sm mt-1">
+                    Buscá proyectos por nombre, código o palabras clave en su descripción. Al seleccionar un proyecto, el mapa se centrará en su ubicación (si está definida con <strong># Ubicación</strong> en la tarjeta de Trello).
                   </p>
                 </div>
                 <Separator className="bg-primary/20" />
                 <div>
                   <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
-                    <LayoutGrid className="h-5 w-5" /> Tablero / Tarjeta
+                    <LayoutGrid className="h-5 w-5" /> Tarjeta / Tablero
                   </h3>
                   <p className="text-sm mt-1">
-                    Si no seleccionaste ninguna tarjeta, el botón "Tablero" te abre el tablero principal de proyectos en Trello. Si ya elegiste una, el botón "Tarjeta" te abre un resumen detallado.
+                    Este botón cambia según el contexto. Si no hay ningún proyecto seleccionado, te llevará al tablero principal de "Proyectos" en Trello. Si seleccionaste un proyecto, abrirá una ventana con todos sus detalles (descripción, adjuntos, comentarios), donde además podrás editar su contenido.
                   </p>
                 </div>
                 <Separator className="bg-primary/20" />
@@ -581,7 +595,25 @@ export default function Home() {
                     <Clock className="h-5 w-5" /> Línea de tiempo
                   </h3>
                   <p className="text-sm mt-1">
-                    Abre en otra pestaña la línea de tiempo de los proyectos, para que los veas en orden cronológico.
+                    Abre la aplicación de línea de tiempo en una nueva pestaña. Si tenés un proyecto seleccionado, la línea de tiempo se abrirá centrada en ese proyecto.
+                  </p>
+                </div>
+                <Separator className="bg-primary/20" />
+                <div>
+                  <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
+                    <FolderKanban className="h-5 w-5" /> Gestión de proyectos
+                  </h3>
+                  <p className="text-sm mt-1">
+                    Abre una ventana para administrar todos los proyectos. Te muestra una lista completa que podés filtrar, y te permite crear nuevos proyectos con el botón <strong>+</strong>.
+                  </p>
+                </div>
+                <Separator className="bg-primary/20" />
+                <div>
+                  <h3 className="font-semibold text-lg text-primary flex items-center gap-2">
+                    <Library className="h-5 w-5" /> Biblioteca de Recursos
+                  </h3>
+                  <p className="text-sm mt-1">
+                    Abre una ventana con una colección de enlaces y recursos externos útiles para el departamento, con una función de búsqueda para encontrar lo que necesites rápidamente.
                   </p>
                 </div>
                 <Separator className="bg-primary/20" />
@@ -590,7 +622,7 @@ export default function Home() {
                     <Waypoints className="h-5 w-5" /> CartoDEA
                   </h3>
                   <p className="text-sm mt-1">
-                    Abre en una pestaña nueva la aplicación de mapas del departamento (CartoDEA), para que chusmees información geoespacial importante.
+                    (En desarrollo) Abrirá la aplicación de información geoespacial del departamento.
                   </p>
                 </div>
               </div>
@@ -606,5 +638,7 @@ export default function Home() {
     
 
 
+
+    
 
     
