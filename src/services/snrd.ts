@@ -10,7 +10,7 @@ export interface SNRDArticle {
 
 export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
   // This is the correct API endpoint, derived from the Swagger documentation the user provided.
-  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(query)}&type=AllFields&field[]=id&field[]=title&field[]=authors&field[]=publicationDates&limit=10`;
+  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(query)}&type=AllFields&field[]=id&field[]=title&field[]=authors&field[]=publicationDates&limit=100`;
 
   try {
     const response = await fetch(url, {
@@ -36,6 +36,8 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
 
     return records.map((record: any): SNRDArticle => {
       const handle = record.id;
+      if (!handle) return null; // Skip records without an ID/handle
+
       const resourceUrl = `https://repositoriosdigitales.mincyt.gob.ar/vufind/Record/${handle}`;
       
       let authors: string[] = [];
@@ -57,9 +59,9 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
         url: resourceUrl,
         authors: authors,
         publication: record.publicationDates?.[0] || 'Publicación desconocida',
-        handle: handle || '',
+        handle: handle,
       };
-    });
+    }).filter((article): article is SNRDArticle => article !== null);
 
   } catch (error) {
     console.error('Failed to fetch from SNRD API:', error);

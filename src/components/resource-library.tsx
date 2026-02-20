@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { RECURSOS } from '@/lib/recursos';
-import { Link2, Search, X, Globe, Database, BookText } from 'lucide-react';
+import { Link2, Search, X, Globe, Database, BookText, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
@@ -19,6 +19,8 @@ import { searchSNRD, type SNRDArticle } from '@/services/snrd';
 import { searchScielo, type ScieloArticle } from '@/services/scielo';
 import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { Badge } from './ui/badge';
 
 interface ResourceLibraryProps {
   isOpen: boolean;
@@ -29,6 +31,19 @@ const removeAccents = (str: string): string => {
   if (!str) return '';
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
+
+const SkeletonLoader = () => (
+    <div className="flex flex-col gap-2 px-2 mt-2">
+        {[...Array(2)].map((_, i) => (
+            <div key={i} className="flex flex-col gap-1.5 p-2 rounded-md bg-muted/20">
+                <Skeleton className="h-4 w-4/5" />
+                <Skeleton className="h-3 w-3/5" />
+                <Skeleton className="h-3 w-2/5" />
+            </div>
+        ))}
+    </div>
+);
+
 
 export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,167 +161,108 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                         </p>
                       )}
 
-                      {(isSearchingExternal || elsevierResults.length > 0 || snrdResults.length > 0 || scieloResults.length > 0 || searchQuery.length >= 3) && (
+                      {searchQuery.length >= 3 && (
+                        <>
                           <Separator className="my-4" />
-                      )}
-
-                      {isSearchingExternal && (
                           <div className="space-y-4">
-                              <div>
-                                  <div className="px-2 mb-3">
-                                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                          <Database className="h-4 w-4" />
-                                          Resultados de Repositorios Nacionales (SNRD)
-                                      </h3>
-                                  </div>
-                                  <div className="flex flex-col gap-2 px-2">
-                                      {[...Array(2)].map((_, i) => (
-                                          <div key={i} className="flex flex-col gap-1.5 p-2 rounded-md bg-muted/20">
-                                              <Skeleton className="h-4 w-4/5" />
-                                              <Skeleton className="h-3 w-3/5" />
-                                              <Skeleton className="h-3 w-2/5" />
-                                          </div>
-                                      ))}
-                                  </div>
-                              </div>
-                              <div>
-                                  <div className="px-2 mb-3">
-                                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                          <BookText className="h-4 w-4" />
-                                          Resultados de SciELO Argentina
-                                      </h3>
-                                  </div>
-                                  <div className="flex flex-col gap-2 px-2">
-                                      {[...Array(2)].map((_, i) => (
-                                          <div key={i} className="flex flex-col gap-1.5 p-2 rounded-md bg-muted/20">
-                                              <Skeleton className="h-4 w-4/5" />
-                                              <Skeleton className="h-3 w-3/5" />
-                                              <Skeleton className="h-3 w-2/5" />
-                                          </div>
-                                      ))}
-                                  </div>
-                              </div>
-                              <div>
-                                  <div className="px-2 mb-3">
-                                      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                          <Globe className="h-4 w-4" />
-                                          Resultados de Búsqueda en Elsevier
-                                      </h3>
-                                  </div>
-                                  <div className="flex flex-col gap-2 px-2">
-                                      {[...Array(2)].map((_, i) => (
-                                          <div key={i} className="flex flex-col gap-1.5 p-2 rounded-md bg-muted/20">
-                                              <Skeleton className="h-4 w-4/5" />
-                                              <Skeleton className="h-3 w-3/5" />
-                                              <Skeleton className="h-3 w-2/5" />
-                                          </div>
-                                      ))}
-                                  </div>
-                              </div>
-                          </div>
-                      )}
+                            
+                            <Collapsible defaultOpen>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
+                                    <div className="flex items-center gap-2">
+                                        <Database className="h-4 w-4" />
+                                        Resultados de Repositorios Nacionales (SNRD)
+                                        {!isSearchingExternal && <Badge variant="secondary">{snrdResults.length}</Badge>}
+                                    </div>
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                    {isSearchingExternal ? <SkeletonLoader /> : snrdResults.length > 0 ? (
+                                        <div className="flex flex-col">
+                                            {snrdResults.map((article, index) => (
+                                                <a
+                                                    key={article.handle || index}
+                                                    href={article.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={cn( "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}
+                                                >
+                                                    <span className="text-sm font-medium text-foreground">{article.title}</span>
+                                                    <span className="text-xs text-muted-foreground">{article.authors.join(', ')}</span>
+                                                    <span className="text-xs text-muted-foreground italic">{article.publication}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en repositorios nacionales.</p>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
+                            
+                            <Collapsible defaultOpen>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
+                                    <div className="flex items-center gap-2">
+                                        <BookText className="h-4 w-4" />
+                                        Resultados de SciELO Argentina
+                                        {!isSearchingExternal && <Badge variant="secondary">{scieloResults.length}</Badge>}
+                                    </div>
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                    {isSearchingExternal ? <SkeletonLoader /> : scieloResults.length > 0 ? (
+                                        <div className="flex flex-col">
+                                            {scieloResults.map((article, index) => (
+                                                <a
+                                                    key={article.id || index}
+                                                    href={article.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={cn( "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}
+                                                >
+                                                    <span className="text-sm font-medium text-foreground">{article.title}</span>
+                                                    <span className="text-xs text-muted-foreground">{article.authors.join(', ')}</span>
+                                                    <span className="text-xs text-muted-foreground italic">{article.journal}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en SciELO Argentina.</p>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
 
-                      {!isSearchingExternal && searchQuery.length >= 3 && (
-                        <div className="space-y-4">
-                          <div>
-                            <div className="px-2 mb-3">
-                                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                    <Database className="h-4 w-4" />
-                                    Resultados de Repositorios Nacionales (SNRD)
-                                </h3>
-                            </div>
-                            {snrdResults.length > 0 ? (
-                                <div className="flex flex-col">
-                                    {snrdResults.map((article, index) => (
-                                        <a
-                                            key={article.handle || index}
-                                            href={article.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={cn(
-                                              "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white",
-                                              index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20'
-                                            )}
-                                        >
-                                            <span className="text-sm font-medium text-foreground">{article.title}</span>
-                                            <span className="text-xs text-muted-foreground">{article.authors.join(', ')}</span>
-                                            <span className="text-xs text-muted-foreground italic">{article.publication}</span>
-                                        </a>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="px-2 text-sm text-muted-foreground">
-                                    No se encontraron artículos en repositorios nacionales.
-                                </p>
-                            )}
+                            <Collapsible defaultOpen>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
+                                    <div className="flex items-center gap-2">
+                                        <Globe className="h-4 w-4" />
+                                        Resultados de Búsqueda en Elsevier
+                                        {!isSearchingExternal && <Badge variant="secondary">{elsevierResults.length}</Badge>}
+                                    </div>
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                    {isSearchingExternal ? <SkeletonLoader /> : elsevierResults.length > 0 ? (
+                                        <div className="flex flex-col">
+                                            {elsevierResults.map((article, index) => (
+                                                <a
+                                                    key={article.doi || index}
+                                                    href={article.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={cn( "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}
+                                                >
+                                                    <span className="text-sm font-medium text-foreground">{article.title}</span>
+                                                    <span className="text-xs text-muted-foreground">{article.authors}</span>
+                                                    <span className="text-xs text-muted-foreground italic">{article.publicationName}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en Elsevier.</p>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
                           </div>
-                          
-                          <div>
-                            <div className="px-2 mb-3">
-                                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                    <BookText className="h-4 w-4" />
-                                    Resultados de SciELO Argentina
-                                </h3>
-                            </div>
-                            {scieloResults.length > 0 ? (
-                                <div className="flex flex-col">
-                                    {scieloResults.map((article, index) => (
-                                        <a
-                                            key={article.id || index}
-                                            href={article.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={cn(
-                                              "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white",
-                                              index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20'
-                                            )}
-                                        >
-                                            <span className="text-sm font-medium text-foreground">{article.title}</span>
-                                            <span className="text-xs text-muted-foreground">{article.authors.join(', ')}</span>
-                                            <span className="text-xs text-muted-foreground italic">{article.journal}</span>
-                                        </a>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="px-2 text-sm text-muted-foreground">
-                                    No se encontraron artículos en SciELO Argentina.
-                                </p>
-                            )}
-                          </div>
-
-                          <div>
-                            <div className="px-2 mb-3">
-                                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                    <Globe className="h-4 w-4" />
-                                    Resultados de Búsqueda en Elsevier
-                                </h3>
-                            </div>
-                            {elsevierResults.length > 0 ? (
-                                <div className="flex flex-col">
-                                    {elsevierResults.map((article, index) => (
-                                        <a
-                                            key={article.doi || index}
-                                            href={article.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className={cn(
-                                              "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white",
-                                              index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20'
-                                            )}
-                                        >
-                                            <span className="text-sm font-medium text-foreground">{article.title}</span>
-                                            <span className="text-xs text-muted-foreground">{article.authors}</span>
-                                            <span className="text-xs text-muted-foreground italic">{article.publicationName}</span>
-                                        </a>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="px-2 text-sm text-muted-foreground">
-                                    No se encontraron artículos en Elsevier.
-                                </p>
-                            )}
-                          </div>
-                        </div>
+                        </>
                       )}
                   </ScrollArea>
               </CardContent>
