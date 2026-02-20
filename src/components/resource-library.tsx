@@ -8,8 +8,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
-import { RECURSOS } from '@/lib/recursos';
-import { Link2, Search, X, Globe, Database, BookText, ChevronDown } from 'lucide-react';
+import { RECURSOS, type Recurso } from '@/lib/recursos';
+import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
@@ -48,6 +48,7 @@ const SkeletonLoader = () => (
 
 export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [pinnedResources, setPinnedResources] = useState<Recurso[]>([]);
   const [elsevierResults, setElsevierResults] = useState<ElsevierArticle[]>([]);
   const [snrdResults, setSnrdResults] = useState<SNRDArticle[]>([]);
   const [scieloResults, setScieloResults] = useState<ScieloArticle[]>([]);
@@ -102,6 +103,19 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
     };
   }, [searchQuery]);
 
+  const handlePinToggle = (resource: { title: string, url: string }) => {
+    setPinnedResources(prev => {
+      const isAlreadyPinned = prev.some(p => p.url === resource.url);
+      if (isAlreadyPinned) {
+        return prev.filter(p => p.url !== resource.url);
+      } else {
+        return [{ ...resource, category: 'pinned' }, ...prev];
+      }
+    });
+  };
+
+  const isPinned = (url: string) => pinnedResources.some(p => p.url === url);
+
   const highlightText = (text: string | undefined, query: string): React.ReactNode => {
     if (!text || !query) {
       return text;
@@ -119,12 +133,10 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
     let matchIndex;
 
     while ((matchIndex = normalizedText.indexOf(normalizedQuery, lastIndex)) > -1) {
-      // Add the part before the match
       if (matchIndex > lastIndex) {
         result.push(text.substring(lastIndex, matchIndex));
       }
       
-      // Add the highlighted match
       const matchedText = text.substring(matchIndex, matchIndex + normalizedQuery.length);
       result.push(
         <span key={lastIndex} className="bg-fuchsia-500/40 rounded-sm">
@@ -135,7 +147,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
       lastIndex = matchIndex + normalizedQuery.length;
     }
 
-    // Add the rest of the text
     if (lastIndex < text.length) {
       result.push(text.substring(lastIndex));
     }
@@ -179,6 +190,36 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
               </CardHeader>
               <CardContent className="flex-grow min-h-0">
                   <ScrollArea className="h-full pr-4">
+                      {pinnedResources.length > 0 && (
+                        <>
+                          <div className="mb-4">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-fuchsia-600 mb-2 px-2">
+                                <Pin className="h-4 w-4" />
+                                <span>Recursos Fijados</span>
+                            </div>
+                            <div className="flex flex-col">
+                                {pinnedResources.map((resource, index) => (
+                                    <div
+                                        key={`pinned-${index}`}
+                                        className={cn("group flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
+                                    >
+                                        <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-center gap-3 overflow-hidden">
+                                            <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                            <span className="text-sm text-foreground truncate" title={resource.title}>
+                                                {highlightText(resource.title, searchQuery)}
+                                            </span>
+                                        </a>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
+                                            <Pin className="h-4 w-4 fill-current" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                          </div>
+                          <Separator className="my-4" />
+                        </>
+                      )}
+
                       {filteredLocalResources.length > 0 ? (
                         <div className="flex flex-col">
                             {filteredLocalResources.map((resource, index) => (
@@ -198,7 +239,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                             ))}
                         </div>
                       ) : (
-                        <p className="text-center text-sm text-muted-foreground py-10">
+                        searchQuery && <p className="text-center text-sm text-muted-foreground py-10">
                           No se encontraron recursos locales que coincidan con tu búsqueda.
                         </p>
                       )}
@@ -220,19 +261,21 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                 <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {isSearchingExternal ? <SkeletonLoader /> : snrdResults.length > 0 ? (
                                         <div className="flex flex-col">
-                                            {snrdResults.map((article, index) => (
-                                                <a
-                                                    key={article.handle || index}
-                                                    href={article.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className={cn( "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}
-                                                >
-                                                    <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
-                                                    <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
-                                                    <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
-                                                </a>
-                                            ))}
+                                            {snrdResults.map((article, index) => {
+                                                const pinned = isPinned(article.url);
+                                                return (
+                                                  <div key={article.handle || index} className={cn( "group flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
+                                                      </a>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover:text-foreground")} />
+                                                      </Button>
+                                                  </div>
+                                                )
+                                            })}
                                         </div>
                                     ) : (
                                         <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en repositorios nacionales.</p>
@@ -252,19 +295,21 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                 <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {isSearchingExternal ? <SkeletonLoader /> : scieloResults.length > 0 ? (
                                         <div className="flex flex-col">
-                                            {scieloResults.map((article, index) => (
-                                                <a
-                                                    key={article.id || index}
-                                                    href={article.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className={cn( "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}
-                                                >
-                                                    <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
-                                                    <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
-                                                    <span className="text-xs text-muted-foreground italic">{highlightText(article.journal, searchQuery)}</span>
-                                                </a>
-                                            ))}
+                                            {scieloResults.map((article, index) => {
+                                                const pinned = isPinned(article.url);
+                                                return (
+                                                  <div key={article.id || index} className={cn( "group flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.journal, searchQuery)}</span>
+                                                      </a>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover:text-foreground")} />
+                                                      </Button>
+                                                  </div>
+                                                )
+                                            })}
                                         </div>
                                     ) : (
                                         <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en SciELO Argentina.</p>
@@ -284,19 +329,21 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                 <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {isSearchingExternal ? <SkeletonLoader /> : elsevierResults.length > 0 ? (
                                         <div className="flex flex-col">
-                                            {elsevierResults.map((article, index) => (
-                                                <a
-                                                    key={article.doi || index}
-                                                    href={article.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className={cn( "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}
-                                                >
-                                                    <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
-                                                    <span className="text-xs text-muted-foreground">{highlightText(article.authors, searchQuery)}</span>
-                                                    <span className="text-xs text-muted-foreground italic">{highlightText(article.publicationName, searchQuery)}</span>
-                                                </a>
-                                            ))}
+                                            {elsevierResults.map((article, index) => {
+                                                const pinned = isPinned(article.url);
+                                                return (
+                                                  <div key={article.doi || index} className={cn( "group flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors, searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publicationName, searchQuery)}</span>
+                                                      </a>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover:text-foreground")} />
+                                                      </Button>
+                                                  </div>
+                                                )
+                                            })}
                                         </div>
                                     ) : (
                                         <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en Elsevier.</p>
