@@ -9,7 +9,8 @@ export interface ScieloArticle {
 }
 
 export async function searchScielo(query: string): Promise<ScieloArticle[]> {
-  const url = `https://search.scielo.org/api/v1/search/?q=${encodeURIComponent(query)}&count=10`;
+  // By adding the `fq` (filter query) parameter, we are targeting the Argentinian collection specifically.
+  const url = `https://search.scielo.org/api/v1/search/?q=${encodeURIComponent(query)}&count=10&fq=in:(%22sci_arg%22)`;
 
   try {
     const response = await fetch(url, {
@@ -30,6 +31,7 @@ export async function searchScielo(query: string): Promise<ScieloArticle[]> {
     const records = data?.results || [];
 
     if (!Array.isArray(records)) {
+        console.warn('SciELO API did not return an array for results.', data);
         return [];
     }
 
