@@ -21,6 +21,7 @@ import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Badge } from './ui/badge';
+import React from 'react';
 
 interface ResourceLibraryProps {
   isOpen: boolean;
@@ -101,6 +102,47 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
     };
   }, [searchQuery]);
 
+  const highlightText = (text: string | undefined, query: string): React.ReactNode => {
+    if (!text || !query) {
+      return text;
+    }
+
+    const normalizedText = removeAccents(text).toLowerCase();
+    const normalizedQuery = removeAccents(query).toLowerCase();
+
+    if (normalizedQuery.length === 0) {
+      return text;
+    }
+
+    const result: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let matchIndex;
+
+    while ((matchIndex = normalizedText.indexOf(normalizedQuery, lastIndex)) > -1) {
+      // Add the part before the match
+      if (matchIndex > lastIndex) {
+        result.push(text.substring(lastIndex, matchIndex));
+      }
+      
+      // Add the highlighted match
+      const matchedText = text.substring(matchIndex, matchIndex + normalizedQuery.length);
+      result.push(
+        <span key={lastIndex} className="bg-fuchsia-500/40 rounded-sm">
+          {matchedText}
+        </span>
+      );
+
+      lastIndex = matchIndex + normalizedQuery.length;
+    }
+
+    // Add the rest of the text
+    if (lastIndex < text.length) {
+      result.push(text.substring(lastIndex));
+    }
+
+    return result.length > 0 ? <>{result}</> : text;
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -151,7 +193,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                   )}
                                 >
                                   <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                  <span className="text-sm text-foreground">{resource.title}</span>
+                                  <span className="text-sm text-foreground">{highlightText(resource.title, searchQuery)}</span>
                                 </a>
                             ))}
                         </div>
@@ -186,9 +228,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                                     rel="noopener noreferrer"
                                                     className={cn( "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}
                                                 >
-                                                    <span className="text-sm font-medium text-foreground">{article.title}</span>
-                                                    <span className="text-xs text-muted-foreground">{article.authors.join(', ')}</span>
-                                                    <span className="text-xs text-muted-foreground italic">{article.publication}</span>
+                                                    <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
+                                                    <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                    <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
                                                 </a>
                                             ))}
                                         </div>
@@ -218,9 +260,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                                     rel="noopener noreferrer"
                                                     className={cn( "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}
                                                 >
-                                                    <span className="text-sm font-medium text-foreground">{article.title}</span>
-                                                    <span className="text-xs text-muted-foreground">{article.authors.join(', ')}</span>
-                                                    <span className="text-xs text-muted-foreground italic">{article.journal}</span>
+                                                    <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
+                                                    <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                    <span className="text-xs text-muted-foreground italic">{highlightText(article.journal, searchQuery)}</span>
                                                 </a>
                                             ))}
                                         </div>
@@ -250,9 +292,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                                     rel="noopener noreferrer"
                                                     className={cn( "flex flex-col gap-0.5 py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}
                                                 >
-                                                    <span className="text-sm font-medium text-foreground">{article.title}</span>
-                                                    <span className="text-xs text-muted-foreground">{article.authors}</span>
-                                                    <span className="text-xs text-muted-foreground italic">{article.publicationName}</span>
+                                                    <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
+                                                    <span className="text-xs text-muted-foreground">{highlightText(article.authors, searchQuery)}</span>
+                                                    <span className="text-xs text-muted-foreground italic">{highlightText(article.publicationName, searchQuery)}</span>
                                                 </a>
                                             ))}
                                         </div>
