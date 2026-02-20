@@ -36,13 +36,24 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
     const data = await response.json();
     const entries = data['search-results']?.entry || [];
 
-    return entries.map((entry: any): ElsevierArticle => ({
-      title: entry['dc:title'] || 'No title',
-      url: entry['prism:doi'] ? `https://doi.org/${entry['prism:doi']}` : '#',
-      authors: entry['dc:creator']?.[0]?.['$'] || 'Unknown authors',
-      publicationName: entry['prism:publicationName'] || 'Unknown publication',
-      doi: entry['prism:doi'] || '',
-    }));
+    return entries.map((entry: any): ElsevierArticle => {
+      const authorsArray: any[] | undefined = entry['dc:creator'];
+      let authors = 'Unknown authors';
+      if (Array.isArray(authorsArray)) {
+          const authorNames = authorsArray.map(author => author?.['$']).filter(Boolean);
+          if (authorNames.length > 0) {
+              authors = authorNames.join(', ');
+          }
+      }
+        
+      return {
+        title: entry['dc:title'] || 'No title',
+        url: entry['prism:doi'] ? `https://doi.org/${entry['prism:doi']}` : '#',
+        authors: authors,
+        publicationName: entry['prism:publicationName'] || 'Unknown publication',
+        doi: entry['prism:doi'] || '',
+      };
+    });
 
   } catch (error) {
     console.error('Failed to fetch from Elsevier API:', error);
