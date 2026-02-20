@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { RECURSOS, type Recurso } from '@/lib/recursos';
-import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin } from 'lucide-react';
+import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
@@ -17,15 +17,18 @@ import { Button } from './ui/button';
 import { searchElsevier, type ElsevierArticle } from '@/services/elsevier';
 import { searchSNRD, type SNRDArticle } from '@/services/snrd';
 import { searchScielo, type ScieloArticle } from '@/services/scielo';
+import { addAttachmentToTrelloCard, type TrelloCard } from '@/services/trello';
 import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Badge } from './ui/badge';
 import React from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ResourceLibraryProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  selectedCard: TrelloCard | null;
 }
 
 interface PinnedResource {
@@ -53,13 +56,15 @@ const SkeletonLoader = () => (
 );
 
 
-export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibraryProps) {
+export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: ResourceLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
   const [elsevierResults, setElsevierResults] = useState<ElsevierArticle[]>([]);
   const [snrdResults, setSnrdResults] = useState<SNRDArticle[]>([]);
   const [scieloResults, setScieloResults] = useState<ScieloArticle[]>([]);
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
+  const [attachingId, setAttachingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const filteredLocalResources = useMemo(() => {
     const allResources = [...RECURSOS].sort((a, b) => a.title.localeCompare(b.title));
@@ -119,6 +124,31 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
         return [resource, ...prev];
       }
     });
+  };
+
+  const handleAttachResource = async (resource: PinnedResource) => {
+    if (!selectedCard) return;
+
+    setAttachingId(resource.url);
+    try {
+      await addAttachmentToTrelloCard({
+        cardId: selectedCard.id,
+        url: resource.url,
+        name: resource.title,
+      });
+      toast({
+        title: '¡Éxito!',
+        description: `El recurso "${resource.title}" se adjuntó a la tarjeta.`,
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al adjuntar',
+        description: error instanceof Error ? error.message : 'No se pudo adjuntar el recurso a la tarjeta.',
+      });
+    } finally {
+      setAttachingId(null);
+    }
   };
 
   const isPinned = (url: string) => pinnedResources.some(p => p.url === url);
@@ -207,8 +237,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                             <div className="flex flex-col">
                                 {pinnedResources.map((resource, index) => (
                                     <div
-                                        key={`pinned-${index}`}
-                                        className={cn("group flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
+                                        key={`pinned-${resource.url}`}
+                                        className={cn("group flex items-start justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
                                     >
                                         <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
                                             <span className="text-sm font-medium text-foreground">{highlightText(resource.title, searchQuery)}</span>
@@ -219,9 +249,22 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                                 <span className="text-xs text-muted-foreground italic">{highlightText(resource.publication, searchQuery)}</span>
                                             )}
                                         </a>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
-                                            <Pin className="h-4 w-4 fill-current" />
-                                        </Button>
+                                        <div className="flex flex-shrink-0 ml-2">
+                                          {selectedCard && (
+                                              <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                onClick={() => handleAttachResource(resource)}
+                                                disabled={!!attachingId}
+                                              >
+                                                <Paperclip className={cn("h-4 w-4", attachingId === resource.url && 'animate-pulse')} />
+                                              </Button>
+                                          )}
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
+                                              <Pin className="h-4 w-4 fill-current" />
+                                          </Button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -274,7 +317,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                             {snrdResults.map((article, index) => {
                                                 const pinned = isPinned(article.url);
                                                 return (
-                                                  <div key={article.handle || index} className={cn( "group flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.handle || index} className={cn( "group flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
                                                           <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
                                                           <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
@@ -308,7 +351,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                             {scieloResults.map((article, index) => {
                                                 const pinned = isPinned(article.url);
                                                 return (
-                                                  <div key={article.id || index} className={cn( "group flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.id || index} className={cn( "group flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
                                                           <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
                                                           <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
@@ -342,7 +385,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                             {elsevierResults.map((article, index) => {
                                                 const pinned = isPinned(article.url);
                                                 return (
-                                                  <div key={article.doi || index} className={cn( "group flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.doi || index} className={cn( "group flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
                                                           <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
                                                           <span className="text-xs text-muted-foreground">{highlightText(article.authors, searchQuery)}</span>

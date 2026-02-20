@@ -1,3 +1,4 @@
+
 'use server';
 
 export interface ScieloArticle {

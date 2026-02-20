@@ -310,6 +310,32 @@ export async function addCommentToCard({ cardId, text }: { cardId: string; text:
   }
 }
 
+export interface AddAttachmentPayload {
+  cardId: string;
+  url: string;
+  name?: string;
+}
+
+export async function addAttachmentToTrelloCard(payload: AddAttachmentPayload): Promise<TrelloAttachment> {
+  try {
+    const body = {
+      url: payload.url,
+      name: payload.name || payload.url,
+    };
+    const newAttachment = (await trelloFetch(`/cards/${payload.cardId}/attachments`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })) as TrelloAttachment;
+    return newAttachment;
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to add attachment to Trello card ${payload.cardId}:`, error.message);
+      throw new Error(`No pudimos adjuntar el enlace a la tarjeta: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al adjuntar el enlace.');
+  }
+}
+
 export async function getBoardLabels(boardId: string): Promise<TrelloLabel[]> {
   try {
     const labels = (await trelloFetch(`/boards/${boardId}/labels?fields=name,color,id`)) as TrelloLabel[];

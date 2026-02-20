@@ -629,7 +629,7 @@ export default function Home() {
             </ScrollArea>
           </SheetContent>
         </Sheet>
-        <ResourceLibrary isOpen={isLibraryOpen} onOpenChange={setIsLibraryOpen} />
+        <ResourceLibrary isOpen={isLibraryOpen} onOpenChange={setIsLibraryOpen} selectedCard={selectedCard} />
       </div>
     </div>
   );
