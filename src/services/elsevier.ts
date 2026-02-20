@@ -37,13 +37,18 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
     const entries = data['search-results']?.entry || [];
 
     return entries.map((entry: any): ElsevierArticle => {
-      const authorsArray: any[] | undefined = entry['dc:creator'];
       let authors = 'Unknown authors';
-      if (Array.isArray(authorsArray)) {
-          const authorNames = authorsArray.map(author => author?.['$']).filter(Boolean);
-          if (authorNames.length > 0) {
-              authors = authorNames.join(', ');
-          }
+      const creator = entry['dc:creator'];
+
+      if (creator) {
+        const authorsArray = Array.isArray(creator) ? creator : [creator];
+        const authorNames = authorsArray
+          .map((author: any) => author?.['$'])
+          .filter(Boolean);
+        
+        if (authorNames.length > 0) {
+          authors = authorNames.join(', ');
+        }
       }
         
       return {
