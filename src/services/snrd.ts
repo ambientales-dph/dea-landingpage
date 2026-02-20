@@ -9,7 +9,7 @@ export interface SNRDArticle {
 }
 
 export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
-  const url = `https://bdu.siu.edu.ar/busqueda/inicio/ajax?query=${encodeURIComponent(query)}&page=1&sort_by=score&order=desc&rpp=10&fq=relation%3A%22haspart%22`;
+  const url = `https://bdu.siu.edu.ar/busqueda/inicio/ajax?query=${encodeURIComponent(query)}&page=1&sort_by=score&order=desc&rpp=10&fq=`;
 
   try {
     const fetch = (await import('node-fetch')).default;
@@ -28,7 +28,7 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
     }
 
     const data = await response.json();
-    const docs = data?.docs || [];
+    const docs = data?.response?.docs || [];
 
     return docs.map((doc: any): SNRDArticle => ({
       title: doc.title?.[0] || 'Sin título',
