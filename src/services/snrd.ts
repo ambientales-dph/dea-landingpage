@@ -10,7 +10,7 @@ export interface SNRDArticle {
 
 export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
   // This is the correct API endpoint, derived from the Swagger documentation the user provided.
-  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(query)}&type=AllFields&field[]=title&field[]=authors&field[]=publicationDates&limit=10`;
+  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(query)}&type=AllFields&field[]=id&field[]=title&field[]=authors&field[]=publicationDates&limit=10`;
 
   try {
     const response = await fetch(url, {
