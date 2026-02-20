@@ -28,6 +28,13 @@ interface ResourceLibraryProps {
   onOpenChange: (isOpen: boolean) => void;
 }
 
+interface PinnedResource {
+  title: string;
+  url: string;
+  authors?: string | string[];
+  publication?: string;
+}
+
 const removeAccents = (str: string): string => {
   if (!str) return '';
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -48,7 +55,7 @@ const SkeletonLoader = () => (
 
 export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [pinnedResources, setPinnedResources] = useState<Recurso[]>([]);
+  const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
   const [elsevierResults, setElsevierResults] = useState<ElsevierArticle[]>([]);
   const [snrdResults, setSnrdResults] = useState<SNRDArticle[]>([]);
   const [scieloResults, setScieloResults] = useState<ScieloArticle[]>([]);
@@ -103,13 +110,13 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
     };
   }, [searchQuery]);
 
-  const handlePinToggle = (resource: { title: string, url: string }) => {
+  const handlePinToggle = (resource: PinnedResource) => {
     setPinnedResources(prev => {
       const isAlreadyPinned = prev.some(p => p.url === resource.url);
       if (isAlreadyPinned) {
         return prev.filter(p => p.url !== resource.url);
       } else {
-        return [{ ...resource, category: 'pinned' }, ...prev];
+        return [resource, ...prev];
       }
     });
   };
@@ -203,13 +210,16 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                         key={`pinned-${index}`}
                                         className={cn("group flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
                                     >
-                                        <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-center gap-3 overflow-hidden">
-                                            <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                            <span className="text-sm text-foreground truncate" title={resource.title}>
-                                                {highlightText(resource.title, searchQuery)}
-                                            </span>
+                                        <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                            <span className="text-sm font-medium text-foreground">{highlightText(resource.title, searchQuery)}</span>
+                                            {resource.authors && (
+                                                <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(resource.authors) ? resource.authors.join(', ') : resource.authors, searchQuery)}</span>
+                                            )}
+                                            {resource.publication && (
+                                                <span className="text-xs text-muted-foreground italic">{highlightText(resource.publication, searchQuery)}</span>
+                                            )}
                                         </a>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
                                             <Pin className="h-4 w-4 fill-current" />
                                         </Button>
                                     </div>
@@ -270,7 +280,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                                           <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
                                                           <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
                                                       </a>
-                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url })}>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication })}>
                                                         <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover:text-foreground")} />
                                                       </Button>
                                                   </div>
@@ -304,7 +314,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                                           <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
                                                           <span className="text-xs text-muted-foreground italic">{highlightText(article.journal, searchQuery)}</span>
                                                       </a>
-                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url })}>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.journal })}>
                                                         <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover:text-foreground")} />
                                                       </Button>
                                                   </div>
@@ -338,7 +348,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange }: ResourceLibrar
                                                           <span className="text-xs text-muted-foreground">{highlightText(article.authors, searchQuery)}</span>
                                                           <span className="text-xs text-muted-foreground italic">{highlightText(article.publicationName, searchQuery)}</span>
                                                       </a>
-                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url })}>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publicationName })}>
                                                         <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover:text-foreground")} />
                                                       </Button>
                                                   </div>
