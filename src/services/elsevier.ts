@@ -37,14 +37,20 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
     const entries = data['search-results']?.entry || [];
 
     return entries.map((entry: any): ElsevierArticle => {
-      let authors = 'Unknown authors';
+      let authors = 'Autor desconocido';
       const creator = entry['dc:creator'];
 
       if (creator) {
+        let authorNames: string[] = [];
         const authorsArray = Array.isArray(creator) ? creator : [creator];
-        const authorNames = authorsArray
-          .map((author: any) => author?.['$'])
-          .filter(Boolean);
+
+        authorsArray.forEach((author: any) => {
+          if (typeof author === 'string') {
+            authorNames.push(author);
+          } else if (author && typeof author === 'object' && author['$']) {
+            authorNames.push(author['$']);
+          }
+        });
         
         if (authorNames.length > 0) {
           authors = authorNames.join(', ');
@@ -52,10 +58,10 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
       }
         
       return {
-        title: entry['dc:title'] || 'No title',
+        title: entry['dc:title'] || 'Sin título',
         url: entry['prism:doi'] ? `https://doi.org/${entry['prism:doi']}` : '#',
         authors: authors,
-        publicationName: entry['prism:publicationName'] || 'Unknown publication',
+        publicationName: entry['prism:publicationName'] || 'Publicación desconocida',
         doi: entry['prism:doi'] || '',
       };
     });
