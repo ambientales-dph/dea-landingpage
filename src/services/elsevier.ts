@@ -16,7 +16,7 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
     return [];
   }
   
-  const url = `https://api.elsevier.com/content/search/scopus?query=${encodeURIComponent(query)}&field=dc:title,dc:creator,prism:publicationName,prism:doi&count=10`;
+  const url = `https://api.elsevier.com/content/search/scopus?query=${encodeURIComponent(query)}&field=dc:title,dc:creator,prism:publicationName,prism:doi&count=25`;
 
   try {
     const response = await fetch(url, {
@@ -42,13 +42,15 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
 
       if (creator) {
         let authorNames: string[] = [];
+        // Handle both single author object and array of authors
         const authorsArray = Array.isArray(creator) ? creator : [creator];
 
         authorsArray.forEach((author: any) => {
-          if (typeof author === 'string') {
-            authorNames.push(author);
-          } else if (author && typeof author === 'object' && author['$']) {
+          // The author name can be in a '$' property or just be a string
+          if (author && typeof author === 'object' && author['$']) {
             authorNames.push(author['$']);
+          } else if (typeof author === 'string') {
+            authorNames.push(author);
           }
         });
         
