@@ -19,12 +19,12 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
   const url = `https://api.elsevier.com/content/search/scopus?query=${encodeURIComponent(query)}&field=dc:title,dc:creator,prism:publicationName,prism:doi&count=10`;
 
   try {
-    const fetch = (await import('node-fetch')).default;
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
         'X-ELS-APIKey': apiKey,
       },
+      next: { revalidate: 3600 } // Cache for 1 hour
     });
 
     if (!response.ok) {

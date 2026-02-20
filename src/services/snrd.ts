@@ -12,13 +12,13 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
   const url = `https://bdu.siu.edu.ar/busqueda/inicio/ajax?query=${encodeURIComponent(query)}&page=1&sort_by=score&order=desc&rpp=10&fq=`;
 
   try {
-    const fetch = (await import('node-fetch')).default;
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'Firebase-Studio-App-Prototype/1.0',
         'X-Requested-With': 'XMLHttpRequest',
       },
+      next: { revalidate: 3600 } // Cache for 1 hour
     });
 
     if (!response.ok) {

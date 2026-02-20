@@ -10,7 +10,7 @@ async function trelloFetch(url: string, options: RequestInit = {}) {
   if (!TRELLO_API_KEY || !TRELLO_API_TOKEN) {
     throw new Error('Faltan la API Key y el Token de Trello en el archivo .env');
   }
-  const fetch = (await import('node-fetch')).default;
+
   const fullUrl = `${BASE_URL}${url}${url.includes('?') ? '&' : '?'}key=${TRELLO_API_KEY}&token=${TRELLO_API_TOKEN}`;
   
   const response = await fetch(fullUrl, {
@@ -19,7 +19,8 @@ async function trelloFetch(url: string, options: RequestInit = {}) {
         'Accept': 'application/json',
         ...(options.body && typeof options.body === 'string' && { 'Content-Type': 'application/json' }),
         ...options.headers,
-    }
+    },
+    cache: 'no-store' // Trello data is dynamic, should not be cached
   });
 
   if (!response.ok) {

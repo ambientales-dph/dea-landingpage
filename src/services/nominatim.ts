@@ -22,7 +22,6 @@ interface NominatimResult {
  * @returns The first search result, or null if no results are found.
  */
 export async function searchLocation(query: string): Promise<NominatimResult | null> {
-  const fetch = (await import('node-fetch')).default;
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
     query
   )}&format=json&limit=1`;
@@ -32,6 +31,7 @@ export async function searchLocation(query: string): Promise<NominatimResult | n
       headers: {
         'User-Agent': 'Firebase-Studio-App-Prototype/1.0', // Nominatim requires a User-Agent
       },
+      next: { revalidate: 86400 } // Cache for 24 hours
     });
 
     if (!response.ok) {
