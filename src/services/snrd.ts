@@ -9,14 +9,14 @@ export interface SNRDArticle {
 }
 
 export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
-  const url = `https://bdu.siu.edu.ar/busqueda/inicio/ajax?query=${encodeURIComponent(query)}&page=1&sort_by=score&order=desc&rpp=10&fq=`;
+  // This is the correct API endpoint, derived from the Swagger documentation the user provided.
+  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(query)}&type=AllFields&field[]=authors&field[]=publicationDates&limit=10`;
 
   try {
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'Firebase-Studio-App-Prototype/1.0',
-        'X-Requested-With': 'XMLHttpRequest',
       },
       next: { revalidate: 3600 } // Cache for 1 hour
     });
@@ -28,15 +28,33 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
     }
 
     const data = await response.json();
-    const docs = data?.response?.docs || [];
+    const records = data?.records || [];
 
-    return docs.map((doc: any): SNRDArticle => ({
-      title: doc.title?.[0] || 'Sin título',
-      url: doc.handle ? `https://bdu.siu.edu.ar/handle/${doc.handle}` : '#',
-      authors: doc.author || ['Autor desconocido'],
-      publication: doc.publisher_str?.[0] || 'Publicación desconocida',
-      handle: doc.handle || '',
-    }));
+    if (!Array.isArray(records)) {
+        return [];
+    }
+
+    return records.map((record: any): SNRDArticle => {
+      const handle = record.id;
+      const resourceUrl = `https://repositoriosdigitales.mincyt.gob.ar/vufind/Record/${handle}`;
+      
+      let authors: string[] = [];
+      if (record.authors?.primary) {
+          authors = Object.keys(record.authors.primary);
+      } else if (record.authors?.secondary) {
+          authors = Object.keys(record.authors.secondary);
+      } else {
+          authors = ['Autor desconocido'];
+      }
+
+      return {
+        title: record.title || 'Sin título',
+        url: resourceUrl,
+        authors: authors,
+        publication: record.publicationDates?.[0] || 'Publicación desconocida',
+        handle: handle || '',
+      };
+    });
 
   } catch (error) {
     console.error('Failed to fetch from SNRD API:', error);
