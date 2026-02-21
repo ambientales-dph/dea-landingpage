@@ -9,8 +9,16 @@ export interface SNRDArticle {
 }
 
 export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
-  // This is the correct API endpoint, derived from the Swagger documentation the user provided.
-  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(query)}&type=AllFields&field[]=id&field[]=title&field[]=authors&field[]=publicationDates&limit=100`;
+  const keywords = [
+    '"ciencias ambientales"', 'geología', 'geomorfología', 'hidráulica',
+    'hidrología', 'cuencas', '"manejo del agua"', '"química ambiental"',
+    '"ingeniería ambiental"', 'antropología', 'biología', 'botánica',
+    'zoología', 'ecología', 'clima'
+  ];
+  const keywordFilter = keywords.join(' OR ');
+  const finalQuery = `(${query}) AND (${keywordFilter})`;
+
+  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(finalQuery)}&type=AllFields&field[]=id&field[]=title&field[]=authors&field[]=publicationDates&limit=300`;
 
   try {
     const response = await fetch(url, {

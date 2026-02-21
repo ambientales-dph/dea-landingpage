@@ -10,7 +10,16 @@ export interface ScieloArticle {
 }
 
 export async function searchScielo(query: string): Promise<ScieloArticle[]> {
-  const searchUrl = `https://www.scielo.org.ar/search/?q=${encodeURIComponent(query)}&lang=es&count=25&output=json&format=summary`;
+  const keywords = [
+    '"ciencias ambientales"', 'geología', 'geomorfología', 'hidráulica',
+    'hidrología', 'cuencas', '"manejo del agua"', '"química ambiental"',
+    '"ingeniería ambiental"', 'antropología', 'biología', 'botánica',
+    'zoología', 'ecología', 'clima'
+  ];
+  const keywordFilter = keywords.join(' OR ');
+  const finalQuery = `(${query}) AND (${keywordFilter})`;
+
+  const searchUrl = `https://www.scielo.org.ar/search/?q=${encodeURIComponent(finalQuery)}&lang=es&count=25&output=json&format=summary`;
 
   try {
     const response = await fetch(searchUrl, {

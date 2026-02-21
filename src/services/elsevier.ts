@@ -15,8 +15,12 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
     console.warn('Elsevier API key is not configured in .env file.');
     return [];
   }
+
+  // Filter by subject areas relevant to environmental and geological sciences.
+  const subjectFilter = '(SUBJAREA(ENVI) OR SUBJAREA(EART) OR SUBJAREA(AGRI) OR SUBJAREA(BIOC) OR SUBJAREA(ENGI) OR SUBJAREA(SOCI))';
+  const finalQuery = `(${query}) AND ${subjectFilter}`;
   
-  const url = `https://api.elsevier.com/content/search/scopus?query=${encodeURIComponent(query)}&field=dc:title,dc:creator,prism:publicationName,prism:doi&count=25`;
+  const url = `https://api.elsevier.com/content/search/scopus?query=${encodeURIComponent(finalQuery)}&view=STANDARD&count=50`;
 
   try {
     const response = await fetch(url, {
