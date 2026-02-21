@@ -20,7 +20,7 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
   const subjectFilter = '(SUBJAREA(ENVI) OR SUBJAREA(EART) OR SUBJAREA(AGRI) OR SUBJAREA(BIOC) OR SUBJAREA(ENGI) OR SUBJAREA(SOCI))';
   const finalQuery = `(${query}) AND ${subjectFilter}`;
   
-  const url = `https://api.elsevier.com/content/search/scopus?query=${encodeURIComponent(finalQuery)}&view=STANDARD&count=50`;
+  const url = `https://api.elsevier.com/content/search/scopus?query=${encodeURIComponent(finalQuery)}&view=STANDARD&count=25`;
 
   try {
     const response = await fetch(url, {
