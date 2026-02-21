@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -65,6 +65,37 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const prevIsOpen = useRef(isOpen);
+
+  useEffect(() => {
+    const wasOpened = isOpen && !prevIsOpen.current;
+    const wasClosed = !isOpen && prevIsOpen.current;
+
+    if (wasOpened) {
+      // When dialog opens, load attachments from the selected card.
+      if (selectedCard?.attachments) {
+        const attachedResources = selectedCard.attachments
+          .filter(att => att.url.startsWith('http'))
+          .map((att): PinnedResource => ({
+            title: att.name,
+            url: att.url,
+          }));
+        setPinnedResources(attachedResources);
+      }
+    }
+
+    if (wasClosed) {
+      // When dialog closes, clear everything for the next session.
+      setPinnedResources([]);
+      setSearchQuery('');
+      setElsevierResults([]);
+      setSnrdResults([]);
+      setScieloResults([]);
+    }
+
+    prevIsOpen.current = isOpen;
+  }, [isOpen, selectedCard]);
+
 
   const filteredLocalResources = useMemo(() => {
     const allResources = [...RECURSOS].sort((a, b) => a.title.localeCompare(b.title));
