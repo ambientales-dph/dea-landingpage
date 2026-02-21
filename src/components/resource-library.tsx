@@ -17,7 +17,7 @@ import { Button } from './ui/button';
 import { searchElsevier, type ElsevierArticle } from '@/services/elsevier';
 import { searchSNRD, type SNRDArticle } from '@/services/snrd';
 import { searchScielo, type ScieloArticle } from '@/services/scielo';
-import { addAttachmentToTrelloCard, type TrelloCard } from '@/services/trello';
+import { addAttachmentToTrelloCard, removeAttachmentFromTrelloCard, type TrelloCard } from '@/services/trello';
 import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -36,6 +36,7 @@ interface PinnedResource {
   url: string;
   authors?: string | string[];
   publication?: string;
+  attachmentId?: string;
 }
 
 const removeAccents = (str: string): string => {
@@ -72,20 +73,19 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
     const wasClosed = !isOpen && prevIsOpen.current;
 
     if (wasOpened) {
-      // When dialog opens, load attachments from the selected card.
       if (selectedCard?.attachments) {
         const attachedResources = selectedCard.attachments
           .filter(att => att.url.startsWith('http'))
           .map((att): PinnedResource => ({
             title: att.name,
             url: att.url,
+            attachmentId: att.id,
           }));
         setPinnedResources(attachedResources);
       }
     }
 
     if (wasClosed) {
-      // When dialog closes, clear everything for the next session.
       setPinnedResources([]);
       setSearchQuery('');
       setElsevierResults([]);
@@ -162,7 +162,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
 
     setAttachingId(resource.url);
     try {
-      await addAttachmentToTrelloCard({
+      const newAttachment = await addAttachmentToTrelloCard({
         cardId: selectedCard.id,
         url: resource.url,
         name: resource.title,
@@ -171,11 +171,41 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se adjuntó a la tarjeta.`,
       });
+      setPinnedResources(prev => 
+        prev.map(r => r.url === resource.url ? { ...r, attachmentId: newAttachment.id } : r)
+      );
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error al adjuntar',
         description: error instanceof Error ? error.message : 'No se pudo adjuntar el recurso a la tarjeta.',
+      });
+    } finally {
+      setAttachingId(null);
+    }
+  };
+  
+  const handleRemoveAttachment = async (resource: PinnedResource) => {
+    if (!selectedCard || !resource.attachmentId) return;
+  
+    setAttachingId(resource.url);
+    try {
+      await removeAttachmentFromTrelloCard({
+        cardId: selectedCard.id,
+        attachmentId: resource.attachmentId,
+      });
+      toast({
+        title: '¡Éxito!',
+        description: `El recurso "${resource.title}" se quitó de la tarjeta.`,
+      });
+      setPinnedResources(prev =>
+        prev.map(r => r.url === resource.url ? { ...r, attachmentId: undefined } : r)
+      );
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al quitar adjunto',
+        description: error instanceof Error ? error.message : 'No se pudo quitar el recurso de la tarjeta.',
       });
     } finally {
       setAttachingId(null);
@@ -266,10 +296,12 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                 <span>Recursos Fijados</span>
                             </div>
                             <div className="flex flex-col">
-                                {pinnedResources.map((resource, index) => (
+                                {pinnedResources.map((resource, index) => {
+                                  const isAttached = !!resource.attachmentId;
+                                  return (
                                     <div
                                         key={`pinned-${resource.url}`}
-                                        className={cn("group flex items-start justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
+                                        className={cn("group/item flex items-start justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
                                     >
                                         <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
                                             <span className="text-sm font-medium text-foreground">{highlightText(resource.title, searchQuery)}</span>
@@ -285,11 +317,15 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                               <Button 
                                                 variant="ghost" 
                                                 size="icon" 
-                                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                onClick={() => handleAttachResource(resource)}
+                                                className="h-7 w-7"
+                                                onClick={() => isAttached ? handleRemoveAttachment(resource) : handleAttachResource(resource)}
                                                 disabled={!!attachingId}
                                               >
-                                                <Paperclip className={cn("h-4 w-4", attachingId === resource.url && 'animate-pulse')} />
+                                                <Paperclip className={cn(
+                                                  "h-4 w-4",
+                                                  attachingId === resource.url && 'animate-pulse',
+                                                  isAttached ? 'text-primary' : 'text-muted-foreground group-hover/item:text-foreground'
+                                                )} />
                                               </Button>
                                           )}
                                           <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
@@ -297,7 +333,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                           </Button>
                                         </div>
                                     </div>
-                                ))}
+                                  );
+                                })}
                             </div>
                           </div>
                           <Separator className="my-4" />

@@ -336,6 +336,20 @@ export async function addAttachmentToTrelloCard(payload: AddAttachmentPayload): 
   }
 }
 
+export async function removeAttachmentFromTrelloCard({ cardId, attachmentId }: { cardId: string; attachmentId: string }): Promise<void> {
+  try {
+    await trelloFetch(`/cards/${cardId}/attachments/${attachmentId}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`Failed to remove attachment ${attachmentId} from Trello card ${cardId}:`, error.message);
+      throw new Error(`No pudimos quitar el adjunto de la tarjeta: ${error.message}`);
+    }
+    throw new Error('Hubo un error desconocido al quitar el adjunto.');
+  }
+}
+
 export async function getBoardLabels(boardId: string): Promise<TrelloLabel[]> {
   try {
     const labels = (await trelloFetch(`/boards/${boardId}/labels?fields=name,color,id`)) as TrelloLabel[];
@@ -439,3 +453,4 @@ export async function createTrelloCard(cardInfo: NewCardInfo): Promise<TrelloCar
 }
 
     
+
