@@ -18,7 +18,7 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
   const keywordFilter = keywords.join(' OR ');
   const finalQuery = `(${query}) AND (${keywordFilter})`;
 
-  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(finalQuery)}&type=AllFields&field[]=id&field[]=title&field[]=authors&field[]=publicationDates&limit=300`;
+  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(finalQuery)}&type=AllFields&field[]=id&field[]=title&field[]=authors&field[]=publicationDates&limit=150`;
 
   try {
     const response = await fetch(url, {
