@@ -84,7 +84,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const { toast } = useToast();
-  const prevIsOpen = useRef(isOpen);
   
   const attachedCardResources = useMemo((): PinnedResource[] => {
     if (!selectedCard?.attachments) {
@@ -101,14 +100,12 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   }, [selectedCard]);
 
   useEffect(() => {
-    const wasClosed = !isOpen && prevIsOpen.current;
-    if (wasClosed) {
+    if (!isOpen) {
         setSearchQuery('');
         setElsevierResults([]);
         setSnrdResults([]);
         setScieloResults([]);
     }
-    prevIsOpen.current = isOpen;
   }, [isOpen]);
 
 
@@ -372,9 +369,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                                 disabled={!!attachingId}
                                               >
                                                 <Paperclip className={cn(
-                                                  "h-4 w-4",
+                                                  "h-4 w-4 transition-opacity",
                                                   attachingId === resource.url && 'animate-pulse',
-                                                  isAttached ? 'text-foreground' : 'text-muted-foreground group-hover/item:text-foreground'
+                                                  isAttached ? 'text-foreground' : 'text-foreground opacity-40 group-hover/item:opacity-100'
                                                 )} />
                                               </Button>
                                           )}
