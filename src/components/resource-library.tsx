@@ -335,31 +335,30 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                   <ScrollArea className="h-full pr-4">
                       {displayedPinnedResources.length > 0 && (
                         <Collapsible defaultOpen className="mb-4">
-                           <div className="flex items-center justify-between mb-2">
-                            <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                                <div className="flex items-center gap-2 text-sm font-semibold text-fuchsia-600">
+                           <div className="group flex items-center justify-between mb-2 rounded-md hover:bg-muted/50">
+                                <CollapsibleTrigger className="flex flex-grow items-center gap-2 p-2 text-sm font-semibold text-fuchsia-600 text-left">
                                     <Pin className="h-4 w-4" />
                                     <span>Recursos Fijados</span>
-                                </div>
-                                <div className="flex items-center">
+                                </CollapsibleTrigger>
+                                <div className="flex items-center pr-1">
                                     {pinnedResources.length > 0 && (
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setPinnedResources([]);
-                                        }}
-                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                        aria-label="Limpiar pines manuales"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => setPinnedResources([])}
+                                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                            aria-label="Limpiar pines manuales"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
                                     )}
-                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                    <CollapsibleTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                        </Button>
+                                    </CollapsibleTrigger>
                                 </div>
-                            </CollapsibleTrigger>
-                          </div>
+                            </div>
                           <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                               <div className="flex flex-col">
                                   {displayedPinnedResources.map((resource, index) => {
@@ -398,7 +397,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                                   <Paperclip className={cn(
                                                     "h-4 w-4 transition-opacity",
                                                     attachingId === resource.url && 'animate-pulse',
-                                                    isAttached ? 'text-foreground opacity-100' : 'text-foreground opacity-40 group-hover/item:opacity-100'
+                                                    isAttached ? 'text-foreground opacity-100' : 'text-foreground/60 group-hover/item:text-foreground/100'
                                                   )} />
                                                 </Button>
                                             )}
