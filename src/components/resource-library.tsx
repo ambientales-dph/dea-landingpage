@@ -69,24 +69,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   const prevIsOpen = useRef(isOpen);
 
   useEffect(() => {
-    const wasOpened = isOpen && !prevIsOpen.current;
     const wasClosed = !isOpen && prevIsOpen.current;
 
-    if (wasOpened) {
-      if (selectedCard?.attachments) {
-        const attachedResources = selectedCard.attachments
-          .filter(att => att.url.startsWith('http'))
-          .map((att): PinnedResource => ({
-            title: att.name,
-            url: att.url,
-            attachmentId: att.id,
-          }));
-        setPinnedResources(attachedResources);
-      }
-    }
-
     if (wasClosed) {
-      setPinnedResources([]);
       setSearchQuery('');
       setElsevierResults([]);
       setSnrdResults([]);
@@ -94,7 +79,26 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
     }
 
     prevIsOpen.current = isOpen;
-  }, [isOpen, selectedCard]);
+  }, [isOpen]);
+
+  const attachedCardResources = useMemo((): PinnedResource[] => {
+    if (!selectedCard?.attachments) {
+      return [];
+    }
+    return selectedCard.attachments
+      .filter(att => att.url.startsWith('http'))
+      .map((att): PinnedResource => ({
+        title: att.name,
+        url: att.url,
+        attachmentId: att.id,
+      }));
+  }, [selectedCard]);
+
+  const displayedPinnedResources = useMemo((): PinnedResource[] => {
+    const allResources = [...pinnedResources, ...attachedCardResources];
+    const uniqueResources = Array.from(new Map(allResources.map(item => [item.url, item])).values());
+    return uniqueResources;
+  }, [pinnedResources, attachedCardResources]);
 
 
   const filteredLocalResources = useMemo(() => {
@@ -152,7 +156,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
       if (isAlreadyPinned) {
         return prev.filter(p => p.url !== resource.url);
       } else {
-        return [resource, ...prev];
+        const { attachmentId, ...rest } = resource;
+        return [rest, ...prev];
       }
     });
   };
@@ -199,7 +204,13 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         description: `El recurso "${resource.title}" se quitó de la tarjeta.`,
       });
       setPinnedResources(prev =>
-        prev.map(r => r.url === resource.url ? { ...r, attachmentId: undefined } : r)
+        prev.map(r => {
+            if (r.url === resource.url) {
+                const { attachmentId, ...rest } = r;
+                return rest;
+            }
+            return r;
+        })
       );
     } catch (error) {
       toast({
@@ -212,7 +223,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
     }
   };
 
-  const isPinned = (url: string) => pinnedResources.some(p => p.url === url);
+  const isManuallyPinned = (url: string) => pinnedResources.some(p => p.url === url);
 
   const highlightText = (text: string | undefined, query: string): React.ReactNode => {
     if (!text || !query) {
@@ -288,7 +299,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
               </CardHeader>
               <CardContent className="flex-grow min-h-0">
                   <ScrollArea className="h-full pr-4">
-                      {pinnedResources.length > 0 && (
+                      {displayedPinnedResources.length > 0 && (
                         <>
                           <div className="mb-4">
                             <div className="flex items-center gap-2 text-sm font-semibold text-fuchsia-600 mb-2 px-2">
@@ -296,8 +307,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                 <span>Recursos Fijados</span>
                             </div>
                             <div className="flex flex-col">
-                                {pinnedResources.map((resource, index) => {
+                                {displayedPinnedResources.map((resource, index) => {
                                   const isAttached = !!resource.attachmentId;
+                                  const pinned = isManuallyPinned(resource.url);
                                   return (
                                     <div
                                         key={`pinned-${resource.url}`}
@@ -329,7 +341,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                               </Button>
                                           )}
                                           <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
-                                              <Pin className="h-4 w-4 fill-current" />
+                                              <Pin className={cn("h-4 w-4", pinned || isAttached ? "fill-current" : "")} />
                                           </Button>
                                         </div>
                                     </div>
@@ -383,7 +395,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                     {isSearchingExternal ? <SkeletonLoader /> : snrdResults.length > 0 ? (
                                         <div className="flex flex-col">
                                             {snrdResults.map((article, index) => {
-                                                const pinned = isPinned(article.url);
+                                                const pinned = isManuallyPinned(article.url);
                                                 return (
                                                   <div key={article.handle || index} className={cn( "group flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
@@ -417,7 +429,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                     {isSearchingExternal ? <SkeletonLoader /> : scieloResults.length > 0 ? (
                                         <div className="flex flex-col">
                                             {scieloResults.map((article, index) => {
-                                                const pinned = isPinned(article.url);
+                                                const pinned = isManuallyPinned(article.url);
                                                 return (
                                                   <div key={article.id || index} className={cn( "group flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
@@ -451,7 +463,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                     {isSearchingExternal ? <SkeletonLoader /> : elsevierResults.length > 0 ? (
                                         <div className="flex flex-col">
                                             {elsevierResults.map((article, index) => {
-                                                const pinned = isPinned(article.url);
+                                                const pinned = isManuallyPinned(article.url);
                                                 return (
                                                   <div key={article.doi || index} className={cn( "group flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
