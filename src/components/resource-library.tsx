@@ -67,19 +67,24 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const { toast } = useToast();
   const prevIsOpen = useRef(isOpen);
+  const prevCardId = useRef(selectedCard?.id);
 
   useEffect(() => {
-    const wasClosed = !isOpen && prevIsOpen.current;
+      const wasClosed = !isOpen && prevIsOpen.current;
+      if (wasClosed) {
+          setSearchQuery('');
+          setElsevierResults([]);
+          setSnrdResults([]);
+          setScieloResults([]);
+      }
+      prevIsOpen.current = isOpen;
 
-    if (wasClosed) {
-      setSearchQuery('');
-      setElsevierResults([]);
-      setSnrdResults([]);
-      setScieloResults([]);
-    }
+      if (selectedCard?.id !== prevCardId.current) {
+          setPinnedResources([]);
+      }
+      prevCardId.current = selectedCard?.id;
 
-    prevIsOpen.current = isOpen;
-  }, [isOpen]);
+  }, [isOpen, selectedCard]);
 
   const attachedCardResources = useMemo((): PinnedResource[] => {
     if (!selectedCard?.attachments) {
@@ -176,6 +181,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se adjuntó a la tarjeta.`,
       });
+      // This is to update the state of the pinned resource with the new attachment ID
       setPinnedResources(prev => 
         prev.map(r => r.url === resource.url ? { ...r, attachmentId: newAttachment.id } : r)
       );
@@ -203,6 +209,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se quitó de la tarjeta.`,
       });
+      // Remove attachmentId from manually pinned resource if it exists
       setPinnedResources(prev =>
         prev.map(r => {
             if (r.url === resource.url) {
@@ -336,12 +343,12 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                                 <Paperclip className={cn(
                                                   "h-4 w-4",
                                                   attachingId === resource.url && 'animate-pulse',
-                                                  isAttached ? 'text-primary' : 'text-muted-foreground group-hover/item:text-foreground'
+                                                  isAttached ? 'text-foreground' : 'text-muted-foreground group-hover/item:text-foreground'
                                                 )} />
                                               </Button>
                                           )}
                                           <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
-                                              <Pin className={cn("h-4 w-4", pinned || isAttached ? "fill-current" : "")} />
+                                              <Pin className={cn("h-4 w-4", pinned || attachedCardResources.some(att => att.url === resource.url) ? "fill-current" : "")} />
                                           </Button>
                                         </div>
                                     </div>
