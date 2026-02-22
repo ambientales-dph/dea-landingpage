@@ -18,7 +18,7 @@ export async function searchElsevier(query: string): Promise<ElsevierArticle[]> 
 
   // Filter by subject areas relevant to environmental and geological sciences.
   const subjectFilter = '(SUBJAREA(ENVI) OR SUBJAREA(EART) OR SUBJAREA(AGRI) OR SUBJAREA(BIOC) OR SUBJAREA(ENGI) OR SUBJAREA(SOCI))';
-  const finalQuery = `(${query}) AND ${subjectFilter}`;
+  const finalQuery = `((${query}) AND ("buenos aires" OR "provincia de buenos aires")) AND ${subjectFilter}`;
   
   const url = `https://api.elsevier.com/content/search/scopus?query=${encodeURIComponent(finalQuery)}&view=STANDARD&count=25`;
 

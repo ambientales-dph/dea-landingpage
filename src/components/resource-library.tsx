@@ -84,6 +84,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const prevSelectedCardId = useRef<string | null>(null);
   
   const attachedCardResources = useMemo((): PinnedResource[] => {
     if (!selectedCard?.attachments) {
@@ -101,12 +103,19 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
 
   useEffect(() => {
     if (!isOpen) {
-        setSearchQuery('');
         setElsevierResults([]);
         setSnrdResults([]);
         setScieloResults([]);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    // If card changes, don't wipe the manual pins.
+    // The displayed list will update automatically via useMemo.
+    if (selectedCard?.id !== prevSelectedCardId.current) {
+        prevSelectedCardId.current = selectedCard?.id || null;
+    }
+  }, [selectedCard]);
 
 
   const displayedPinnedResources = useMemo((): PinnedResource[] => {
@@ -191,9 +200,13 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se adjuntó a la tarjeta.`,
       });
-      setPinnedResources(prev => 
+      // The attachedCardResources memo will pick up the change after a card refresh,
+      // but we can add it optimistically to the pinned resources with its new attachmentId
+      // so we can detach it right away.
+       setPinnedResources(prev => 
         prev.map(r => r.url === resource.url ? { ...r, attachmentId: newAttachment.id } : r)
       );
+
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -218,14 +231,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se quitó de la tarjeta.`,
       });
+      // Also remove from manual pins if it exists there
       setPinnedResources(prev =>
-        prev.map(r => {
-            if (r.url === resource.url) {
-                const { attachmentId, ...rest } = r;
-                return rest;
-            }
-            return r;
-        })
+        prev.filter(r => r.url !== resource.url)
       );
     } catch (error) {
       toast({
@@ -316,12 +324,13 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                   <ScrollArea className="h-full pr-4">
                       {displayedPinnedResources.length > 0 && (
                         <>
-                          <div className="mb-4">
+                          <Collapsible defaultOpen className="mb-4">
                             <div className="flex items-center justify-between mb-2 px-2">
-                                <div className="flex items-center gap-2 text-sm font-semibold text-fuchsia-600">
+                                <CollapsibleTrigger className="group flex flex-grow items-center gap-2 text-sm font-semibold text-fuchsia-600">
                                     <Pin className="h-4 w-4" />
                                     <span>Recursos Fijados</span>
-                                </div>
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
                                 {pinnedResources.length > 0 && (
                                     <Button
                                         variant="ghost"
@@ -334,56 +343,58 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                     </Button>
                                 )}
                             </div>
-                            <div className="flex flex-col">
-                                {displayedPinnedResources.map((resource, index) => {
-                                  const isAttached = !!resource.attachmentId;
-                                  const pinned = isManuallyPinned(resource.url);
-                                  return (
-                                    <div
-                                        key={`pinned-${resource.url}`}
-                                        className={cn("group/item flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
-                                    >
-                                        <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-2 overflow-hidden">
-                                          {resource.isScientific ? (
-                                              <BookText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
-                                          ) : (
-                                              <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
-                                          )}
-                                          <div className="flex-grow flex flex-col gap-0.5 overflow-hidden">
-                                              <span className="text-sm font-medium text-foreground group-hover/item:underline">{highlightText(resource.title, searchQuery)}</span>
-                                              {resource.authors && (
-                                                  <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(resource.authors) ? resource.authors.join(', ') : resource.authors, searchQuery)}</span>
+                            <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                <div className="flex flex-col">
+                                    {displayedPinnedResources.map((resource, index) => {
+                                      const isAttached = !!resource.attachmentId;
+                                      const pinned = isManuallyPinned(resource.url);
+                                      return (
+                                        <div
+                                            key={`pinned-${resource.url}`}
+                                            className={cn("group/item flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
+                                        >
+                                            <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-2 overflow-hidden">
+                                              {resource.isScientific ? (
+                                                  <BookText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                                              ) : (
+                                                  <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
                                               )}
-                                              {resource.publication && (
-                                                  <span className="text-xs text-muted-foreground italic">{highlightText(resource.publication, searchQuery)}</span>
+                                              <div className="flex-grow flex flex-col gap-0.5 overflow-hidden">
+                                                  <span className="text-sm font-medium text-foreground group-hover/item:underline">{highlightText(resource.title, searchQuery)}</span>
+                                                  {resource.authors && (
+                                                      <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(resource.authors) ? resource.authors.join(', ') : resource.authors, searchQuery)}</span>
+                                                  )}
+                                                  {resource.publication && (
+                                                      <span className="text-xs text-muted-foreground italic">{highlightText(resource.publication, searchQuery)}</span>
+                                                  )}
+                                              </div>
+                                            </a>
+                                            <div className="flex flex-shrink-0 ml-2">
+                                              {selectedCard && (
+                                                  <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-7 w-7"
+                                                    onClick={() => isAttached ? handleRemoveAttachment(resource) : handleAttachResource(resource)}
+                                                    disabled={!!attachingId}
+                                                  >
+                                                    <Paperclip className={cn(
+                                                      "h-4 w-4 transition-opacity",
+                                                      attachingId === resource.url && 'animate-pulse',
+                                                      isAttached ? 'text-foreground opacity-100' : 'text-foreground opacity-40 group-hover/item:opacity-100'
+                                                    )} />
+                                                  </Button>
                                               )}
-                                          </div>
-                                        </a>
-                                        <div className="flex flex-shrink-0 ml-2">
-                                          {selectedCard && (
-                                              <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-7 w-7"
-                                                onClick={() => isAttached ? handleRemoveAttachment(resource) : handleAttachResource(resource)}
-                                                disabled={!!attachingId}
-                                              >
-                                                <Paperclip className={cn(
-                                                  "h-4 w-4 transition-opacity",
-                                                  attachingId === resource.url && 'animate-pulse',
-                                                  isAttached ? 'text-foreground' : 'text-foreground opacity-40 group-hover/item:opacity-100'
-                                                )} />
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
+                                                  <Pin className={cn("h-4 w-4", pinned || attachedCardResources.some(att => att.url === resource.url) ? "fill-current" : "")} />
                                               </Button>
-                                          )}
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
-                                              <Pin className={cn("h-4 w-4", pinned || attachedCardResources.some(att => att.url === resource.url) ? "fill-current" : "")} />
-                                          </Button>
+                                            </div>
                                         </div>
-                                    </div>
-                                  );
-                                })}
-                            </div>
-                          </div>
+                                      );
+                                    })}
+                                </div>
+                            </CollapsibleContent>
+                          </Collapsible>
                           <Separator className="my-4" />
                         </>
                       )}

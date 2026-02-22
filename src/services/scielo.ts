@@ -17,7 +17,7 @@ export async function searchScielo(query: string): Promise<ScieloArticle[]> {
     'zoología', 'ecología', 'clima'
   ];
   const keywordFilter = keywords.join(' OR ');
-  const finalQuery = `(${query}) AND (${keywordFilter})`;
+  const finalQuery = `((${query}) AND ("buenos aires" OR "provincia de buenos aires")) AND (${keywordFilter})`;
 
   const searchUrl = `https://www.scielo.org.ar/search/?q=${encodeURIComponent(finalQuery)}&lang=es&count=25&output=json&format=summary`;
 

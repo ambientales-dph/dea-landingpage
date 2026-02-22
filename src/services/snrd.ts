@@ -16,7 +16,7 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
     'zoología', 'ecología', 'clima'
   ];
   const keywordFilter = keywords.join(' OR ');
-  const finalQuery = `(${query}) AND (${keywordFilter})`;
+  const finalQuery = `((${query}) AND ("buenos aires" OR "provincia de buenos aires")) AND (${keywordFilter})`;
 
   const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(finalQuery)}&type=AllFields&field[]=id&field[]=title&field[]=authors&field[]=publicationDates&limit=150`;
 
