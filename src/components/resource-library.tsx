@@ -68,19 +68,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   const { toast } = useToast();
   const prevIsOpen = useRef(isOpen);
   const prevCardId = useRef(selectedCard?.id);
-
-  useEffect(() => {
-    const wasClosed = !isOpen && prevIsOpen.current;
-    if (wasClosed) {
-        setSearchQuery('');
-        setElsevierResults([]);
-        setSnrdResults([]);
-        setScieloResults([]);
-    }
-    prevIsOpen.current = isOpen;
-    prevCardId.current = selectedCard?.id;
-  }, [isOpen, selectedCard]);
-
+  
+  // Combines manually pinned resources with resources from the selected card
   const attachedCardResources = useMemo((): PinnedResource[] => {
     if (!selectedCard?.attachments) {
       return [];
@@ -93,6 +82,21 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         attachmentId: att.id,
       }));
   }, [selectedCard]);
+
+  // When the component opens, or the card changes, this effect runs.
+  // We don't clear pinnedResources here anymore to persist them across selections.
+  useEffect(() => {
+    const wasClosed = !isOpen && prevIsOpen.current;
+    if (wasClosed) {
+        setSearchQuery('');
+        setElsevierResults([]);
+        setSnrdResults([]);
+        setScieloResults([]);
+    }
+    prevIsOpen.current = isOpen;
+    prevCardId.current = selectedCard?.id;
+  }, [isOpen, selectedCard]);
+
 
   const displayedPinnedResources = useMemo((): PinnedResource[] => {
     const allResources = [...pinnedResources, ...attachedCardResources];
@@ -304,9 +308,22 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                       {displayedPinnedResources.length > 0 && (
                         <>
                           <div className="mb-4">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-fuchsia-600 mb-2 px-2">
-                                <Pin className="h-4 w-4" />
-                                <span>Recursos Fijados</span>
+                            <div className="flex items-center justify-between mb-2 px-2">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-fuchsia-600">
+                                    <Pin className="h-4 w-4" />
+                                    <span>Recursos Fijados</span>
+                                </div>
+                                {pinnedResources.length > 0 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setPinnedResources([])}
+                                        className="h-7 text-muted-foreground hover:text-foreground px-2"
+                                    >
+                                        <X className="h-4 w-4 mr-1" />
+                                        Limpiar
+                                    </Button>
+                                )}
                             </div>
                             <div className="flex flex-col">
                                 {displayedPinnedResources.map((resource, index) => {
