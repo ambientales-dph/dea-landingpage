@@ -395,9 +395,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                                   disabled={!!attachingId}
                                                 >
                                                   <Paperclip className={cn(
-                                                    "h-4 w-4 transition-opacity",
+                                                    "h-4 w-4 transition-colors",
                                                     attachingId === resource.url && 'animate-pulse',
-                                                    isAttached ? 'text-foreground opacity-100' : 'text-foreground/60 group-hover/item:text-foreground/100'
+                                                    isAttached ? 'text-foreground' : 'text-muted-foreground group-hover/item:text-foreground'
                                                   )} />
                                                 </Button>
                                             )}
