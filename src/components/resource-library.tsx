@@ -70,20 +70,15 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   const prevCardId = useRef(selectedCard?.id);
 
   useEffect(() => {
-      const wasClosed = !isOpen && prevIsOpen.current;
-      if (wasClosed) {
-          setSearchQuery('');
-          setElsevierResults([]);
-          setSnrdResults([]);
-          setScieloResults([]);
-      }
-      prevIsOpen.current = isOpen;
-
-      if (selectedCard?.id !== prevCardId.current) {
-          setPinnedResources([]);
-      }
-      prevCardId.current = selectedCard?.id;
-
+    const wasClosed = !isOpen && prevIsOpen.current;
+    if (wasClosed) {
+        setSearchQuery('');
+        setElsevierResults([]);
+        setSnrdResults([]);
+        setScieloResults([]);
+    }
+    prevIsOpen.current = isOpen;
+    prevCardId.current = selectedCard?.id;
   }, [isOpen, selectedCard]);
 
   const attachedCardResources = useMemo((): PinnedResource[] => {
