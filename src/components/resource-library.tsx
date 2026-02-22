@@ -110,10 +110,10 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   }, [isOpen]);
 
   useEffect(() => {
-    if (selectedCard?.id !== prevSelectedCardId.current) {
+    if (isOpen && selectedCard?.id !== prevSelectedCardId.current) {
         prevSelectedCardId.current = selectedCard?.id || null;
     }
-  }, [selectedCard]);
+  }, [selectedCard, isOpen]);
 
 
   const displayedPinnedResources = useMemo((): PinnedResource[] => {
@@ -335,21 +335,20 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                   <ScrollArea className="h-full pr-4">
                       {displayedPinnedResources.length > 0 && (
                         <Collapsible defaultOpen className="mb-4">
-                          <div className="flex items-center justify-between mb-2">
+                           <div className="flex items-center justify-between mb-2">
                             <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50">
                                 <div className="flex items-center gap-2 text-sm font-semibold text-fuchsia-600">
                                     <Pin className="h-4 w-4" />
                                     <span>Recursos Fijados</span>
                                 </div>
-
                                 <div className="flex items-center">
                                     {pinnedResources.length > 0 && (
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPinnedResources([]);
+                                          e.stopPropagation();
+                                          setPinnedResources([]);
                                         }}
                                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
                                         aria-label="Limpiar pines manuales"
