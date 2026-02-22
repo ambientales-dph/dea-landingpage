@@ -139,40 +139,56 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
     );
   }, [searchQuery]);
   
-  useEffect(() => {
-    const handler = setTimeout(async () => {
-        if (searchQuery.length < 3) {
-            setElsevierResults([]);
-            setSnrdResults([]);
-            setScieloResults([]);
-            return;
-        }
-        
-        setIsSearchingExternal(true);
-        try {
-          const [elsevier, snrd, scielo] = await Promise.all([
-            searchElsevier(searchQuery),
-            searchSNRD(searchQuery),
-            searchScielo(searchQuery),
-          ]);
-          setElsevierResults(elsevier);
-          setSnrdResults(snrd);
-          setScieloResults(scielo);
-        } catch (e) {
-          console.error("Failed to search external sources", e);
-          setElsevierResults([]);
-          setSnrdResults([]);
-          setScieloResults([]);
-        } finally {
-          setIsSearchingExternal(false);
-        }
-    }, 500); // 500ms debounce
+  const handleExternalSearch = async () => {
+    if (searchQuery.length < 3) {
+      toast({
+        variant: 'destructive',
+        title: 'Búsqueda demasiado corta',
+        description: 'Por favor, ingresá al menos 3 caracteres para buscar en plataformas externas.',
+      });
+      return;
+    }
+    
+    setIsSearchingExternal(true);
+    try {
+      const [elsevier, snrd, scielo] = await Promise.all([
+        searchElsevier(searchQuery),
+        searchSNRD(searchQuery),
+        searchScielo(searchQuery),
+      ]);
+      setElsevierResults(elsevier);
+      setSnrdResults(snrd);
+      setScieloResults(scielo);
+    } catch (e) {
+      console.error("Failed to search external sources", e);
+      setElsevierResults([]);
+      setSnrdResults([]);
+      setScieloResults([]);
+      toast({
+        variant: 'destructive',
+        title: 'Error de búsqueda',
+        description: 'No se pudo contactar a las plataformas de búsqueda externas.',
+      });
+    } finally {
+      setIsSearchingExternal(false);
+    }
+  };
 
-    return () => {
-        clearTimeout(handler);
-        setIsSearchingExternal(false);
-    };
-  }, [searchQuery]);
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleExternalSearch();
+    }
+  };
+  
+  const handleQueryChange = (query: string) => {
+    setSearchQuery(query);
+    if (query === '') {
+        setElsevierResults([]);
+        setSnrdResults([]);
+        setScieloResults([]);
+    }
+  };
 
   const handlePinToggle = (resource: PinnedResource) => {
     setPinnedResources(prev => {
@@ -305,14 +321,15 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                     <Input
                       placeholder="Buscar en la biblioteca, SNRD, SciELO y Elsevier..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => handleQueryChange(e.target.value)}
+                      onKeyDown={handleKeyDown}
                       className="pl-9 pr-8"
                     />
                     {searchQuery && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => handleQueryChange('')}
                         className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground"
                       >
                         <X className="h-4 w-4" />
@@ -323,81 +340,81 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
               <CardContent className="flex-grow min-h-0">
                   <ScrollArea className="h-full pr-4">
                       {displayedPinnedResources.length > 0 && (
-                        <>
-                          <Collapsible defaultOpen className="mb-4">
-                            <div className="flex items-center justify-between mb-2 px-2">
-                                <CollapsibleTrigger className="group flex flex-grow items-center gap-2 text-sm font-semibold text-fuchsia-600">
-                                    <Pin className="h-4 w-4" />
-                                    <span>Recursos Fijados</span>
-                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                </CollapsibleTrigger>
-                                {pinnedResources.length > 0 && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setPinnedResources([])}
-                                        className="h-7 text-muted-foreground hover:text-foreground px-2"
-                                    >
-                                        <X className="h-4 w-4 mr-1" />
-                                        Limpiar
-                                    </Button>
-                                )}
-                            </div>
-                            <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-                                <div className="flex flex-col">
-                                    {displayedPinnedResources.map((resource, index) => {
-                                      const isAttached = !!resource.attachmentId;
-                                      const pinned = isManuallyPinned(resource.url);
-                                      return (
-                                        <div
-                                            key={`pinned-${resource.url}`}
-                                            className={cn("group/item flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
-                                        >
-                                            <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-2 overflow-hidden">
-                                              {resource.isScientific ? (
-                                                  <BookText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
-                                              ) : (
-                                                  <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
-                                              )}
-                                              <div className="flex-grow flex flex-col gap-0.5 overflow-hidden">
-                                                  <span className="text-sm font-medium text-foreground group-hover/item:underline">{highlightText(resource.title, searchQuery)}</span>
-                                                  {resource.authors && (
-                                                      <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(resource.authors) ? resource.authors.join(', ') : resource.authors, searchQuery)}</span>
-                                                  )}
-                                                  {resource.publication && (
-                                                      <span className="text-xs text-muted-foreground italic">{highlightText(resource.publication, searchQuery)}</span>
-                                                  )}
-                                              </div>
-                                            </a>
-                                            <div className="flex flex-shrink-0 ml-2">
-                                              {selectedCard && (
-                                                  <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="h-7 w-7"
-                                                    onClick={() => isAttached ? handleRemoveAttachment(resource) : handleAttachResource(resource)}
-                                                    disabled={!!attachingId}
-                                                  >
-                                                    <Paperclip className={cn(
-                                                      "h-4 w-4 transition-opacity",
-                                                      attachingId === resource.url && 'animate-pulse',
-                                                      isAttached ? 'text-foreground opacity-100' : 'text-foreground opacity-40 group-hover/item:opacity-100'
-                                                    )} />
-                                                  </Button>
-                                              )}
-                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
-                                                  <Pin className={cn("h-4 w-4", pinned || attachedCardResources.some(att => att.url === resource.url) ? "fill-current" : "")} />
-                                              </Button>
+                        <Collapsible defaultOpen className="mb-4">
+                          <div className="flex items-center justify-between mb-2 px-2">
+                              <CollapsibleTrigger className="group flex flex-grow items-center gap-2 text-sm font-semibold text-fuchsia-600">
+                                  <Pin className="h-4 w-4" />
+                                  <span>Recursos Fijados</span>
+                                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                              </CollapsibleTrigger>
+                              {pinnedResources.length > 0 && (
+                                  <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setPinnedResources([])}
+                                      className="h-7 text-muted-foreground hover:text-foreground px-2"
+                                  >
+                                      <X className="h-4 w-4 mr-1" />
+                                      Limpiar
+                                  </Button>
+                              )}
+                          </div>
+                          <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                              <div className="flex flex-col">
+                                  {displayedPinnedResources.map((resource, index) => {
+                                    const isAttached = !!resource.attachmentId;
+                                    const pinned = isManuallyPinned(resource.url);
+                                    return (
+                                      <div
+                                          key={`pinned-${resource.url}`}
+                                          className={cn("group/item flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
+                                      >
+                                          <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-2 overflow-hidden">
+                                            {resource.isScientific ? (
+                                                <BookText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                                            ) : (
+                                                <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                                            )}
+                                            <div className="flex-grow flex flex-col gap-0.5 overflow-hidden">
+                                                <span className="text-sm font-medium text-foreground group-hover/item:underline">{highlightText(resource.title, searchQuery)}</span>
+                                                {resource.authors && (
+                                                    <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(resource.authors) ? resource.authors.join(', ') : resource.authors, searchQuery)}</span>
+                                                )}
+                                                {resource.publication && (
+                                                    <span className="text-xs text-muted-foreground italic">{highlightText(resource.publication, searchQuery)}</span>
+                                                )}
                                             </div>
-                                        </div>
-                                      );
-                                    })}
-                                </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                          <Separator className="my-4" />
-                        </>
+                                          </a>
+                                          <div className="flex flex-shrink-0 ml-2">
+                                            {selectedCard && (
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="icon" 
+                                                  className="h-7 w-7"
+                                                  onClick={() => isAttached ? handleRemoveAttachment(resource) : handleAttachResource(resource)}
+                                                  disabled={!!attachingId}
+                                                >
+                                                  <Paperclip className={cn(
+                                                    "h-4 w-4 transition-opacity",
+                                                    attachingId === resource.url && 'animate-pulse',
+                                                    isAttached ? 'text-foreground opacity-100' : 'text-foreground opacity-40 group-hover/item:opacity-100'
+                                                  )} />
+                                                </Button>
+                                            )}
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
+                                                <Pin className={cn("h-4 w-4", pinned || attachedCardResources.some(att => att.url === resource.url) ? "fill-current" : "")} />
+                                            </Button>
+                                          </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                          </CollapsibleContent>
+                        </Collapsible>
                       )}
+
+                      {filteredLocalResources.length > 0 && (!searchQuery || displayedPinnedResources.length === 0) && <Separator className="my-4" />}
+
 
                       {filteredLocalResources.length > 0 ? (
                         <div className="flex flex-col">
@@ -423,7 +440,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                         </p>
                       )}
 
-                      {searchQuery.length >= 3 && (
+                      {(elsevierResults.length > 0 || snrdResults.length > 0 || scieloResults.length > 0 || isSearchingExternal) && (
                         <>
                           <Separator className="my-4" />
                           <div className="space-y-4">
