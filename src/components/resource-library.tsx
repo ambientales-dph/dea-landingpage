@@ -87,7 +87,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
 
   const prevSelectedCardId = useRef<string | null>(null);
   
-  const attachedCardResources = useMemo((): PinnedResource[] => {
+  const manuallyPinnedResources = pinnedResources;
+
+  const attachedResources = useMemo((): PinnedResource[] => {
     if (!selectedCard?.attachments) {
       return [];
     }
@@ -100,6 +102,11 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         isScientific: isScientificUrl(att.url),
       }));
   }, [selectedCard]);
+
+  const scientificAttachmentsFromCard = useMemo((): PinnedResource[] => {
+    return attachedResources.filter(r => r.isScientific);
+  }, [attachedResources]);
+
 
   useEffect(() => {
     if (!isOpen) {
@@ -114,14 +121,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         prevSelectedCardId.current = selectedCard?.id || null;
     }
   }, [selectedCard, isOpen]);
-
-
-  const displayedPinnedResources = useMemo((): PinnedResource[] => {
-    const allResources = [...pinnedResources, ...attachedCardResources];
-    const uniqueResources = Array.from(new Map(allResources.map(item => [item.url, item])).values());
-    return uniqueResources;
-  }, [pinnedResources, attachedCardResources]);
-
 
   const filteredLocalResources = useMemo(() => {
     const allResources = [...RECURSOS].sort((a, b) => a.title.localeCompare(b.title));
@@ -242,6 +241,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se quitó de la tarjeta.`,
       });
+      // Also remove from manual pins if it exists there
       setPinnedResources(prev =>
         prev.filter(r => r.url !== resource.url)
       );
@@ -333,24 +333,24 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
               </CardHeader>
               <CardContent className="flex-grow min-h-0">
                   <ScrollArea className="h-full pr-4">
-                      {displayedPinnedResources.length > 0 && (
+                      {manuallyPinnedResources.length > 0 && (
                         <Collapsible defaultOpen className="mb-4">
-                           <div className="group flex items-center justify-between mb-2 rounded-md hover:bg-muted/50">
-                                <CollapsibleTrigger className="flex flex-grow items-center gap-2 p-2 text-sm font-semibold text-fuchsia-600 text-left">
+                           <div className="flex items-center justify-between mb-2 rounded-md hover:bg-muted/50">
+                                <CollapsibleTrigger className="group flex flex-grow items-center gap-2 p-2 text-sm font-semibold text-fuchsia-600 text-left">
                                     <Pin className="h-4 w-4" />
                                     <span>Recursos Fijados</span>
                                 </CollapsibleTrigger>
                                 <div className="flex items-center pr-1">
                                     {pinnedResources.length > 0 && (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => setPinnedResources([])}
-                                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                            aria-label="Limpiar pines manuales"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                      <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => setPinnedResources([])}
+                                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                          aria-label="Limpiar pines manuales"
+                                      >
+                                          <Trash2 className="h-4 w-4" />
+                                      </Button>
                                     )}
                                     <CollapsibleTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -361,13 +361,16 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                             </div>
                           <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                               <div className="flex flex-col">
-                                  {displayedPinnedResources.map((resource, index) => {
-                                    const isAttached = !!resource.attachmentId;
+                                  {manuallyPinnedResources.map((resource, index) => {
+                                    const isAttached = attachedResources.some(att => att.url === resource.url);
+                                    const attachmentId = isAttached ? attachedResources.find(att => att.url === resource.url)?.attachmentId : undefined;
+                                    const resourceWithId = { ...resource, attachmentId };
                                     const pinned = isManuallyPinned(resource.url);
+
                                     return (
                                       <div
                                           key={`pinned-${resource.url}`}
-                                          className={cn("group/item flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
+                                          className={cn("group/item flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-muted/40' : 'bg-muted/20')}
                                       >
                                           <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-2 overflow-hidden">
                                             {resource.isScientific ? (
@@ -391,18 +394,18 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                                   variant="ghost" 
                                                   size="icon" 
                                                   className="h-7 w-7"
-                                                  onClick={() => isAttached ? handleRemoveAttachment(resource) : handleAttachResource(resource)}
+                                                  onClick={() => isAttached ? handleRemoveAttachment(resourceWithId) : handleAttachResource(resource)}
                                                   disabled={!!attachingId}
                                                 >
                                                   <Paperclip className={cn(
                                                     "h-4 w-4 transition-colors",
                                                     attachingId === resource.url && 'animate-pulse',
-                                                    isAttached ? 'text-foreground' : 'text-muted-foreground group-hover/item:text-foreground'
+                                                    isAttached ? 'text-foreground' : 'text-gray-400 group-hover/item:text-foreground'
                                                   )} />
                                                 </Button>
                                             )}
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
-                                                <Pin className={cn("h-4 w-4", pinned || attachedCardResources.some(att => att.url === resource.url) ? "fill-current" : "")} />
+                                                <Pin className={cn("h-4 w-4", pinned ? "fill-current" : "")} />
                                             </Button>
                                           </div>
                                       </div>
@@ -413,7 +416,62 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                         </Collapsible>
                       )}
 
-                      {filteredLocalResources.length > 0 && (!searchQuery || displayedPinnedResources.length === 0) && <Separator className="my-4" />}
+                      {selectedCard && scientificAttachmentsFromCard.length > 0 && (
+                          <Collapsible defaultOpen className="mb-4">
+                            <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
+                                <div className="flex items-center gap-2">
+                                    <Paperclip className="h-4 w-4 text-fuchsia-600" />
+                                    <span>Artículos Adjuntos al Proyecto</span>
+                                </div>
+                                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                               <div className="flex flex-col mt-2">
+                                  {scientificAttachmentsFromCard.map((attachment, index) => {
+                                    const pinnedVersion = manuallyPinnedResources.find(p => p.url === attachment.url);
+                                    const itemToPin = pinnedVersion || attachment;
+                                    const isPinned = isManuallyPinned(attachment.url);
+
+                                    return (
+                                       <div
+                                          key={`attached-${attachment.attachmentId}`}
+                                          className={cn("group/item flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
+                                      >
+                                          <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-2 overflow-hidden">
+                                            <BookText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                                            <div className="flex-grow flex flex-col gap-0.5 overflow-hidden">
+                                                <span className="text-sm font-medium text-foreground group-hover/item:underline">{highlightText(attachment.title, searchQuery)}</span>
+                                                {pinnedVersion?.authors && (
+                                                    <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(pinnedVersion.authors) ? pinnedVersion.authors.join(', ') : pinnedVersion.authors, searchQuery)}</span>
+                                                )}
+                                                {pinnedVersion?.publication && (
+                                                    <span className="text-xs text-muted-foreground italic">{highlightText(pinnedVersion.publication, searchQuery)}</span>
+                                                )}
+                                            </div>
+                                          </a>
+                                          <div className="flex flex-shrink-0 ml-2">
+                                            <Button 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              className="h-7 w-7"
+                                              onClick={() => handleRemoveAttachment(attachment)}
+                                              disabled={!!attachingId}
+                                            >
+                                              <Paperclip className={cn( "h-4 w-4 transition-colors text-foreground", attachingId === attachment.url && 'animate-pulse' )}/>
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(itemToPin)}>
+                                                <Pin className={cn("h-4 w-4", isPinned ? "fill-current" : "")} />
+                                            </Button>
+                                          </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                      )}
+
+                      {(manuallyPinnedResources.length > 0 || scientificAttachmentsFromCard.length > 0) && <Separator className="my-4" />}
 
 
                       {filteredLocalResources.length > 0 ? (
