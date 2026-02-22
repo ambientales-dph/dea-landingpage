@@ -86,6 +86,29 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   const { toast } = useToast();
 
   const prevSelectedCardId = useRef<string | null>(null);
+
+  useEffect(() => {
+    try {
+        const storedPins = localStorage.getItem('pinnedResources');
+        if (storedPins) {
+            setPinnedResources(JSON.parse(storedPins));
+        }
+    } catch (error) {
+        console.error("Failed to load pins from localStorage", error);
+    }
+  }, []);
+
+  const updateAndStorePinnedResources = (updater: React.SetStateAction<PinnedResource[]>) => {
+      setPinnedResources(prev => {
+          const newState = typeof updater === 'function' ? updater(prev) : updater;
+          try {
+              localStorage.setItem('pinnedResources', JSON.stringify(newState));
+          } catch (error) {
+              console.error("Failed to save pins to localStorage", error);
+          }
+          return newState;
+      });
+  };
   
   const manuallyPinnedResources = pinnedResources;
 
@@ -188,7 +211,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   };
 
   const handlePinToggle = (resource: PinnedResource) => {
-    setPinnedResources(prev => {
+    updateAndStorePinnedResources(prev => {
       const isAlreadyPinned = prev.some(p => p.url === resource.url);
       if (isAlreadyPinned) {
         return prev.filter(p => p.url !== resource.url);
@@ -213,7 +236,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se adjuntó a la tarjeta.`,
       });
-       setPinnedResources(prev => 
+       updateAndStorePinnedResources(prev => 
         prev.map(r => r.url === resource.url ? { ...r, attachmentId: newAttachment.id } : r)
       );
 
@@ -242,7 +265,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         description: `El recurso "${resource.title}" se quitó de la tarjeta.`,
       });
       // Also remove from manual pins if it exists there
-      setPinnedResources(prev =>
+      updateAndStorePinnedResources(prev =>
         prev.filter(r => r.url !== resource.url)
       );
     } catch (error) {
@@ -345,7 +368,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                       <Button
                                           variant="ghost"
                                           size="icon"
-                                          onClick={() => setPinnedResources([])}
+                                          onClick={() => updateAndStorePinnedResources([])}
                                           className="h-7 w-7 text-muted-foreground hover:text-destructive"
                                           aria-label="Limpiar pines manuales"
                                       >
@@ -428,7 +451,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                             <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                <div className="flex flex-col mt-2">
                                   {scientificAttachmentsFromCard.map((attachment, index) => {
-                                    const pinnedVersion = manuallyPinnedResources.find(p => p.url === attachment.url);
+                                    const pinnedVersion = pinnedResources.find(p => p.url === attachment.url);
+                                    const itemToRender = pinnedVersion || attachment;
                                     const itemToPin = pinnedVersion || attachment;
                                     const isPinned = isManuallyPinned(attachment.url);
 
@@ -440,12 +464,12 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                                           <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-2 overflow-hidden">
                                             <BookText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
                                             <div className="flex-grow flex flex-col gap-0.5 overflow-hidden">
-                                                <span className="text-sm font-medium text-foreground group-hover/item:underline">{highlightText(attachment.title, searchQuery)}</span>
-                                                {pinnedVersion?.authors && (
-                                                    <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(pinnedVersion.authors) ? pinnedVersion.authors.join(', ') : pinnedVersion.authors, searchQuery)}</span>
+                                                <span className="text-sm font-medium text-foreground group-hover/item:underline">{highlightText(itemToRender.title, searchQuery)}</span>
+                                                {itemToRender.authors && (
+                                                    <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(itemToRender.authors) ? itemToRender.authors.join(', ') : itemToRender.authors, searchQuery)}</span>
                                                 )}
-                                                {pinnedVersion?.publication && (
-                                                    <span className="text-xs text-muted-foreground italic">{highlightText(pinnedVersion.publication, searchQuery)}</span>
+                                                {itemToRender.publication && (
+                                                    <span className="text-xs text-muted-foreground italic">{highlightText(itemToRender.publication, searchQuery)}</span>
                                                 )}
                                             </div>
                                           </a>
@@ -471,7 +495,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                           </Collapsible>
                       )}
 
-                      {(manuallyPinnedResources.length > 0 || scientificAttachmentsFromCard.length > 0) && <Separator className="my-4" />}
+                      {(manuallyPinnedResources.length > 0 || (selectedCard && scientificAttachmentsFromCard.length > 0)) && <Separator className="my-4" />}
 
 
                       {filteredLocalResources.length > 0 ? (
