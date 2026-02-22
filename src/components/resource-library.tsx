@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { RECURSOS, type Recurso } from '@/lib/recursos';
-import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip } from 'lucide-react';
+import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
@@ -110,8 +110,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   }, [isOpen]);
 
   useEffect(() => {
-    // If card changes, don't wipe the manual pins.
-    // The displayed list will update automatically via useMemo.
     if (selectedCard?.id !== prevSelectedCardId.current) {
         prevSelectedCardId.current = selectedCard?.id || null;
     }
@@ -216,9 +214,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se adjuntó a la tarjeta.`,
       });
-      // The attachedCardResources memo will pick up the change after a card refresh,
-      // but we can add it optimistically to the pinned resources with its new attachmentId
-      // so we can detach it right away.
        setPinnedResources(prev => 
         prev.map(r => r.url === resource.url ? { ...r, attachmentId: newAttachment.id } : r)
       );
@@ -247,7 +242,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se quitó de la tarjeta.`,
       });
-      // Also remove from manual pins if it exists there
       setPinnedResources(prev =>
         prev.filter(r => r.url !== resource.url)
       );
@@ -341,23 +335,31 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                   <ScrollArea className="h-full pr-4">
                       {displayedPinnedResources.length > 0 && (
                         <Collapsible defaultOpen className="mb-4">
-                          <div className="flex items-center justify-between mb-2 px-2">
-                              <CollapsibleTrigger className="group flex flex-grow items-center gap-2 text-sm font-semibold text-fuchsia-600">
-                                  <Pin className="h-4 w-4" />
-                                  <span>Recursos Fijados</span>
-                                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                              </CollapsibleTrigger>
-                              {pinnedResources.length > 0 && (
-                                  <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setPinnedResources([])}
-                                      className="h-7 text-muted-foreground hover:text-foreground px-2"
-                                  >
-                                      <X className="h-4 w-4 mr-1" />
-                                      Limpiar
-                                  </Button>
-                              )}
+                          <div className="flex items-center justify-between mb-2">
+                            <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-fuchsia-600">
+                                    <Pin className="h-4 w-4" />
+                                    <span>Recursos Fijados</span>
+                                </div>
+
+                                <div className="flex items-center">
+                                    {pinnedResources.length > 0 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPinnedResources([]);
+                                        }}
+                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                        aria-label="Limpiar pines manuales"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                    )}
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </div>
+                            </CollapsibleTrigger>
                           </div>
                           <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                               <div className="flex flex-col">
