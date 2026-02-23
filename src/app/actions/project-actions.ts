@@ -119,8 +119,8 @@ export async function updateProject(
     cardId: formData.get('cardId'),
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
-    diagnosticoEquipo: formData.get('diagnosticoEquipo'),
-    informacionSig: formData.get('informacionSig'),
+    diagnosticoEquipo: formData.get('diagnosticoEquipo') || '',
+    informacionSig: formData.get('informacionSig') || '',
   });
 
   if (!validatedFields.success) {
@@ -169,12 +169,8 @@ export async function updateProject(
     }
 
     let newDesc = originalCard.desc;
-    if (diagnosticoEquipo !== undefined) {
-        newDesc = updateDescriptionField(newDesc, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
-    }
-     if (informacionSig !== undefined) {
-        newDesc = updateDescriptionField(newDesc, 'Información SIG-imágenes', informacionSig);
-    }
+    newDesc = updateDescriptionField(newDesc, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
+    newDesc = updateDescriptionField(newDesc, 'Información SIG-imágenes', informacionSig);
     
     const updatedCard = await updateTrelloCard({
         cardId: cardId,

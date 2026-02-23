@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ScrollArea } from './ui/scroll-area';
-import { getAllCardsFromAllBoards, TrelloCard } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard, getCardById } from '@/services/trello';
 import {
   Table,
   TableBody,
@@ -32,7 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Pencil, Trash2, Search, X, Plus, ChevronDown } from 'lucide-react';
+import { Pencil, Trash2, Search, X, Plus, ChevronDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EQUIPO_DEA, EQUIPO_SIG } from '@/lib/equipo';
 import {
@@ -240,6 +240,7 @@ export default function CreateProjectForm() {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<TrelloCard | null>(null);
+  const [isEditingLoading, setIsEditingLoading] = useState<string | null>(null);
 
   const [selectedEquipoCreate, setSelectedEquipoCreate] = useState<string[]>([]);
   const [selectedSigCreate, setSelectedSigCreate] = useState<string[]>([]);
@@ -317,9 +318,21 @@ export default function CreateProjectForm() {
       });
   }, [searchQuery, projects]);
 
-  const handleEditClick = (project: TrelloCard) => {
-      setEditingProject(project);
-      setEditDialogOpen(true);
+  const handleEditClick = async (project: TrelloCard) => {
+      setIsEditingLoading(project.id);
+      try {
+        const freshProject = await getCardById(project.id);
+        setEditingProject(freshProject);
+        setEditDialogOpen(true);
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Error al cargar proyecto',
+          description: error instanceof Error ? error.message : 'No se pudo obtener la información más reciente.'
+        });
+      } finally {
+        setIsEditingLoading(null);
+      }
   }
 
   return (
@@ -374,8 +387,8 @@ export default function CreateProjectForm() {
                               <TableCell className="font-mono py-0 px-2 w-[100px]">{code}</TableCell>
                               <TableCell className="py-0 px-2">{nameWithoutCode}</TableCell>
                               <TableCell className="p-0 px-2 text-right w-[80px]">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(project)}>
-                                  <Pencil className="h-4 w-4" />
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(project)} disabled={!!isEditingLoading}>
+                                    {isEditingLoading === project.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
                                   </Button>
                                   <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
                                   <Trash2 className="h-4 w-4" />
