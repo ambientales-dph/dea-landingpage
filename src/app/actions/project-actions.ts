@@ -135,29 +135,67 @@ export async function updateProject(
     };
   }
   
-  const { cardId, nombre, diagnosticoEquipo, informacionSig } = validatedFields.data;
+  const { cardId, nombre, cuenca: newCuencaId, diagnosticoEquipo, informacionSig } = validatedFields.data;
 
   try {
+    // Primero, obtenemos los datos originales de la tarjeta.
     const originalCard = await getCardById(cardId);
     
+    // Preparamos y guardamos los cambios de texto (nombre y descripción).
+    // Esto asegura que los cambios en los participantes se guarden primero.
     const projectCodeMatch = originalCard.name.match(/\(([^)]+)\)$/);
-    const projectCode = projectCodeMatch ? projectCodeMatch[1] : '';
-    const newName = projectCode ? `${nombre} (${projectCode})` : nombre;
-
+    const originalProjectCode = projectCodeMatch ? projectCodeMatch[1] : '';
+    
+    const nameWithOldCode = originalProjectCode ? `${nombre} (${originalProjectCode})` : nombre;
+    
     let newDesc = originalCard.desc || '';
     newDesc = updateDescriptionField(newDesc, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     newDesc = updateDescriptionField(newDesc, 'Información SIG-imágenes', informacionSig);
     
-    const updatedCard = await updateTrelloCard({
+    const cardAfterTextUpdate = await updateTrelloCard({
         cardId: cardId,
-        name: newName,
+        name: nameWithOldCode,
         desc: newDesc,
     });
 
+    // Ahora, verificamos si la cuenca ha cambiado para proceder a mover la tarjeta.
+    const originalCuenca = CUENCAS.find(c => originalProjectCode?.startsWith(c.code));
+
+    if (originalCuenca && originalCuenca.id !== newCuencaId) {
+        // La cuenca cambió. Ahora movemos la tarjeta y actualizamos su código.
+        const newSelectedCuenca = CUENCAS.find(c => c.id === newCuencaId);
+        if (!newSelectedCuenca) {
+            throw new Error('La nueva cuenca seleccionada no es válida.');
+        }
+
+        const newProjectCode = await getNextProjectCode(PROYECTOS_BOARD_ID, newSelectedCuenca.code);
+        const finalNewName = `${nombre} (${newProjectCode})`;
+
+        const lists = await getListsOnBoard(PROYECTOS_BOARD_ID);
+        const newTargetList = lists.find(list => list.name.toLowerCase() === newSelectedCuenca.trelloListName.toLowerCase());
+
+        if (!newTargetList) {
+            throw new Error(`No se encontró la lista de Trello "${newSelectedCuenca.trelloListName}" en el tablero de Proyectos.`);
+        }
+
+        const finalUpdatedCard = await updateTrelloCard({
+            cardId: cardId,
+            name: finalNewName,
+            idList: newTargetList.id,
+        });
+        
+        return {
+            message: `¡Proyecto actualizado y movido a la cuenca ${newSelectedCuenca.name} con éxito!`,
+            success: true,
+            cardUrl: finalUpdatedCard.url,
+        };
+    }
+
+    // Si la cuenca no cambió, el proceso termina aquí.
     return {
-        message: `¡Proyecto "${updatedCard.name}" actualizado con éxito!`,
+        message: `¡Proyecto "${cardAfterTextUpdate.name}" actualizado con éxito!`,
         success: true,
-        cardUrl: updatedCard.url,
+        cardUrl: cardAfterTextUpdate.url,
     };
 
   } catch(error) {
