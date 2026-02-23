@@ -40,4 +40,8 @@ export const RECURSOS_PROPIOS: {title: string, url: string}[] = [
     title: 'Plan de Gestión Ambiental',
     url: 'https://docs.google.com/document/d/1awzF11qKyQKgkGVcDcFCGp_z4Iw9VgwP/edit?usp=sharing&ouid=113275923928117347447&rtpof=true&sd=true',
   },
+  {
+    title: 'Matriz de Impactos y Cálculo de VIA',
+    url: 'https://docs.google.com/spreadsheets/d/1EDbhZZH_W71usWJvC7xZ915DVupcxHeL/edit?usp=sharing&ouid=113275923928117347447&rtpof=true&sd=true',
+  },
 ];
