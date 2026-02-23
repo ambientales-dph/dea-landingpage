@@ -135,44 +135,16 @@ export async function updateProject(
     };
   }
   
-  const { cardId, nombre, cuenca: newCuencaId, diagnosticoEquipo, informacionSig } = validatedFields.data;
+  const { cardId, nombre, diagnosticoEquipo, informacionSig } = validatedFields.data;
 
   try {
     const originalCard = await getCardById(cardId);
     
-    const originalProjectRegex = /\(([A-Z]{3}\d{3})\)$/;
-    const originalMatch = originalCard.name.match(originalProjectRegex);
-    const originalCuencaCode = originalMatch ? originalMatch[1].substring(0, 3) : null;
-    const originalCuenca = CUENCAS.find(c => c.code === originalCuencaCode);
+    const projectCodeMatch = originalCard.name.match(/\(([^)]+)\)$/);
+    const projectCode = projectCodeMatch ? projectCodeMatch[1] : '';
+    const newName = projectCode ? `${nombre} (${projectCode})` : nombre;
 
-    const newSelectedCuenca = CUENCAS.find(c => c.id === newCuencaId);
-    if (!newSelectedCuenca) {
-        throw new Error('La nueva cuenca no es válida.');
-    }
-
-    let newName = originalCard.name;
-    let newIdList = originalCard.idList;
-    
-    const cuencaHasChanged = originalCuenca?.id !== newSelectedCuenca.id;
-
-    if (cuencaHasChanged) {
-        const newProjectCode = await getNextProjectCode(PROYECTOS_BOARD_ID, newSelectedCuenca.code);
-        newName = `${nombre} (${newProjectCode})`;
-
-        const lists = await getListsOnBoard(PROYECTOS_BOARD_ID);
-        const targetList = lists.find(list => list.name.toLowerCase() === newSelectedCuenca.trelloListName.toLowerCase());
-
-        if (!targetList) {
-            throw new Error(`No se encontró la lista de Trello "${newSelectedCuenca.trelloListName}" en el tablero de Proyectos.`);
-        }
-        newIdList = targetList.id;
-    } else {
-        const projectCodeMatch = originalCard.name.match(/\(([^)]+)\)$/);
-        const projectCode = projectCodeMatch ? projectCodeMatch[1] : '';
-        newName = projectCode ? `${nombre} (${projectCode})` : nombre;
-    }
-
-    let newDesc = originalCard.desc || ''; // Start with a guaranteed string.
+    let newDesc = originalCard.desc || '';
     newDesc = updateDescriptionField(newDesc, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     newDesc = updateDescriptionField(newDesc, 'Información SIG-imágenes', informacionSig);
     
@@ -180,8 +152,6 @@ export async function updateProject(
         cardId: cardId,
         name: newName,
         desc: newDesc,
-        idList: newIdList,
-        idBoard: PROYECTOS_BOARD_ID,
     });
 
     return {
