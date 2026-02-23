@@ -32,9 +32,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Pencil, Trash2, Search, X, Plus, ChevronDown, Loader2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Badge } from '@/components/ui/badge';
+import { Pencil, Trash2, Search, X, Plus, ChevronDown, Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EQUIPO_DEA, EQUIPO_SIG } from '@/lib/equipo';
+import { MUNICIPIOS } from '@/lib/municipios';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +77,112 @@ const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: s
   return { code: null, nameWithoutCode: name };
 };
 
+// Multi-Select Combobox Component
+interface MultiSelectComboboxProps {
+  options: string[];
+  selected: string[];
+  onSelectedChange: (selected: string[]) => void;
+  placeholder: string;
+  className?: string;
+}
+
+function MultiSelectCombobox({ options, selected, onSelectedChange, placeholder, className }: MultiSelectComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    const normalizedSearch = removeAccents(search.toLowerCase());
+    return options.filter(option => removeAccents(option.toLowerCase()).includes(normalizedSearch));
+  }, [search, options]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-full justify-between font-normal h-auto min-h-10", className)}
+        >
+          <div className="flex gap-1 flex-wrap">
+            {selected.length > 0 ? (
+              selected.map(item => (
+                <Badge
+                  key={item}
+                  variant="secondary"
+                  className="mr-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectedChange(selected.filter(s => s !== item));
+                  }}
+                >
+                  {item}
+                  <X className="ml-1 h-3 w-3" />
+                </Badge>
+              ))
+            ) : (
+              <span className="text-muted-foreground">{placeholder}</span>
+            )}
+          </div>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <div className="relative">
+            <CommandInput
+              placeholder="Buscar..."
+              value={search}
+              onValueChange={setSearch}
+              className="pr-8"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSearch('')}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <CommandEmpty>No se encontraron resultados.</CommandEmpty>
+          <CommandList>
+            <CommandGroup>
+              <ScrollArea className="max-h-60">
+                {filteredOptions.map((option) => (
+                  <CommandItem
+                    key={option}
+                    value={option}
+                    onSelect={() => {
+                      onSelectedChange(
+                        selected.includes(option)
+                          ? selected.filter(s => s !== option)
+                          : [...selected, option]
+                      );
+                      setOpen(true);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selected.includes(option) ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {option}
+                  </CommandItem>
+                ))}
+              </ScrollArea>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 // Edit Project Dialog Component
 interface EditProjectDialogProps {
@@ -89,15 +199,17 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
   
   const [nombre, setNombre] = useState('');
   const [cuencaId, setCuencaId] = useState('');
+  const [selectedPartidos, setSelectedPartidos] = useState<string[]>([]);
   const [selectedEquipo, setSelectedEquipo] = useState<string[]>([]);
   const [selectedSig, setSelectedSig] = useState<string[]>([]);
   
-  const getTeamFromDesc = useCallback((desc: string, field: string): string[] => {
+  const getValuesFromDesc = useCallback((desc: string, field: string): string[] => {
       if (!desc) return [];
       const regex = new RegExp(`^${field}:\\s*(.*)$`, 'm');
       const match = desc.match(regex);
       if (match && match[1]) {
-          return match[1].split(';').map(s => s.trim()).filter(Boolean);
+          const separator = field === 'PARTIDO' ? ',' : ';';
+          return match[1].split(separator).map(s => s.trim()).filter(Boolean);
       }
       return [];
   }, []);
@@ -109,11 +221,12 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
 
         const projectCuenca = CUENCAS.find(c => code?.startsWith(c.code));
         setCuencaId(projectCuenca?.id || '');
-
-        setSelectedEquipo(getTeamFromDesc(project.desc, 'Diagnóstico ambiental-socioeconómico'));
-        setSelectedSig(getTeamFromDesc(project.desc, 'Información SIG-imágenes'));
+        
+        setSelectedPartidos(getValuesFromDesc(project.desc, 'PARTIDO'));
+        setSelectedEquipo(getValuesFromDesc(project.desc, 'Diagnóstico ambiental-socioeconómico'));
+        setSelectedSig(getValuesFromDesc(project.desc, 'Información SIG-imágenes'));
     }
-  }, [project, getTeamFromDesc]);
+  }, [project, getValuesFromDesc]);
   
   useEffect(() => {
     if (state.message) {
@@ -143,10 +256,11 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
               Modificá los datos del proyecto. Si cambiás la cuenca, se generará un nuevo código.
             </DialogDescription>
           </DialogHeader>
-          <form ref={formRef} action={formAction} className="space-y-4 pt-2">
-              <ScrollArea className="max-h-[60vh] -mr-6 pr-6">
+          <form ref={formRef} action={formAction} className="flex flex-col h-full min-h-0">
+              <ScrollArea className="flex-grow pr-6 -mr-6 max-h-[65vh]">
                 <div className="space-y-4">
                   <input type="hidden" name="cardId" value={project.id} />
+                  <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
                   <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
                   <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
                   
@@ -164,6 +278,16 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                         {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+                  
+                   <div className="space-y-2">
+                    <Label>Partido(s)</Label>
+                    <MultiSelectCombobox 
+                        options={MUNICIPIOS}
+                        selected={selectedPartidos}
+                        onSelectedChange={setSelectedPartidos}
+                        placeholder="Seleccioná uno o más partidos"
+                    />
                   </div>
                   
                   <div className="space-y-2">
@@ -219,7 +343,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   </div>
                 </div>
               </ScrollArea>
-              <DialogFooter className="pt-4">
+              <DialogFooter className="pt-4 flex-shrink-0">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
                 <Button type="submit">Guardar Cambios</Button>
               </DialogFooter>
@@ -242,6 +366,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
   const [editingProject, setEditingProject] = useState<TrelloCard | null>(null);
   const [isEditingLoading, setIsEditingLoading] = useState<string | null>(null);
 
+  const [selectedPartidosCreate, setSelectedPartidosCreate] = useState<string[]>([]);
   const [selectedEquipoCreate, setSelectedEquipoCreate] = useState<string[]>([]);
   const [selectedSigCreate, setSelectedSigCreate] = useState<string[]>([]);
 
@@ -287,6 +412,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
           ) : undefined,
         });
         createFormRef.current?.reset();
+        setSelectedPartidosCreate([]);
         setSelectedEquipoCreate([]);
         setSelectedSigCreate([]);
         setCreateDialogOpen(false);
@@ -346,9 +472,11 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       Consultá la lista de proyectos o creá uno nuevo.
                   </CardDescription>
               </div>
-              <Button size="icon" variant="default" className="bg-primary text-primary-foreground mr-8" onClick={() => setCreateDialogOpen(true)}>
-                  <Plus />
-              </Button>
+              <DialogTrigger asChild>
+                 <Button size="icon" variant="default" className="bg-primary text-primary-foreground mr-8" onClick={() => setCreateDialogOpen(true)}>
+                    <Plus />
+                </Button>
+              </DialogTrigger>
           </div>
           <div className="pt-4 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-[-4px] h-4 w-4 text-muted-foreground" />
@@ -417,9 +545,10 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                   Complete el formulario para crear una nueva tarjeta de proyecto en Trello.
                 </DialogDescription>
               </DialogHeader>
-              <form ref={createFormRef} action={createFormAction} className="space-y-4 pt-2">
-                  <ScrollArea className="max-h-[60vh] -mr-6 pr-6">
+              <form ref={createFormRef} action={createFormAction} className="flex flex-col h-full min-h-0">
+                  <ScrollArea className="flex-grow pr-6 -mr-6 max-h-[65vh]">
                     <div className="space-y-4">
+                      <input type="hidden" name="partido" value={selectedPartidosCreate.join(', ')} />
                       <input type="hidden" name="diagnosticoEquipo" value={selectedEquipoCreate.join('; ')} />
                       <input type="hidden" name="informacionSig" value={selectedSigCreate.join('; ')} />
                       <div className="space-y-2">
@@ -436,6 +565,15 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                           </SelectContent>
                         </Select>
                         {createState.errors?.cuenca && <p className="text-sm font-medium text-destructive">{createState.errors.cuenca[0]}</p>}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Partido(s)</Label>
+                        <MultiSelectCombobox 
+                            options={MUNICIPIOS}
+                            selected={selectedPartidosCreate}
+                            onSelectedChange={setSelectedPartidosCreate}
+                            placeholder="Seleccioná uno o más partidos"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Diagnóstico ambiental-socioeconómico</Label>
@@ -497,7 +635,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       </div>
                     </div>
                   </ScrollArea>
-                  <DialogFooter className="pt-4">
+                  <DialogFooter className="pt-4 flex-shrink-0">
                     <Button type="button" variant="ghost" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
                     <Button type="submit">Crear Proyecto</Button>
                   </DialogFooter>

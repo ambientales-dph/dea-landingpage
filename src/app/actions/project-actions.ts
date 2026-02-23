@@ -9,6 +9,7 @@ const PROYECTOS_BOARD_ID = 'CgG4b3B0';
 const ProjectSchema = z.object({
   nombre: z.string().min(1, { message: 'El nombre del proyecto es obligatorio.' }),
   cuenca: z.string().min(1, { message: 'Debe seleccionar una cuenca.' }),
+  partido: z.string().optional(),
   diagnosticoEquipo: z.string().optional(),
   informacionSig: z.string().optional(),
 });
@@ -27,13 +28,10 @@ function updateDescriptionField(description: string, field: string, value: strin
     const regex = new RegExp(`^(${field}:\\s*).*$`, 'm');
     const replacement = `$1${value}`;
 
-    // If the field exists, just replace its content.
     if (regex.test(description)) {
         return description.replace(regex, replacement);
     }
 
-    // If the field does not exist, append it.
-    // Add a newline separator only if the description is not empty.
     const separator = description.trim() ? '\n' : '';
     return `${description}${separator}${field}: ${value}`;
 }
@@ -46,6 +44,7 @@ export async function createProject(
   const validatedFields = ProjectSchema.safeParse({
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
+    partido: formData.get('partido'),
     diagnosticoEquipo: formData.get('diagnosticoEquipo'),
     informacionSig: formData.get('informacionSig'),
   });
@@ -58,7 +57,7 @@ export async function createProject(
     };
   }
 
-  const { nombre, cuenca: cuencaId, diagnosticoEquipo, informacionSig } = validatedFields.data;
+  const { nombre, cuenca: cuencaId, partido, diagnosticoEquipo, informacionSig } = validatedFields.data;
 
   try {
     const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
@@ -78,6 +77,9 @@ export async function createProject(
     const cardName = `${nombre} (${projectCode})`;
     
     let finalDescription = DESCRIPCION_PLANTILLA;
+    if (partido !== undefined) {
+      finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
+    }
     if (diagnosticoEquipo !== undefined) {
       finalDescription = updateDescriptionField(finalDescription, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     }
@@ -123,6 +125,7 @@ export async function updateProject(
     cardId: formData.get('cardId'),
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
+    partido: formData.get('partido'),
     diagnosticoEquipo: formData.get('diagnosticoEquipo') || '',
     informacionSig: formData.get('informacionSig') || '',
   });
@@ -135,20 +138,20 @@ export async function updateProject(
     };
   }
   
-  const { cardId, nombre, cuenca: newCuencaId, diagnosticoEquipo, informacionSig } = validatedFields.data;
+  const { cardId, nombre, cuenca: newCuencaId, partido, diagnosticoEquipo, informacionSig } = validatedFields.data;
 
   try {
-    // Primero, obtenemos los datos originales de la tarjeta.
     const originalCard = await getCardById(cardId);
     
-    // Preparamos y guardamos los cambios de texto (nombre y descripción).
-    // Esto asegura que los cambios en los participantes se guarden primero.
     const projectCodeMatch = originalCard.name.match(/\(([^)]+)\)$/);
     const originalProjectCode = projectCodeMatch ? projectCodeMatch[1] : '';
     
     const nameWithOldCode = originalProjectCode ? `${nombre} (${originalProjectCode})` : nombre;
     
     let newDesc = originalCard.desc || '';
+    if (partido !== undefined) {
+        newDesc = updateDescriptionField(newDesc, 'PARTIDO', partido);
+    }
     newDesc = updateDescriptionField(newDesc, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     newDesc = updateDescriptionField(newDesc, 'Información SIG-imágenes', informacionSig);
     
@@ -158,11 +161,9 @@ export async function updateProject(
         desc: newDesc,
     });
 
-    // Ahora, verificamos si la cuenca ha cambiado para proceder a mover la tarjeta.
     const originalCuenca = CUENCAS.find(c => originalProjectCode?.startsWith(c.code));
 
     if (originalCuenca && originalCuenca.id !== newCuencaId) {
-        // La cuenca cambió. Ahora movemos la tarjeta y actualizamos su código.
         const newSelectedCuenca = CUENCAS.find(c => c.id === newCuencaId);
         if (!newSelectedCuenca) {
             throw new Error('La nueva cuenca seleccionada no es válida.');
@@ -191,7 +192,6 @@ export async function updateProject(
         };
     }
 
-    // Si la cuenca no cambió, el proceso termina aquí.
     return {
         message: `¡Proyecto "${cardAfterTextUpdate.name}" actualizado con éxito!`,
         success: true,
