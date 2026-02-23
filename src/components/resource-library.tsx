@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -641,18 +640,29 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                         </CollapsibleTrigger>
                         <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
-                            {RECURSOS_PROPIOS.map((resource) => (
-                              <a
-                                key={resource.title}
-                                href={resource.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group flex flex-col items-center justify-center rounded-lg border bg-card text-card-foreground shadow-sm hover:bg-accent/50 transition-colors p-4 aspect-square"
-                              >
-                                <FileText className="h-10 w-10 text-muted-foreground mb-2 transition-transform group-hover:scale-110" />
-                                <span className="text-center text-xs font-medium">{resource.title}</span>
-                              </a>
-                            ))}
+                            {RECURSOS_PROPIOS.map((resource, index) => {
+                                const colors = [
+                                    'bg-sky-50 hover:bg-sky-100',
+                                    'bg-teal-50 hover:bg-teal-100',
+                                    'bg-violet-50 hover:bg-violet-100',
+                                    'bg-amber-50 hover:bg-amber-100',
+                                ];
+                                return (
+                                  <a
+                                    key={resource.title}
+                                    href={resource.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={cn(
+                                        "group flex flex-col items-center justify-center rounded-lg border text-card-foreground shadow-sm transition-colors p-4 aspect-square",
+                                        colors[index % colors.length]
+                                    )}
+                                  >
+                                    <FileText className="h-10 w-10 text-muted-foreground mb-2 transition-transform group-hover:scale-110" />
+                                    <span className="text-center text-xs font-medium">{resource.title}</span>
+                                  </a>
+                                );
+                            })}
                           </div>
                         </CollapsibleContent>
                       </Collapsible>
