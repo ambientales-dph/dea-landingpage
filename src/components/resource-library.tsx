@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -17,7 +18,7 @@ import { Button } from './ui/button';
 import { searchElsevier, type ElsevierArticle } from '@/services/elsevier';
 import { searchSNRD, type SNRDArticle } from '@/services/snrd';
 import { searchScielo, type ScieloArticle } from '@/services/scielo';
-import { addAttachmentToTrelloCard, removeAttachmentFromTrelloCard, type TrelloCard } from '@/services/trello';
+import { addAttachmentToTrelloCard, removeAttachmentFromTrelloCard, type TrelloCard, type TrelloAttachment } from '@/services/trello';
 import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -29,6 +30,7 @@ interface ResourceLibraryProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   selectedCard: TrelloCard | null;
+  onCardUpdate: (card: TrelloCard) => void;
 }
 
 interface PinnedResource {
@@ -75,7 +77,7 @@ const isScientificUrl = (url: string): boolean => {
 };
 
 
-export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: ResourceLibraryProps) {
+export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, onCardUpdate }: ResourceLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
   const [elsevierResults, setElsevierResults] = useState<ElsevierArticle[]>([]);
@@ -225,6 +227,15 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
   const handleAttachResource = async (resource: PinnedResource) => {
     if (!selectedCard) return;
 
+    if (selectedCard.attachments.some(att => att.url === resource.url)) {
+        toast({
+            variant: 'destructive',
+            title: 'Recurso duplicado',
+            description: 'Este enlace ya está adjunto al proyecto.',
+        });
+        return;
+    }
+
     setAttachingId(resource.url);
     try {
       const newAttachment = await addAttachmentToTrelloCard({
@@ -232,6 +243,13 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         url: resource.url,
         name: resource.title,
       });
+
+      const updatedCard = {
+          ...selectedCard,
+          attachments: [...selectedCard.attachments, newAttachment],
+      };
+      onCardUpdate(updatedCard);
+      
       toast({
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se adjuntó a la tarjeta.`,
@@ -260,6 +278,13 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
         cardId: selectedCard.id,
         attachmentId: resource.attachmentId,
       });
+      
+      const updatedCard = {
+          ...selectedCard,
+          attachments: selectedCard.attachments.filter(att => att.id !== resource.attachmentId),
+      };
+      onCardUpdate(updatedCard);
+
       toast({
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se quitó de la tarjeta.`,
@@ -358,30 +383,32 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard }: 
                   <ScrollArea className="h-full pr-4">
                       {manuallyPinnedResources.length > 0 && (
                         <Collapsible defaultOpen className="mb-4">
-                           <div className="flex items-center justify-between mb-2 rounded-md hover:bg-muted/50">
-                                <CollapsibleTrigger className="group flex flex-grow items-center gap-2 p-2 text-sm font-semibold text-fuchsia-600 text-left">
-                                    <Pin className="h-4 w-4" />
-                                    <span>Recursos Fijados</span>
-                                </CollapsibleTrigger>
-                                <div className="flex items-center pr-1">
-                                    {pinnedResources.length > 0 && (
-                                      <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() => updateAndStorePinnedResources([])}
-                                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                          aria-label="Limpiar pines manuales"
-                                      >
-                                          <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                    <CollapsibleTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7">
-                                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                        </Button>
-                                    </CollapsibleTrigger>
-                                </div>
+                          <div className="flex items-center justify-between mb-2 rounded-md hover:bg-muted/50">
+                            <CollapsibleTrigger asChild>
+                              <div className="group flex flex-grow items-center gap-2 p-2 text-sm font-semibold text-fuchsia-600 text-left cursor-pointer">
+                                  <Pin className="h-4 w-4" />
+                                  <span>Recursos Fijados</span>
+                              </div>
+                            </CollapsibleTrigger>
+                            <div className="flex items-center pr-1">
+                              {pinnedResources.length > 0 && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => updateAndStorePinnedResources([])}
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    aria-label="Limpiar pines manuales"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <CollapsibleTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                  </Button>
+                              </CollapsibleTrigger>
                             </div>
+                          </div>
                           <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                               <div className="flex flex-col">
                                   {manuallyPinnedResources.map((resource, index) => {
