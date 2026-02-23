@@ -347,7 +347,7 @@ export default function CreateProjectForm() {
                   </CardDescription>
               </div>
               <DialogTrigger asChild>
-                  <Button size="icon" variant="default" className="bg-primary text-primary-foreground" onClick={() => setCreateDialogOpen(true)}>
+                  <Button size="icon" variant="default" className="bg-primary text-primary-foreground mr-8" onClick={() => setCreateDialogOpen(true)}>
                       <Plus />
                   </Button>
               </DialogTrigger>
