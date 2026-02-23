@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { EQUIPO_DEA, EQUIPO_SIG } from '@/lib/equipo';
 import { MUNICIPIOS } from '@/lib/municipios';
 import { PROYECTISTAS } from '@/lib/proyectistas';
+import { FINANCIAMIENTO } from '@/lib/financiamiento';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +87,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
   const [cuencaId, setCuencaId] = useState('');
   const [selectedPartidos, setSelectedPartidos] = useState<string[]>([]);
   const [proyectista, setProyectista] = useState('');
+  const [selectedFinanciamiento, setSelectedFinanciamiento] = useState<string[]>([]);
   const [selectedEquipo, setSelectedEquipo] = useState<string[]>([]);
   const [selectedSig, setSelectedSig] = useState<string[]>([]);
   
@@ -98,7 +100,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
       if (match && match[1]) {
           const value = match[1];
           if (/^\*+$/.test(value)) return [];
-          const separator = field === 'PARTIDO' ? ',' : ';';
+          const separator = (field === 'PARTIDO' || field === 'FINANCIAMIENTO') ? ',' : ';';
           return value.split(separator).map(s => s.trim()).filter(Boolean);
       }
       return [];
@@ -122,6 +124,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
         
         setSelectedPartidos(getValuesFromDesc(project.desc, 'PARTIDO'));
         setProyectista(getValueFromDesc(project.desc, 'PROYECTISTA'));
+        setSelectedFinanciamiento(getValuesFromDesc(project.desc, 'FINANCIAMIENTO'));
         setSelectedEquipo(getValuesFromDesc(project.desc, '- Diagnóstico ambiental-socioeconómico'));
         setSelectedSig(getValuesFromDesc(project.desc, '- Información SIG-imágenes'));
     }
@@ -161,6 +164,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   <input type="hidden" name="cardId" value={project.id} />
                   <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
                   <input type="hidden" name="proyectista" value={proyectista} />
+                  <input type="hidden" name="financiamiento" value={selectedFinanciamiento.join(', ')} />
                   <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
                   <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
                   
@@ -208,12 +212,38 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
 
                   <div className="space-y-2">
                     <Label htmlFor="proyectista-edit">Proyectista</Label>
-                    <Select name="proyectista" value={proyectista} onValueChange={setProyectista}>
+                    <Select value={proyectista} onValueChange={setProyectista}>
                         <SelectTrigger id="proyectista-edit"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
                         <SelectContent>
                             {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                         </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Financiamiento</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between font-normal">
+                          <span>{selectedFinanciamiento.length > 0 ? `${selectedFinanciamiento.length} fuente(s) seleccionada(s)` : 'Seleccioná una o más fuentes'}</span>
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                        <DropdownMenuLabel>Fuentes de Financiamiento</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {FINANCIAMIENTO.map(fuente => (
+                          <DropdownMenuCheckboxItem
+                            key={fuente}
+                            checked={selectedFinanciamiento.includes(fuente)}
+                            onCheckedChange={(checked) => setSelectedFinanciamiento(current => checked ? [...current, fuente] : current.filter(p => p !== fuente))}
+                            onSelect={e => e.preventDefault()}
+                          >
+                            {fuente}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   
                   <div className="space-y-2">
@@ -294,6 +324,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
 
   const [selectedPartidosCreate, setSelectedPartidosCreate] = useState<string[]>([]);
   const [selectedProyectistaCreate, setSelectedProyectistaCreate] = useState('');
+  const [selectedFinanciamientoCreate, setSelectedFinanciamientoCreate] = useState<string[]>([]);
   const [selectedEquipoCreate, setSelectedEquipoCreate] = useState<string[]>([]);
   const [selectedSigCreate, setSelectedSigCreate] = useState<string[]>([]);
 
@@ -341,6 +372,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
         createFormRef.current?.reset();
         setSelectedPartidosCreate([]);
         setSelectedProyectistaCreate('');
+        setSelectedFinanciamientoCreate([]);
         setSelectedEquipoCreate([]);
         setSelectedSigCreate([]);
         setCreateDialogOpen(false);
@@ -404,7 +436,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       Consultá la lista de proyectos o creá uno nuevo.
                   </CardDescription>
               </div>
-              <Button size="icon" variant="default" className="bg-primary text-primary-foreground" onClick={handleCreateClick}>
+              <Button size="icon" variant="default" className="bg-primary text-primary-foreground ml-auto" onClick={handleCreateClick}>
                   <Plus />
               </Button>
           </div>
@@ -480,6 +512,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                     <div className="space-y-4">
                       <input type="hidden" name="partido" value={selectedPartidosCreate.join(', ')} />
                       <input type="hidden" name="proyectista" value={selectedProyectistaCreate} />
+                      <input type="hidden" name="financiamiento" value={selectedFinanciamientoCreate.join(', ')} />
                       <input type="hidden" name="diagnosticoEquipo" value={selectedEquipoCreate.join('; ')} />
                       <input type="hidden" name="informacionSig" value={selectedSigCreate.join('; ')} />
                       <div className="space-y-2">
@@ -529,12 +562,42 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
 
                       <div className="space-y-2">
                         <Label htmlFor="proyectista-create">Proyectista</Label>
-                        <Select name="proyectista" value={selectedProyectistaCreate} onValueChange={setSelectedProyectistaCreate}>
+                        <Select value={selectedProyectistaCreate} onValueChange={setSelectedProyectistaCreate}>
                           <SelectTrigger id="proyectista-create"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
                           <SelectContent>
                             {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Financiamiento</Label>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between font-normal">
+                              <span>
+                                {selectedFinanciamientoCreate.length > 0 ? `${selectedFinanciamientoCreate.length} fuente(s) seleccionada(s)` : 'Seleccioná una o más fuentes'}
+                              </span>
+                              <ChevronDown className="h-4 w-4 opacity-50" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                            <DropdownMenuLabel>Fuentes de Financiamiento</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {FINANCIAMIENTO.map(fuente => (
+                              <DropdownMenuCheckboxItem
+                                key={fuente}
+                                checked={selectedFinanciamientoCreate.includes(fuente)}
+                                onCheckedChange={(checked) => {
+                                  setSelectedFinanciamientoCreate(current => checked ? [...current, fuente] : current.filter(p => p !== fuente));
+                                }}
+                                onSelect={e => e.preventDefault()}
+                              >
+                                {fuente}
+                              </DropdownMenuCheckboxItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
 
                       <div className="space-y-2">
