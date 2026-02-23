@@ -10,14 +10,13 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { RECURSOS, type Recurso } from '@/lib/recursos';
-import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2 } from 'lucide-react';
+import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2, Folder as FolderIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { searchElsevier, type ElsevierArticle } from '@/services/elsevier';
 import { searchSNRD, type SNRDArticle } from '@/services/snrd';
-import { searchScielo, type ScieloArticle } from '@/services/scielo';
 import { addAttachmentToTrelloCard, removeAttachmentFromTrelloCard, type TrelloCard, type TrelloAttachment } from '@/services/trello';
 import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
@@ -82,7 +81,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
   const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
   const [elsevierResults, setElsevierResults] = useState<ElsevierArticle[]>([]);
   const [snrdResults, setSnrdResults] = useState<SNRDArticle[]>([]);
-  const [scieloResults, setScieloResults] = useState<ScieloArticle[]>([]);
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -137,7 +135,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     if (!isOpen) {
         setElsevierResults([]);
         setSnrdResults([]);
-        setScieloResults([]);
     }
   }, [isOpen]);
 
@@ -173,19 +170,16 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     
     setIsSearchingExternal(true);
     try {
-      const [elsevier, snrd, scielo] = await Promise.all([
+      const [elsevier, snrd] = await Promise.all([
         searchElsevier(searchQuery),
         searchSNRD(searchQuery),
-        searchScielo(searchQuery),
       ]);
       setElsevierResults(elsevier);
       setSnrdResults(snrd);
-      setScieloResults(scielo);
     } catch (e) {
       console.error("Failed to search external sources", e);
       setElsevierResults([]);
       setSnrdResults([]);
-      setScieloResults([]);
       toast({
         variant: 'destructive',
         title: 'Error de búsqueda',
@@ -208,7 +202,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     if (query === '') {
         setElsevierResults([]);
         setSnrdResults([]);
-        setScieloResults([]);
     }
   };
 
@@ -361,7 +354,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                   <div className="pt-2 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar en la biblioteca, SNRD, SciELO y Elsevier..."
+                      placeholder="Buscar en la biblioteca, SNRD y Elsevier..."
                       value={searchQuery}
                       onChange={(e) => handleQueryChange(e.target.value)}
                       onKeyDown={handleKeyDown}
@@ -382,7 +375,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
               <CardContent className="flex-grow min-h-0">
                   <ScrollArea className="h-full pr-4">
                       {manuallyPinnedResources.length > 0 && (
-                        <Collapsible defaultOpen className="mb-4">
+                        <Collapsible className="mb-4">
                           <div className="flex items-center justify-between mb-2 rounded-md hover:bg-muted/50">
                             <CollapsibleTrigger asChild>
                               <div className="group flex flex-grow items-center gap-2 p-2 text-sm font-semibold text-fuchsia-600 text-left cursor-pointer">
@@ -467,7 +460,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                       )}
 
                       {selectedCard && scientificAttachmentsFromCard.length > 0 && (
-                          <Collapsible defaultOpen className="mb-4">
+                          <Collapsible>
                             <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
                                 <div className="flex items-center gap-2">
                                     <Paperclip className="h-4 w-4 text-fuchsia-600" />
@@ -524,37 +517,47 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
 
                       {(manuallyPinnedResources.length > 0 || (selectedCard && scientificAttachmentsFromCard.length > 0)) && <Separator className="my-4" />}
 
+                      <Collapsible className="mb-4">
+                        <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
+                           <div className="flex items-center gap-2">
+                              <FolderIcon className="h-4 w-4 text-fuchsia-600" />
+                              <span>Recursos Locales ({filteredLocalResources.length})</span>
+                          </div>
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                          {filteredLocalResources.length > 0 ? (
+                            <div className="flex flex-col">
+                                {filteredLocalResources.map((resource, index) => (
+                                    <a
+                                      key={resource.url}
+                                      href={resource.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={cn(
+                                        "flex items-center gap-3 py-1.5 px-2 rounded-md hover:bg-white",
+                                        index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20'
+                                      )}
+                                    >
+                                      <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                      <span className="text-sm text-foreground">{highlightText(resource.title, searchQuery)}</span>
+                                    </a>
+                                ))}
+                            </div>
+                          ) : (
+                            searchQuery && <p className="p-4 text-center text-sm text-muted-foreground">
+                              No se encontraron recursos locales que coincidan con tu búsqueda.
+                            </p>
+                          )}
+                        </CollapsibleContent>
+                      </Collapsible>
 
-                      {filteredLocalResources.length > 0 ? (
-                        <div className="flex flex-col">
-                            {filteredLocalResources.map((resource, index) => (
-                                <a
-                                  key={resource.url}
-                                  href={resource.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={cn(
-                                    "flex items-center gap-3 py-1.5 px-2 rounded-md hover:bg-white",
-                                    index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20'
-                                  )}
-                                >
-                                  <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                  <span className="text-sm text-foreground">{highlightText(resource.title, searchQuery)}</span>
-                                </a>
-                            ))}
-                        </div>
-                      ) : (
-                        searchQuery && <p className="text-center text-sm text-muted-foreground py-10">
-                          No se encontraron recursos locales que coincidan con tu búsqueda.
-                        </p>
-                      )}
-
-                      {(elsevierResults.length > 0 || snrdResults.length > 0 || scieloResults.length > 0 || isSearchingExternal) && (
+                      {(elsevierResults.length > 0 || snrdResults.length > 0 || isSearchingExternal) && (
                         <>
                           <Separator className="my-4" />
                           <div className="space-y-4">
                             
-                            <Collapsible defaultOpen>
+                            <Collapsible>
                                 <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
                                     <div className="flex items-center gap-2">
                                         <Database className="h-4 w-4" />
@@ -576,7 +579,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                                           <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
                                                       </a>
                                                       <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
-                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover:text-foreground")} />
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
                                                       </Button>
                                                   </div>
                                                 )
@@ -588,41 +591,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                 </CollapsibleContent>
                             </Collapsible>
                             
-                            <Collapsible defaultOpen>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
-                                    <div className="flex items-center gap-2">
-                                        <BookText className="h-4 w-4" />
-                                        Resultados de SciELO Argentina
-                                        {!isSearchingExternal && <Badge variant="secondary">{scieloResults.length}</Badge>}
-                                    </div>
-                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                </CollapsibleTrigger>
-                                <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-                                    {isSearchingExternal ? <SkeletonLoader /> : scieloResults.length > 0 ? (
-                                        <div className="flex flex-col">
-                                            {scieloResults.map((article, index) => {
-                                                const pinned = isManuallyPinned(article.url);
-                                                return (
-                                                  <div key={article.id || index} className={cn( "group flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
-                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
-                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.journal, searchQuery)}</span>
-                                                      </a>
-                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.journal, isScientific: true })}>
-                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover:text-foreground")} />
-                                                      </Button>
-                                                  </div>
-                                                )
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en SciELO Argentina.</p>
-                                    )}
-                                </CollapsibleContent>
-                            </Collapsible>
 
-                            <Collapsible defaultOpen>
+                            <Collapsible>
                                 <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
                                     <div className="flex items-center gap-2">
                                         <Globe className="h-4 w-4" />
@@ -644,7 +614,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                                           <span className="text-xs text-muted-foreground italic">{highlightText(article.publicationName, searchQuery)}</span>
                                                       </a>
                                                       <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publicationName, isScientific: true })}>
-                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover:text-foreground")} />
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
                                                       </Button>
                                                   </div>
                                                 )
