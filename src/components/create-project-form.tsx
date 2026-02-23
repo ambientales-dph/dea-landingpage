@@ -32,10 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Search, X, Plus, ChevronDown, Loader2, Check } from 'lucide-react';
+import { Pencil, Trash2, Search, X, Plus, ChevronDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EQUIPO_DEA, EQUIPO_SIG } from '@/lib/equipo';
 import { MUNICIPIOS } from '@/lib/municipios';
@@ -60,11 +57,6 @@ const updateInitialState: ProjectState = {
   success: false,
 };
 
-const removeAccents = (str: string): string => {
-    if (!str) return '';
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
 const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
   const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
   const match = name.match(projectRegex);
@@ -76,113 +68,6 @@ const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: s
   }
   return { code: null, nameWithoutCode: name };
 };
-
-// Multi-Select Combobox Component
-interface MultiSelectComboboxProps {
-  options: string[];
-  selected: string[];
-  onSelectedChange: (selected: string[]) => void;
-  placeholder: string;
-  className?: string;
-}
-
-function MultiSelectCombobox({ options, selected, onSelectedChange, placeholder, className }: MultiSelectComboboxProps) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-
-  const filteredOptions = useMemo(() => {
-    if (!search) return options;
-    const normalizedSearch = removeAccents(search.toLowerCase());
-    return options.filter(option => removeAccents(option.toLowerCase()).includes(normalizedSearch));
-  }, [search, options]);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn("w-full justify-between font-normal h-auto min-h-10", className)}
-        >
-          <div className="flex gap-1 flex-wrap">
-            {selected.length > 0 ? (
-              selected.map(item => (
-                <Badge
-                  key={item}
-                  variant="secondary"
-                  className="mr-1"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectedChange(selected.filter(s => s !== item));
-                  }}
-                >
-                  {item}
-                  <X className="ml-1 h-3 w-3" />
-                </Badge>
-              ))
-            ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
-            )}
-          </div>
-          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
-          <div className="relative">
-            <CommandInput
-              placeholder="Buscar..."
-              value={search}
-              onValueChange={setSearch}
-              className="pr-8"
-            />
-            {search && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSearch('')}
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-          <CommandEmpty>No se encontraron resultados.</CommandEmpty>
-          <CommandList>
-            <CommandGroup>
-              <ScrollArea className="max-h-60">
-                {filteredOptions.map((option) => (
-                  <CommandItem
-                    key={option}
-                    value={option}
-                    onSelect={() => {
-                      onSelectedChange(
-                        selected.includes(option)
-                          ? selected.filter(s => s !== option)
-                          : [...selected, option]
-                      );
-                      setOpen(true);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selected.includes(option) ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {option}
-                  </CommandItem>
-                ))}
-              </ScrollArea>
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 
 // Edit Project Dialog Component
 interface EditProjectDialogProps {
@@ -282,12 +167,28 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   
                    <div className="space-y-2">
                     <Label>Partido(s)</Label>
-                    <MultiSelectCombobox 
-                        options={MUNICIPIOS}
-                        selected={selectedPartidos}
-                        onSelectedChange={setSelectedPartidos}
-                        placeholder="Seleccioná uno o más partidos"
-                    />
+                     <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between font-normal">
+                          <span>{selectedPartidos.length > 0 ? `${selectedPartidos.length} partido(s) seleccionado(s)` : 'Seleccioná uno o más partidos'}</span>
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                        <DropdownMenuLabel>Municipios</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {MUNICIPIOS.map(partido => (
+                          <DropdownMenuCheckboxItem
+                            key={partido}
+                            checked={selectedPartidos.includes(partido)}
+                            onCheckedChange={(checked) => setSelectedPartidos(current => checked ? [...current, partido] : current.filter(p => p !== partido))}
+                            onSelect={e => e.preventDefault()}
+                          >
+                            {partido}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   
                   <div className="space-y-2">
@@ -428,7 +329,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
   }, [createState, toast, fetchProjects]);
   
   const filteredProjects = useMemo(() => {
-      const normalizedQuery = removeAccents(searchQuery.toLowerCase());
+      const normalizedQuery = searchQuery.toLowerCase();
       const keywords = normalizedQuery.split(' ').filter(kw => kw.trim() !== '');
 
       if (keywords.length === 0) {
@@ -436,8 +337,8 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
       }
 
       return projects.filter(project => {
-          const cardNameLower = removeAccents(project.name.toLowerCase());
-          const cardDescLower = removeAccents(project.desc ? project.desc.toLowerCase() : '');
+          const cardNameLower = project.name.toLowerCase();
+          const cardDescLower = project.desc ? project.desc.toLowerCase() : '';
           const nameMatch = keywords.every(keyword => cardNameLower.includes(keyword));
           const descMatch = keywords.every(keyword => cardDescLower.includes(keyword));
           return nameMatch || descMatch;
@@ -472,9 +373,11 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       Consultá la lista de proyectos o creá uno nuevo.
                   </CardDescription>
               </div>
-                <Button size="icon" variant="default" className="bg-primary text-primary-foreground mr-8" onClick={() => setCreateDialogOpen(true)}>
+              <DialogTrigger asChild>
+                <Button size="icon" variant="default" className="bg-primary text-primary-foreground" onClick={() => setCreateDialogOpen(true)}>
                     <Plus />
                 </Button>
+              </DialogTrigger>
           </div>
           <div className="pt-4 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-[-4px] h-4 w-4 text-muted-foreground" />
@@ -566,12 +469,32 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       </div>
                       <div className="space-y-2">
                         <Label>Partido(s)</Label>
-                        <MultiSelectCombobox 
-                            options={MUNICIPIOS}
-                            selected={selectedPartidosCreate}
-                            onSelectedChange={setSelectedPartidosCreate}
-                            placeholder="Seleccioná uno o más partidos"
-                        />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between font-normal">
+                              <span>
+                                {selectedPartidosCreate.length > 0 ? `${selectedPartidosCreate.length} partido(s) seleccionado(s)` : 'Seleccioná uno o más partidos'}
+                              </span>
+                              <ChevronDown className="h-4 w-4 opacity-50" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                            <DropdownMenuLabel>Municipios</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {MUNICIPIOS.map(partido => (
+                              <DropdownMenuCheckboxItem
+                                key={partido}
+                                checked={selectedPartidosCreate.includes(partido)}
+                                onCheckedChange={(checked) => {
+                                  setSelectedPartidosCreate(current => checked ? [...current, partido] : current.filter(p => p !== partido));
+                                }}
+                                onSelect={e => e.preventDefault()}
+                              >
+                                {partido}
+                              </DropdownMenuCheckboxItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                       <div className="space-y-2">
                         <Label>Diagnóstico ambiental-socioeconómico</Label>
