@@ -31,6 +31,14 @@ function updateDescriptionField(description: string, field: string, value: strin
     if (regex.test(description)) {
         return description.replace(regex, replacement);
     }
+    
+    if (field === 'Información SIG-imágenes') {
+        const diagField = 'Diagnóstico ambiental-socioeconómico:';
+        const diagRegex = new RegExp(`^(${diagField}\\s*.*)$`, 'm');
+        if (diagRegex.test(description)) {
+            return description.replace(diagRegex, `$1\n${field}: ${value}`);
+        }
+    }
 
     const separator = description.trim() ? '\n' : '';
     return `${description}${separator}${field}: ${value}`;
@@ -77,13 +85,13 @@ export async function createProject(
     const cardName = `${nombre} (${projectCode})`;
     
     let finalDescription = DESCRIPCION_PLANTILLA;
-    if (partido !== undefined) {
+    if (partido) {
       finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
     }
-    if (diagnosticoEquipo !== undefined) {
+    if (diagnosticoEquipo) {
       finalDescription = updateDescriptionField(finalDescription, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     }
-    if (informacionSig !== undefined) {
+    if (informacionSig) {
       finalDescription = updateDescriptionField(finalDescription, 'Información SIG-imágenes', informacionSig);
     }
     
@@ -125,7 +133,7 @@ export async function updateProject(
     cardId: formData.get('cardId'),
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
-    partido: formData.get('partido'),
+    partido: formData.get('partido') || '',
     diagnosticoEquipo: formData.get('diagnosticoEquipo') || '',
     informacionSig: formData.get('informacionSig') || '',
   });
@@ -149,9 +157,7 @@ export async function updateProject(
     const nameWithOldCode = originalProjectCode ? `${nombre} (${originalProjectCode})` : nombre;
     
     let newDesc = originalCard.desc || '';
-    if (partido !== undefined) {
-        newDesc = updateDescriptionField(newDesc, 'PARTIDO', partido);
-    }
+    newDesc = updateDescriptionField(newDesc, 'PARTIDO', partido);
     newDesc = updateDescriptionField(newDesc, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     newDesc = updateDescriptionField(newDesc, 'Información SIG-imágenes', informacionSig);
     
