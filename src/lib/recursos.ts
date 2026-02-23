@@ -29,27 +29,15 @@ export const RECURSOS: Recurso[] = [
 
 export const RECURSOS_PROPIOS: {title: string, url: string}[] = [
   {
-    title: 'Plantilla Nota SGP',
-    url: '#',
+    title: 'Sistema Visual DEA',
+    url: 'https://drive.google.com/drive/folders/1CUQGZpF9nvF-mEX6bi2U8iNFyqJfdD7Y?usp=sharing',
   },
   {
-    title: 'Planilla Relevamiento Social',
-    url: '#',
+    title: 'Anexo I - Digesto Normativo Ambiental',
+    url: 'https://docs.google.com/document/d/1c0ZRopXMBVlne2FIcPUX6mzGNpWEbea3/edit?usp=sharing&ouid=113275923928117347447&rtpof=true&sd=true',
   },
   {
-    title: 'Modelo de Informe Ambiental',
-    url: '#',
-  },
-  {
-    title: 'Base de Datos de Proyectos',
-    url: '#',
-  },
-   {
-    title: 'Protocolo de Muestreo de Agua',
-    url: '#',
-  },
-  {
-    title: 'Guía de Estilos para Informes',
-    url: '#',
+    title: 'Plan de Gestión Ambiental',
+    url: 'https://docs.google.com/document/d/1awzF11qKyQKgkGVcDcFCGp_z4Iw9VgwP/edit?usp=sharing&ouid=113275923928117347447&rtpof=true&sd=true',
   },
 ];
