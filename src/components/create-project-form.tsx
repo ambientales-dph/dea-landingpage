@@ -89,11 +89,15 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
   
   const getValuesFromDesc = useCallback((desc: string, field: string): string[] => {
       if (!desc) return [];
-      const regex = new RegExp(`^${field}:\\s*(.*)$`, 'm');
+      const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Busca el valor entre **...**
+      const regex = new RegExp(`^${escapedField}:\\s*\\*\\*(.*?)\\*\\*`, 'm');
       const match = desc.match(regex);
+      
       if (match && match[1]) {
+          const value = match[1];
           const separator = field === 'PARTIDO' ? ',' : ';';
-          return match[1].split(separator).map(s => s.trim()).filter(Boolean);
+          return value.split(separator).map(s => s.trim()).filter(Boolean);
       }
       return [];
   }, []);
@@ -107,8 +111,8 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
         setCuencaId(projectCuenca?.id || '');
         
         setSelectedPartidos(getValuesFromDesc(project.desc, 'PARTIDO'));
-        setSelectedEquipo(getValuesFromDesc(project.desc, 'Diagnóstico ambiental-socioeconómico'));
-        setSelectedSig(getValuesFromDesc(project.desc, 'Información SIG-imágenes'));
+        setSelectedEquipo(getValuesFromDesc(project.desc, '- Diagnóstico ambiental-socioeconómico'));
+        setSelectedSig(getValuesFromDesc(project.desc, '- Información SIG-imágenes'));
     }
   }, [project, getValuesFromDesc]);
   

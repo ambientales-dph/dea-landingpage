@@ -25,23 +25,20 @@ export type ProjectState = {
 };
 
 function updateDescriptionField(description: string, field: string, value: string): string {
-    const regex = new RegExp(`^(${field}:\\s*).*$`, 'm');
-    const replacement = `$1${value}`;
+    const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^(${escapedField}:\\s*).*$`, 'm');
+    
+    // Usa **** para valores vacíos en negrita en Trello
+    const boldedValue = value ? `**${value}**` : '****';
+    const replacement = `$1${boldedValue}`;
 
     if (regex.test(description)) {
         return description.replace(regex, replacement);
     }
     
-    if (field === 'Información SIG-imágenes') {
-        const diagField = 'Diagnóstico ambiental-socioeconómico:';
-        const diagRegex = new RegExp(`^(${diagField}\\s*.*)$`, 'm');
-        if (diagRegex.test(description)) {
-            return description.replace(diagRegex, `$1\n${field}: ${value}`);
-        }
-    }
-
-    const separator = description.trim() ? '\n' : '';
-    return `${description}${separator}${field}: ${value}`;
+    // Si no se encuentra el campo, no se agrega.
+    // Esto es más seguro para la edición, y la creación usará la plantilla completa.
+    return description;
 }
 
 
@@ -89,10 +86,10 @@ export async function createProject(
       finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
     }
     if (diagnosticoEquipo) {
-      finalDescription = updateDescriptionField(finalDescription, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
+      finalDescription = updateDescriptionField(finalDescription, '- Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     }
     if (informacionSig) {
-      finalDescription = updateDescriptionField(finalDescription, 'Información SIG-imágenes', informacionSig);
+      finalDescription = updateDescriptionField(finalDescription, '- Información SIG-imágenes', informacionSig);
     }
     
     const card = await createTrelloCard({
@@ -156,10 +153,10 @@ export async function updateProject(
     
     const nameWithOldCode = originalProjectCode ? `${nombre} (${originalProjectCode})` : nombre;
     
-    let newDesc = originalCard.desc || '';
+    let newDesc = originalCard.desc || DESCRIPCION_PLANTILLA;
     newDesc = updateDescriptionField(newDesc, 'PARTIDO', partido);
-    newDesc = updateDescriptionField(newDesc, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
-    newDesc = updateDescriptionField(newDesc, 'Información SIG-imágenes', informacionSig);
+    newDesc = updateDescriptionField(newDesc, '- Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
+    newDesc = updateDescriptionField(newDesc, '- Información SIG-imágenes', informacionSig);
     
     const cardAfterTextUpdate = await updateTrelloCard({
         cardId: cardId,

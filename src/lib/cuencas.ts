@@ -20,23 +20,23 @@ export const CUENCAS = [
   { id: 'rpi', name: 'Vertiente Río de La Plata Inferior', code: 'RPI', trelloListName: 'Vertiente Río de La Plata Inferior' },
 ];
 
-export const DESCRIPCION_PLANTILLA = `PARTIDO: 
-EXTENSIÓN (Ha o Km):
-POBLACIÓN BENEFICIADA:
-PRESUPUESTO:
-FINANCIAMIENTO: 
+export const DESCRIPCION_PLANTILLA = `PARTIDO: ****
+EXTENSIÓN (Ha o Km): ****
+POBLACIÓN BENEFICIADA: ****
+PRESUPUESTO: ****
+FINANCIAMIENTO: ****
 
 EQUIPO DE TRABAJO EIAS
 
-Diagnóstico ambiental-socioeconómico: 
+- Diagnóstico ambiental-socioeconómico: ****
+- Información SIG-imágenes: ****
+- Información LIDAR/vuelos Dron: ****
 
-Información SIG-imágenes: 
+PROYECTISTA: ****
+EXPEDIENTE: ****
+PROVIDENCIA: ****
+FECHA: ****
+Otro drive de trabajo: 
+Drive del proyectista: 
 
-Información LIDAR/vuelos Dron:
-
-PROYECTISTA: Proyectista
-EXPEDIENTE:
-PROVIDENCIA:
-FECHA:
-Otro drive de trabajo:
-Drive del proyectista: `;
+#`;
