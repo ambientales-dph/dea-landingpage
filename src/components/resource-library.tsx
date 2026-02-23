@@ -9,8 +9,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
-import { RECURSOS, type Recurso } from '@/lib/recursos';
-import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2, Folder as FolderIcon } from 'lucide-react';
+import { RECURSOS, RECURSOS_PROPIOS, type Recurso } from '@/lib/recursos';
+import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2, Folder as FolderIcon, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
@@ -517,7 +517,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
 
                       {(manuallyPinnedResources.length > 0 || (selectedCard && scientificAttachmentsFromCard.length > 0)) && <Separator className="my-4" />}
 
-                      <Collapsible className="mb-4">
+                      <Collapsible className="mb-4" defaultOpen={false}>
                         <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
                            <div className="flex items-center gap-2">
                               <FolderIcon className="h-4 w-4 text-fuchsia-600" />
@@ -557,7 +557,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                           <Separator className="my-4" />
                           <div className="space-y-4">
                             
-                            <Collapsible>
+                            <Collapsible defaultOpen={false}>
                                 <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
                                     <div className="flex items-center gap-2">
                                         <Database className="h-4 w-4" />
@@ -592,7 +592,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                             </Collapsible>
                             
 
-                            <Collapsible>
+                            <Collapsible defaultOpen={false}>
                                 <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
                                     <div className="flex items-center gap-2">
                                         <Globe className="h-4 w-4" />
@@ -628,6 +628,34 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                           </div>
                         </>
                       )}
+                      
+                    <Separator className="my-4" />
+
+                    <Collapsible defaultOpen={false}>
+                        <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
+                           <div className="flex items-center gap-2">
+                              <FolderIcon className="h-4 w-4 text-fuchsia-600" />
+                              <span>Recursos Propios</span>
+                          </div>
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
+                            {RECURSOS_PROPIOS.map((resource) => (
+                              <a
+                                key={resource.title}
+                                href={resource.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group flex flex-col items-center justify-center rounded-lg border bg-card text-card-foreground shadow-sm hover:bg-accent/50 transition-colors p-4 aspect-square"
+                              >
+                                <FileText className="h-10 w-10 text-muted-foreground mb-2 transition-transform group-hover:scale-110" />
+                                <span className="text-center text-xs font-medium">{resource.title}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                   </ScrollArea>
               </CardContent>
           </Card>

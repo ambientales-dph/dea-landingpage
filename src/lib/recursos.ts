@@ -26,3 +26,30 @@ export const RECURSOS: Recurso[] = [
   { category: 'T', title: 'TECHO', url: 'http://relevamiento.techo.org.ar/?latlng=-37.134045371264456,-59.85351562500001&z=6&l=mapa&f=2&y=r2016&chart=0&table=0&details=0&detailsTab=0&nid=' },
   { category: 'U', title: 'URBASIG', url: 'https://urbasig.gob.gba.gob.ar/urbasig/' },
 ];
+
+export const RECURSOS_PROPIOS: {title: string, url: string}[] = [
+  {
+    title: 'Plantilla Nota SGP',
+    url: '#',
+  },
+  {
+    title: 'Planilla Relevamiento Social',
+    url: '#',
+  },
+  {
+    title: 'Modelo de Informe Ambiental',
+    url: '#',
+  },
+  {
+    title: 'Base de Datos de Proyectos',
+    url: '#',
+  },
+   {
+    title: 'Protocolo de Muestreo de Agua',
+    url: '#',
+  },
+  {
+    title: 'Guía de Estilos para Informes',
+    url: '#',
+  },
+];
