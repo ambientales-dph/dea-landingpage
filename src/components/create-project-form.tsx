@@ -164,11 +164,11 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
   return (
     <Dialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen}>
       <Card className="w-full h-full flex flex-col rounded-lg border-0 shadow-none overflow-hidden">
-        <CardHeader className="px-6 py-4 border-b">
+        <CardHeader className="p-4 border-b">
           <div className="flex justify-between items-start">
               <div>
-                  <CardTitle className="text-lg font-medium">Gestión de Proyectos</CardTitle>
-                  <CardDescription className="text-xs">
+                  <CardTitle className="text-base font-medium">Gestión de Proyectos</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
                       Consultá la lista de proyectos o creá uno nuevo.
                   </CardDescription>
               </div>
@@ -184,22 +184,21 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
               placeholder="Buscar por código, nombre o descripción..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8 h-9 text-xs"
+              className="pl-9 pr-8 h-8 text-xs"
             />
             {searchQuery && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-1 top-1/2 -translate-y-[-4px] h-8 w-8 text-muted-foreground"
+                className="absolute right-0.5 top-1/2 -translate-y-[-4px] h-7 w-7 text-muted-foreground"
               >
                 <X className="h-4 w-4" />
               </Button>
             )}
           </div>
         </CardHeader>
-        <CardContent className="flex-grow p-0 min-h-0">
-            <ScrollArea className="h-full">
+        <CardContent className="flex-grow p-0 min-h-0 overflow-y-auto">
               {isLoading ? (
                 <p className="p-4 text-sm text-muted-foreground">Cargando proyectos...</p>
               ) : (
@@ -209,10 +208,10 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                         filteredProjects.map((project, index) => {
                         const { code, nameWithoutCode } = getProjectInfo(project.name);
                         return (
-                            <TableRow key={project.id} className={cn(index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20', 'hover:bg-white')}>
-                            <TableCell className="font-mono py-1 px-4 w-[120px]">{code}</TableCell>
-                            <TableCell className="py-1 px-4">{nameWithoutCode}</TableCell>
-                            <TableCell className="p-1 px-4 text-right w-[100px]">
+                            <TableRow key={project.id} className={cn('h-8', index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20', 'hover:bg-white')}>
+                            <TableCell className="font-mono py-0 px-2 w-[100px]">{code}</TableCell>
+                            <TableCell className="py-0 px-2">{nameWithoutCode}</TableCell>
+                            <TableCell className="p-0 px-2 text-right w-[80px]">
                                 <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
                                 <Pencil className="h-4 w-4" />
                                 </Button>
@@ -233,7 +232,6 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                   </TableBody>
                 </Table>
               )}
-            </ScrollArea>
         </CardContent>
       </Card>
 
@@ -245,97 +243,101 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
             </DialogDescription>
           </DialogHeader>
           <form ref={formRef} action={formAction} className="space-y-4 pt-2">
-              <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
-              <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
-              <div className="space-y-2">
-                <Label htmlFor="nombre-create">Nombre del Proyecto (obligatorio)</Label>
-                <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required />
-                {state.errors?.nombre && <p className="text-sm font-medium text-destructive">{state.errors.nombre[0]}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cuenca-create">Cuenca (obligatorio)</Label>
-                <Select name="cuenca" required>
-                  <SelectTrigger id="cuenca-create"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
-                  <SelectContent>
-                    {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {state.errors?.cuenca && <p className="text-sm font-medium text-destructive">{state.errors.cuenca[0]}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label>Diagnóstico ambiental-socioeconómico</Label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between font-normal">
-                      <span>
-                        {selectedEquipo.length > 0 ? `${selectedEquipo.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
-                      </span>
-                      <ChevronDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                    <DropdownMenuLabel>Equipo del DEA</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {EQUIPO_DEA.map(persona => (
-                      <DropdownMenuCheckboxItem
-                        key={persona}
-                        checked={selectedEquipo.includes(persona)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedEquipo([...selectedEquipo, persona]);
-                          } else {
-                            setSelectedEquipo(selectedEquipo.filter(p => p !== persona));
-                          }
-                        }}
-                        onSelect={e => e.preventDefault()}
-                      >
-                        {persona}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="space-y-2">
-                <Label>Información SIG-Imágenes</Label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between font-normal">
-                      <span>
-                        {selectedSig.length > 0 ? `${selectedSig.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
-                      </span>
-                      <ChevronDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                    <DropdownMenuLabel>Equipo SIG</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {EQUIPO_SIG.map(persona => (
-                      <DropdownMenuCheckboxItem
-                        key={persona}
-                        checked={selectedSig.includes(persona)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedSig([...selectedSig, persona]);
-                          } else {
-                            setSelectedSig(selectedSig.filter(p => p !== persona));
-                          }
-                        }}
-                        onSelect={e => e.preventDefault()}
-                      >
-                        {persona}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="proyectistas-create">Proyectistas</Label>
-                <Input id="proyectistas-create" name="proyectistas" placeholder="Nombres de los proyectistas" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="financiamiento-create">Financiamiento</Label>
-                <Input id="financiamiento-create" name="financiamiento" placeholder="Fuente de financiamiento del proyecto" />
-              </div>
+              <ScrollArea className="max-h-[60vh] -mr-6 pr-6">
+                <div className="space-y-4">
+                  <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
+                  <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
+                  <div className="space-y-2">
+                    <Label htmlFor="nombre-create">Nombre del Proyecto (obligatorio)</Label>
+                    <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required />
+                    {state.errors?.nombre && <p className="text-sm font-medium text-destructive">{state.errors.nombre[0]}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cuenca-create">Cuenca (obligatorio)</Label>
+                    <Select name="cuenca" required>
+                      <SelectTrigger id="cuenca-create"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
+                      <SelectContent>
+                        {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {state.errors?.cuenca && <p className="text-sm font-medium text-destructive">{state.errors.cuenca[0]}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Diagnóstico ambiental-socioeconómico</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between font-normal">
+                          <span>
+                            {selectedEquipo.length > 0 ? `${selectedEquipo.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
+                          </span>
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                        <DropdownMenuLabel>Equipo del DEA</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {EQUIPO_DEA.map(persona => (
+                          <DropdownMenuCheckboxItem
+                            key={persona}
+                            checked={selectedEquipo.includes(persona)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedEquipo([...selectedEquipo, persona]);
+                              } else {
+                                setSelectedEquipo(selectedEquipo.filter(p => p !== persona));
+                              }
+                            }}
+                            onSelect={e => e.preventDefault()}
+                          >
+                            {persona}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Información SIG-Imágenes</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between font-normal">
+                          <span>
+                            {selectedSig.length > 0 ? `${selectedSig.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
+                          </span>
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                        <DropdownMenuLabel>Equipo SIG</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {EQUIPO_SIG.map(persona => (
+                          <DropdownMenuCheckboxItem
+                            key={persona}
+                            checked={selectedSig.includes(persona)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedSig([...selectedSig, persona]);
+                              } else {
+                                setSelectedSig(selectedSig.filter(p => p !== persona));
+                              }
+                            }}
+                            onSelect={e => e.preventDefault()}
+                          >
+                            {persona}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="proyectistas-create">Proyectistas</Label>
+                    <Input id="proyectistas-create" name="proyectistas" placeholder="Nombres de los proyectistas" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="financiamiento-create">Financiamiento</Label>
+                    <Input id="financiamiento-create" name="financiamiento" placeholder="Fuente de financiamiento del proyecto" />
+                  </div>
+                </div>
+              </ScrollArea>
               <DialogFooter className="pt-4">
                 <Button type="button" variant="ghost" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
                 <Button type="submit">Crear Proyecto</Button>
