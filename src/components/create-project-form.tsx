@@ -4,7 +4,6 @@ import { useActionState, useEffect, useRef, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createProject, type CreateProjectState } from '@/app/actions/project-actions';
 import { CUENCAS } from '@/lib/cuencas';
@@ -35,7 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { Pencil, Trash2, Search, X, Plus, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { EQUIPO_DEA } from '@/lib/equipo';
+import { EQUIPO_DEA, EQUIPO_SIG } from '@/lib/equipo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +69,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
   const [filteredProjects, setFilteredProjects] = useState<TrelloCard[]>([]);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedEquipo, setSelectedEquipo] = useState<string[]>([]);
+  const [selectedSig, setSelectedSig] = useState<string[]>([]);
 
   const getProjectInfo = useCallback((name: string): { code: string | null; nameWithoutCode: string } => {
     const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
@@ -126,6 +126,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
         });
         formRef.current?.reset();
         setSelectedEquipo([]);
+        setSelectedSig([]);
         setCreateDialogOpen(false);
         fetchProjects(); // Refresh the list
       } else {
@@ -245,6 +246,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
           </DialogHeader>
           <form ref={formRef} action={formAction} className="space-y-4 pt-2">
               <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
+              <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
               <div className="space-y-2">
                 <Label htmlFor="nombre-create">Nombre del Proyecto (obligatorio)</Label>
                 <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required />
@@ -294,12 +296,41 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                 </DropdownMenu>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="proyectistas-create">Proyectistas</Label>
-                <Input id="proyectistas-create" name="proyectistas" placeholder="Nombres de los proyectistas" />
+                <Label>Información SIG-Imágenes</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between font-normal">
+                      <span>
+                        {selectedSig.length > 0 ? `${selectedSig.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                    <DropdownMenuLabel>Equipo SIG</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {EQUIPO_SIG.map(persona => (
+                      <DropdownMenuCheckboxItem
+                        key={persona}
+                        checked={selectedSig.includes(persona)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedSig([...selectedSig, persona]);
+                          } else {
+                            setSelectedSig(selectedSig.filter(p => p !== persona));
+                          }
+                        }}
+                        onSelect={e => e.preventDefault()}
+                      >
+                        {persona}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="personasAsignadas-create">Personas Asignadas</Label>
-                <Textarea id="personasAsignadas-create" name="personasAsignadas" placeholder="Equipo de trabajo nominado" />
+                <Label htmlFor="proyectistas-create">Proyectistas</Label>
+                <Input id="proyectistas-create" name="proyectistas" placeholder="Nombres de los proyectistas" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="financiamiento-create">Financiamiento</Label>

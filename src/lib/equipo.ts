@@ -22,3 +22,10 @@ export const EQUIPO_DEA = [
   'Carolina Silva',
   'Joaquín Montorsi',
 ].sort((a, b) => a.localeCompare(b));
+
+export const EQUIPO_SIG = [
+  'Luis Bree',
+  'Cintia Di Grazia',
+  'María Ángeles González',
+  'Alan Santamarina',
+].sort((a, b) => a.localeCompare(b));

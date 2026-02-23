@@ -11,7 +11,7 @@ const CreateProjectSchema = z.object({
   cuenca: z.string().min(1, { message: 'Debe seleccionar una cuenca.' }),
   // Optional fields
   diagnosticoEquipo: z.string().optional(),
-  personasAsignadas: z.string().optional(),
+  informacionSig: z.string().optional(),
   proyectistas: z.string().optional(),
   financiamiento: z.string().optional(),
 });
@@ -34,7 +34,7 @@ export async function createProject(
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
     diagnosticoEquipo: formData.get('diagnosticoEquipo'),
-    personasAsignadas: formData.get('personasAsignadas'),
+    informacionSig: formData.get('informacionSig'),
     proyectistas: formData.get('proyectistas'),
     financiamiento: formData.get('financiamiento'),
   });
@@ -47,7 +47,7 @@ export async function createProject(
     };
   }
 
-  const { nombre, cuenca: cuencaId, diagnosticoEquipo } = validatedFields.data;
+  const { nombre, cuenca: cuencaId, diagnosticoEquipo, informacionSig } = validatedFields.data;
 
   try {
     const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
@@ -75,6 +75,13 @@ export async function createProject(
         'Diagnóstico ambiental-socioeconómico:',
         `Diagnóstico ambiental-socioeconómico: ${diagnosticoEquipo}`
       );
+    }
+    
+    if (informacionSig) {
+        finalDescription = finalDescription.replace(
+            'Información SIG-imágenes:',
+            `Información SIG-imágenes: ${informacionSig}`
+        );
     }
     
     // 3.1 Create the card
