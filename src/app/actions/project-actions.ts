@@ -10,6 +10,7 @@ const CreateProjectSchema = z.object({
   nombre: z.string().min(1, { message: 'El nombre del proyecto es obligatorio.' }),
   cuenca: z.string().min(1, { message: 'Debe seleccionar una cuenca.' }),
   // Optional fields
+  diagnosticoEquipo: z.string().optional(),
   personasAsignadas: z.string().optional(),
   proyectistas: z.string().optional(),
   financiamiento: z.string().optional(),
@@ -32,6 +33,7 @@ export async function createProject(
   const validatedFields = CreateProjectSchema.safeParse({
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
+    diagnosticoEquipo: formData.get('diagnosticoEquipo'),
     personasAsignadas: formData.get('personasAsignadas'),
     proyectistas: formData.get('proyectistas'),
     financiamiento: formData.get('financiamiento'),
@@ -45,7 +47,7 @@ export async function createProject(
     };
   }
 
-  const { nombre, cuenca: cuencaId } = validatedFields.data;
+  const { nombre, cuenca: cuencaId, diagnosticoEquipo } = validatedFields.data;
 
   try {
     const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
@@ -67,11 +69,19 @@ export async function createProject(
     // 3. Create the card in Trello
     const cardName = `${nombre} (${projectCode})`;
     
+    let finalDescription = DESCRIPCION_PLANTILLA;
+    if (diagnosticoEquipo) {
+      finalDescription = finalDescription.replace(
+        'Diagnóstico ambiental-socioeconómico:',
+        `Diagnóstico ambiental-socioeconómico: ${diagnosticoEquipo}`
+      );
+    }
+    
     // 3.1 Create the card
     const card = await createTrelloCard({
       name: cardName,
       idList: targetList.id,
-      desc: DESCRIPCION_PLANTILLA,
+      desc: finalDescription,
     });
 
     // 3.2 Update the newly created card to set the cover color

@@ -33,8 +33,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Pencil, Trash2, Search, X, Plus } from 'lucide-react';
+import { Pencil, Trash2, Search, X, Plus, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EQUIPO_DEA } from '@/lib/equipo';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 const initialState: CreateProjectState = {
   message: undefined,
@@ -60,6 +69,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredProjects, setFilteredProjects] = useState<TrelloCard[]>([]);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedEquipo, setSelectedEquipo] = useState<string[]>([]);
 
   const getProjectInfo = useCallback((name: string): { code: string | null; nameWithoutCode: string } => {
     const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
@@ -115,6 +125,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
           ) : undefined,
         });
         formRef.current?.reset();
+        setSelectedEquipo([]);
         setCreateDialogOpen(false);
         fetchProjects(); // Refresh the list
       } else {
@@ -233,6 +244,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
             </DialogDescription>
           </DialogHeader>
           <form ref={formRef} action={formAction} className="space-y-4 pt-2">
+              <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
               <div className="space-y-2">
                 <Label htmlFor="nombre-create">Nombre del Proyecto (obligatorio)</Label>
                 <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required />
@@ -247,6 +259,39 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
                   </SelectContent>
                 </Select>
                 {state.errors?.cuenca && <p className="text-sm font-medium text-destructive">{state.errors.cuenca[0]}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Diagnóstico ambiental-socioeconómico</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between font-normal">
+                      <span>
+                        {selectedEquipo.length > 0 ? `${selectedEquipo.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+                    <DropdownMenuLabel>Equipo del DEA</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {EQUIPO_DEA.map(persona => (
+                      <DropdownMenuCheckboxItem
+                        key={persona}
+                        checked={selectedEquipo.includes(persona)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedEquipo([...selectedEquipo, persona]);
+                          } else {
+                            setSelectedEquipo(selectedEquipo.filter(p => p !== persona));
+                          }
+                        }}
+                        onSelect={e => e.preventDefault()}
+                      >
+                        {persona}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="proyectistas-create">Proyectistas</Label>
