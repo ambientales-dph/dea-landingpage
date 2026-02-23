@@ -35,6 +35,7 @@ import { Pencil, Trash2, Search, X, Plus, ChevronDown, Loader2 } from 'lucide-re
 import { cn } from '@/lib/utils';
 import { EQUIPO_DEA, EQUIPO_SIG } from '@/lib/equipo';
 import { MUNICIPIOS } from '@/lib/municipios';
+import { PROYECTISTAS } from '@/lib/proyectistas';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,22 +85,31 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
   const [nombre, setNombre] = useState('');
   const [cuencaId, setCuencaId] = useState('');
   const [selectedPartidos, setSelectedPartidos] = useState<string[]>([]);
+  const [proyectista, setProyectista] = useState('');
   const [selectedEquipo, setSelectedEquipo] = useState<string[]>([]);
   const [selectedSig, setSelectedSig] = useState<string[]>([]);
   
   const getValuesFromDesc = useCallback((desc: string, field: string): string[] => {
       if (!desc) return [];
       const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Busca el valor entre **...**
       const regex = new RegExp(`^${escapedField}:\\s*\\*\\*(.*?)\\*\\*`, 'm');
       const match = desc.match(regex);
       
       if (match && match[1]) {
           const value = match[1];
+          if (/^\*+$/.test(value)) return [];
           const separator = field === 'PARTIDO' ? ',' : ';';
           return value.split(separator).map(s => s.trim()).filter(Boolean);
       }
       return [];
+  }, []);
+
+  const getValueFromDesc = useCallback((desc: string, field: string): string => {
+      if (!desc) return '';
+      const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`^${escapedField}:\\s*\\*\\*(.*?)\\*\\*`, 'm');
+      const match = desc.match(regex);
+      return match && match[1] && !/^\*+$/.test(match[1]) ? match[1].trim() : '';
   }, []);
 
   useEffect(() => {
@@ -111,10 +121,11 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
         setCuencaId(projectCuenca?.id || '');
         
         setSelectedPartidos(getValuesFromDesc(project.desc, 'PARTIDO'));
+        setProyectista(getValueFromDesc(project.desc, 'PROYECTISTA'));
         setSelectedEquipo(getValuesFromDesc(project.desc, '- Diagnóstico ambiental-socioeconómico'));
         setSelectedSig(getValuesFromDesc(project.desc, '- Información SIG-imágenes'));
     }
-  }, [project, getValuesFromDesc]);
+  }, [project, getValuesFromDesc, getValueFromDesc]);
   
   useEffect(() => {
     if (state.message) {
@@ -149,6 +160,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                 <div className="space-y-4">
                   <input type="hidden" name="cardId" value={project.id} />
                   <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
+                  <input type="hidden" name="proyectista" value={proyectista} />
                   <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
                   <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
                   
@@ -192,6 +204,16 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="proyectista-edit">Proyectista</Label>
+                    <Select name="proyectista" value={proyectista} onValueChange={setProyectista}>
+                        <SelectTrigger id="proyectista-edit"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
+                        <SelectContent>
+                            {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                   </div>
                   
                   <div className="space-y-2">
@@ -271,6 +293,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
   const [isEditingLoading, setIsEditingLoading] = useState<string | null>(null);
 
   const [selectedPartidosCreate, setSelectedPartidosCreate] = useState<string[]>([]);
+  const [selectedProyectistaCreate, setSelectedProyectistaCreate] = useState('');
   const [selectedEquipoCreate, setSelectedEquipoCreate] = useState<string[]>([]);
   const [selectedSigCreate, setSelectedSigCreate] = useState<string[]>([]);
 
@@ -317,6 +340,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
         });
         createFormRef.current?.reset();
         setSelectedPartidosCreate([]);
+        setSelectedProyectistaCreate('');
         setSelectedEquipoCreate([]);
         setSelectedSigCreate([]);
         setCreateDialogOpen(false);
@@ -365,6 +389,10 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
       }
   }
 
+  const handleCreateClick = () => {
+    setCreateDialogOpen(true);
+  };
+
   return (
     <>
       <Card className="w-full h-full flex flex-col rounded-lg border-0 shadow-none overflow-hidden">
@@ -376,7 +404,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       Consultá la lista de proyectos o creá uno nuevo.
                   </CardDescription>
               </div>
-              <Button size="icon" variant="default" className="bg-primary text-primary-foreground" onClick={() => setCreateDialogOpen(true)}>
+              <Button size="icon" variant="default" className="bg-primary text-primary-foreground" onClick={handleCreateClick}>
                   <Plus />
               </Button>
           </div>
@@ -451,6 +479,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                   <ScrollArea className="flex-grow pr-6 -mr-6 max-h-[65vh]">
                     <div className="space-y-4">
                       <input type="hidden" name="partido" value={selectedPartidosCreate.join(', ')} />
+                      <input type="hidden" name="proyectista" value={selectedProyectistaCreate} />
                       <input type="hidden" name="diagnosticoEquipo" value={selectedEquipoCreate.join('; ')} />
                       <input type="hidden" name="informacionSig" value={selectedSigCreate.join('; ')} />
                       <div className="space-y-2">
@@ -497,6 +526,17 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="proyectista-create">Proyectista</Label>
+                        <Select name="proyectista" value={selectedProyectistaCreate} onValueChange={setSelectedProyectistaCreate}>
+                          <SelectTrigger id="proyectista-create"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
+                          <SelectContent>
+                            {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <div className="space-y-2">
                         <Label>Diagnóstico ambiental-socioeconómico</Label>
                         <DropdownMenu>

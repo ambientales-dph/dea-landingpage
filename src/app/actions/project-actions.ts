@@ -10,6 +10,7 @@ const ProjectSchema = z.object({
   nombre: z.string().min(1, { message: 'El nombre del proyecto es obligatorio.' }),
   cuenca: z.string().min(1, { message: 'Debe seleccionar una cuenca.' }),
   partido: z.string().optional(),
+  proyectista: z.string().optional(),
   diagnosticoEquipo: z.string().optional(),
   informacionSig: z.string().optional(),
 });
@@ -34,10 +35,15 @@ function updateDescriptionField(description: string, field: string, value: strin
 
     if (regex.test(description)) {
         return description.replace(regex, replacement);
+    } else if (field === '- Información SIG-imágenes:') {
+        // Caso especial para insertar SIG debajo de Diagnóstico
+        const diagRegex = /^(- Diagnóstico ambiental-socioeconómico:.*)$/m;
+        if (diagRegex.test(description)) {
+            return description.replace(diagRegex, `$1\n- Información SIG-imágenes: ${boldedValue}`);
+        }
     }
     
     // Si no se encuentra el campo, no se agrega.
-    // Esto es más seguro para la edición, y la creación usará la plantilla completa.
     return description;
 }
 
@@ -50,6 +56,7 @@ export async function createProject(
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
     partido: formData.get('partido'),
+    proyectista: formData.get('proyectista'),
     diagnosticoEquipo: formData.get('diagnosticoEquipo'),
     informacionSig: formData.get('informacionSig'),
   });
@@ -62,7 +69,7 @@ export async function createProject(
     };
   }
 
-  const { nombre, cuenca: cuencaId, partido, diagnosticoEquipo, informacionSig } = validatedFields.data;
+  const { nombre, cuenca: cuencaId, partido, proyectista, diagnosticoEquipo, informacionSig } = validatedFields.data;
 
   try {
     const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
@@ -84,6 +91,9 @@ export async function createProject(
     let finalDescription = DESCRIPCION_PLANTILLA;
     if (partido) {
       finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
+    }
+    if (proyectista) {
+      finalDescription = updateDescriptionField(finalDescription, 'PROYECTISTA', proyectista);
     }
     if (diagnosticoEquipo) {
       finalDescription = updateDescriptionField(finalDescription, '- Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
@@ -131,6 +141,7 @@ export async function updateProject(
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
     partido: formData.get('partido') || '',
+    proyectista: formData.get('proyectista') || '',
     diagnosticoEquipo: formData.get('diagnosticoEquipo') || '',
     informacionSig: formData.get('informacionSig') || '',
   });
@@ -143,7 +154,7 @@ export async function updateProject(
     };
   }
   
-  const { cardId, nombre, cuenca: newCuencaId, partido, diagnosticoEquipo, informacionSig } = validatedFields.data;
+  const { cardId, nombre, cuenca: newCuencaId, partido, proyectista, diagnosticoEquipo, informacionSig } = validatedFields.data;
 
   try {
     const originalCard = await getCardById(cardId);
@@ -155,9 +166,11 @@ export async function updateProject(
     
     let newDesc = originalCard.desc || DESCRIPCION_PLANTILLA;
     newDesc = updateDescriptionField(newDesc, 'PARTIDO', partido);
+    newDesc = updateDescriptionField(newDesc, 'PROYECTISTA', proyectista);
     newDesc = updateDescriptionField(newDesc, '- Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     newDesc = updateDescriptionField(newDesc, '- Información SIG-imágenes', informacionSig);
     
+    // Paso 1: Actualizar nombre y descripción primero.
     const cardAfterTextUpdate = await updateTrelloCard({
         cardId: cardId,
         name: nameWithOldCode,
@@ -166,6 +179,7 @@ export async function updateProject(
 
     const originalCuenca = CUENCAS.find(c => originalProjectCode?.startsWith(c.code));
 
+    // Paso 2: Si la cuenca cambió, mover la tarjeta y actualizar el código.
     if (originalCuenca && originalCuenca.id !== newCuencaId) {
         const newSelectedCuenca = CUENCAS.find(c => c.id === newCuencaId);
         if (!newSelectedCuenca) {
@@ -182,6 +196,7 @@ export async function updateProject(
             throw new Error(`No se encontró la lista de Trello "${newSelectedCuenca.trelloListName}" en el tablero de Proyectos.`);
         }
 
+        // Realiza la segunda actualización para mover y renombrar.
         const finalUpdatedCard = await updateTrelloCard({
             cardId: cardId,
             name: finalNewName,
