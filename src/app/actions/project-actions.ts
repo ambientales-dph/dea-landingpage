@@ -11,8 +11,6 @@ const ProjectSchema = z.object({
   cuenca: z.string().min(1, { message: 'Debe seleccionar una cuenca.' }),
   diagnosticoEquipo: z.string().optional(),
   informacionSig: z.string().optional(),
-  proyectistas: z.string().optional(),
-  financiamiento: z.string().optional(),
 });
 
 export type ProjectState = {
@@ -28,12 +26,18 @@ export type ProjectState = {
 function updateDescriptionField(description: string, field: string, value: string): string {
     const regex = new RegExp(`^(${field}:\\s*).*$`, 'm');
     const replacement = `$1${value}`;
+
+    // If the field exists, just replace its content.
     if (regex.test(description)) {
         return description.replace(regex, replacement);
     }
-    // If the field does not exist, append it. This might happen with old cards.
-    return `${description}\n${field}: ${value}`;
+
+    // If the field does not exist, append it.
+    // Add a newline separator only if the description is not empty.
+    const separator = description.trim() ? '\n' : '';
+    return `${description}${separator}${field}: ${value}`;
 }
+
 
 export async function createProject(
   prevState: ProjectState,
@@ -138,7 +142,7 @@ export async function updateProject(
     
     const originalProjectRegex = /\(([A-Z]{3}\d{3})\)$/;
     const originalMatch = originalCard.name.match(originalProjectRegex);
-    const originalCuencaCode = originalMatch ? originalMatch[1] : null;
+    const originalCuencaCode = originalMatch ? originalMatch[1].substring(0, 3) : null;
     const originalCuenca = CUENCAS.find(c => c.code === originalCuencaCode);
 
     const newSelectedCuenca = CUENCAS.find(c => c.id === newCuencaId);
@@ -168,7 +172,7 @@ export async function updateProject(
         newName = projectCode ? `${nombre} (${projectCode})` : nombre;
     }
 
-    let newDesc = originalCard.desc;
+    let newDesc = originalCard.desc || ''; // Start with a guaranteed string.
     newDesc = updateDescriptionField(newDesc, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     newDesc = updateDescriptionField(newDesc, 'Información SIG-imágenes', informacionSig);
     
@@ -177,7 +181,6 @@ export async function updateProject(
         name: newName,
         desc: newDesc,
         idList: newIdList,
-        // If cuenca has changed, we might need to move boards, but for now it's the same board
         idBoard: PROYECTOS_BOARD_ID,
     });
 
