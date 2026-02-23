@@ -472,11 +472,9 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       Consultá la lista de proyectos o creá uno nuevo.
                   </CardDescription>
               </div>
-              <DialogTrigger asChild>
-                 <Button size="icon" variant="default" className="bg-primary text-primary-foreground mr-8" onClick={() => setCreateDialogOpen(true)}>
+                <Button size="icon" variant="default" className="bg-primary text-primary-foreground mr-8" onClick={() => setCreateDialogOpen(true)}>
                     <Plus />
                 </Button>
-              </DialogTrigger>
           </div>
           <div className="pt-4 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-[-4px] h-4 w-4 text-muted-foreground" />
