@@ -163,12 +163,12 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
 
   return (
     <Dialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen}>
-      <Card className="w-full h-full flex flex-col rounded-lg border-0 shadow-none">
-        <CardHeader className="px-12">
+      <Card className="w-full h-full flex flex-col rounded-lg border-0 shadow-none overflow-hidden">
+        <CardHeader className="px-6 py-4 border-b">
           <div className="flex justify-between items-start">
               <div>
-                  <CardTitle>Gestión de Proyectos</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-lg font-medium">Gestión de Proyectos</CardTitle>
+                  <CardDescription className="text-xs">
                       Consultá la lista de proyectos o creá uno nuevo.
                   </CardDescription>
               </div>
@@ -184,7 +184,7 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
               placeholder="Buscar por código, nombre o descripción..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8"
+              className="pl-9 pr-8 h-9 text-xs"
             />
             {searchQuery && (
               <Button
@@ -198,21 +198,21 @@ export default function CreateProjectForm({ setOpen }: CreateProjectFormProps) {
             )}
           </div>
         </CardHeader>
-        <CardContent className="flex-grow min-h-0">
-            <ScrollArea className="h-full pr-2">
+        <CardContent className="flex-grow p-0 min-h-0">
+            <ScrollArea className="h-full">
               {isLoading ? (
                 <p className="p-4 text-sm text-muted-foreground">Cargando proyectos...</p>
               ) : (
-                <Table>
+                <Table className="text-xs">
                   <TableBody>
                     {filteredProjects.length > 0 ? (
                         filteredProjects.map((project, index) => {
                         const { code, nameWithoutCode } = getProjectInfo(project.name);
                         return (
                             <TableRow key={project.id} className={cn(index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20', 'hover:bg-white')}>
-                            <TableCell className="font-mono text-xs py-1 w-[120px]">{code}</TableCell>
-                            <TableCell className="text-xs py-1">{nameWithoutCode}</TableCell>
-                            <TableCell className="p-1 text-right w-[100px]">
+                            <TableCell className="font-mono py-1 px-4 w-[120px]">{code}</TableCell>
+                            <TableCell className="py-1 px-4">{nameWithoutCode}</TableCell>
+                            <TableCell className="p-1 px-4 text-right w-[100px]">
                                 <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
                                 <Pencil className="h-4 w-4" />
                                 </Button>
