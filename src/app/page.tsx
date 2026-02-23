@@ -496,7 +496,7 @@ export default function Home() {
                       <span>Gestión de proyectos</span>
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-0">
+                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-0" showCloseButton={false}>
                   <DialogHeader className="sr-only">
                     <DialogTitle>Gestión de Proyectos</DialogTitle>
                     <DialogDescription>
@@ -642,5 +642,6 @@ export default function Home() {
     
 
     
+
 
 
