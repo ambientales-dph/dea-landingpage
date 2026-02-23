@@ -74,10 +74,10 @@ export async function createProject(
     const cardName = `${nombre} (${projectCode})`;
     
     let finalDescription = DESCRIPCION_PLANTILLA;
-    if (diagnosticoEquipo) {
+    if (diagnosticoEquipo !== undefined) {
       finalDescription = updateDescriptionField(finalDescription, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     }
-    if (informacionSig) {
+    if (informacionSig !== undefined) {
       finalDescription = updateDescriptionField(finalDescription, 'Información SIG-imágenes', informacionSig);
     }
     
@@ -136,7 +136,7 @@ export async function updateProject(
   try {
     const originalCard = await getCardById(cardId);
     
-    const originalProjectRegex = /\(([A-Z]{3})\d{3}\)$/;
+    const originalProjectRegex = /\(([A-Z]{3}\d{3})\)$/;
     const originalMatch = originalCard.name.match(originalProjectRegex);
     const originalCuencaCode = originalMatch ? originalMatch[1] : null;
     const originalCuenca = CUENCAS.find(c => c.code === originalCuencaCode);
@@ -169,10 +169,10 @@ export async function updateProject(
     }
 
     let newDesc = originalCard.desc;
-    if (diagnosticoEquipo) {
+    if (diagnosticoEquipo !== undefined) {
         newDesc = updateDescriptionField(newDesc, 'Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     }
-     if (informacionSig) {
+     if (informacionSig !== undefined) {
         newDesc = updateDescriptionField(newDesc, 'Información SIG-imágenes', informacionSig);
     }
     
