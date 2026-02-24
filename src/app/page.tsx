@@ -438,7 +438,7 @@ export default function Home() {
         {selectedCard && (
           <div className="absolute top-20 left-0 right-0 z-10 container mx-auto px-4 pointer-events-none">
             <h2
-              className="text-lg font-bold text-primary-foreground text-balance"
+              className="text-sm font-bold text-primary-foreground text-balance"
               style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
             >
               {selectedCard.name}
