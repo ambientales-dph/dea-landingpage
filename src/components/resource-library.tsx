@@ -9,13 +9,16 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { RECURSOS, RECURSOS_PROPIOS, type Recurso } from '@/lib/recursos';
-import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2, Folder as FolderIcon, FileText } from 'lucide-react';
+import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2, Folder as FolderIcon, FileText, Library } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { searchElsevier, type ElsevierArticle } from '@/services/elsevier';
 import { searchSNRD, type SNRDArticle } from '@/services/snrd';
+import { searchCrossref, type CrossrefArticle } from '@/services/crossref';
+import { searchPlos, type PlosArticle } from '@/services/plos';
+import { searchDoaj, type DoajArticle } from '@/services/doaj';
 import { addAttachmentToTrelloCard, removeAttachmentFromTrelloCard, type TrelloCard, type TrelloAttachment } from '@/services/trello';
 import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
@@ -65,6 +68,8 @@ const isScientificUrl = (url: string): boolean => {
     'scielo.org',
     'repositoriosdigitales.mincyt.gob.ar',
     'elsevier.com',
+    'journals.plos.org',
+    'doaj.org',
   ];
   try {
     const { hostname } = new URL(url);
@@ -80,6 +85,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
   const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
   const [elsevierResults, setElsevierResults] = useState<ElsevierArticle[]>([]);
   const [snrdResults, setSnrdResults] = useState<SNRDArticle[]>([]);
+  const [crossrefResults, setCrossrefResults] = useState<CrossrefArticle[]>([]);
+  const [plosResults, setPlosResults] = useState<PlosArticle[]>([]);
+  const [doajResults, setDoajResults] = useState<DoajArticle[]>([]);
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -134,6 +142,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     if (!isOpen) {
         setElsevierResults([]);
         setSnrdResults([]);
+        setCrossrefResults([]);
+        setPlosResults([]);
+        setDoajResults([]);
     }
   }, [isOpen]);
 
@@ -168,17 +179,31 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     }
     
     setIsSearchingExternal(true);
+    setElsevierResults([]);
+    setSnrdResults([]);
+    setCrossrefResults([]);
+    setPlosResults([]);
+    setDoajResults([]);
     try {
-      const [elsevier, snrd] = await Promise.all([
+      const [elsevier, snrd, crossref, plos, doaj] = await Promise.all([
         searchElsevier(searchQuery),
         searchSNRD(searchQuery),
+        searchCrossref(searchQuery),
+        searchPlos(searchQuery),
+        searchDoaj(searchQuery),
       ]);
       setElsevierResults(elsevier);
       setSnrdResults(snrd);
+      setCrossrefResults(crossref);
+      setPlosResults(plos);
+      setDoajResults(doaj);
     } catch (e) {
       console.error("Failed to search external sources", e);
       setElsevierResults([]);
       setSnrdResults([]);
+      setCrossrefResults([]);
+      setPlosResults([]);
+      setDoajResults([]);
       toast({
         variant: 'destructive',
         title: 'Error de búsqueda',
@@ -201,6 +226,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     if (query === '') {
         setElsevierResults([]);
         setSnrdResults([]);
+        setCrossrefResults([]);
+        setPlosResults([]);
+        setDoajResults([]);
     }
   };
 
@@ -353,7 +381,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                   <div className="pt-2 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar en la biblioteca, SNRD y Elsevier..."
+                      placeholder="Buscar en la biblioteca, SNRD, Elsevier, Crossref, PLOS y DOAJ..."
                       value={searchQuery}
                       onChange={(e) => handleQueryChange(e.target.value)}
                       onKeyDown={handleKeyDown}
@@ -551,13 +579,13 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                         </CollapsibleContent>
                       </Collapsible>
 
-                      {(elsevierResults.length > 0 || snrdResults.length > 0 || isSearchingExternal) && (
+                      {(elsevierResults.length > 0 || snrdResults.length > 0 || crossrefResults.length > 0 || plosResults.length > 0 || doajResults.length > 0 || isSearchingExternal) && (
                         <>
                           <Separator className="my-4" />
                           <div className="space-y-4">
                             
                             <Collapsible defaultOpen={false}>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
                                     <div className="flex items-center gap-2">
                                         <Database className="h-4 w-4" />
                                         Resultados de Repositorios Nacionales (SNRD)
@@ -571,7 +599,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                             {snrdResults.map((article, index) => {
                                                 const pinned = isManuallyPinned(article.url);
                                                 return (
-                                                  <div key={article.handle || index} className={cn( "group flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.handle || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
                                                           <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
                                                           <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
@@ -592,7 +620,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                             
 
                             <Collapsible defaultOpen={false}>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground">
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
                                     <div className="flex items-center gap-2">
                                         <Globe className="h-4 w-4" />
                                         Resultados de Búsqueda en Elsevier
@@ -606,7 +634,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                             {elsevierResults.map((article, index) => {
                                                 const pinned = isManuallyPinned(article.url);
                                                 return (
-                                                  <div key={article.doi || index} className={cn( "group flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.doi || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
                                                           <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
                                                           <span className="text-xs text-muted-foreground">{highlightText(article.authors, searchQuery)}</span>
@@ -624,6 +652,109 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                     )}
                                 </CollapsibleContent>
                             </Collapsible>
+
+                            <Collapsible defaultOpen={false}>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                        <BookText className="h-4 w-4" />
+                                        Resultados de Crossref
+                                        {!isSearchingExternal && <Badge variant="secondary">{crossrefResults.length}</Badge>}
+                                    </div>
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                    {isSearchingExternal ? <SkeletonLoader /> : crossrefResults.length > 0 ? (
+                                        <div className="flex flex-col">
+                                            {crossrefResults.map((article, index) => {
+                                                const pinned = isManuallyPinned(article.url);
+                                                return (
+                                                  <div key={article.doi || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
+                                                      </a>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
+                                                      </Button>
+                                                  </div>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en Crossref.</p>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
+                            
+                            <Collapsible defaultOpen={false}>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                        <BookText className="h-4 w-4" />
+                                        Resultados de PLOS
+                                        {!isSearchingExternal && <Badge variant="secondary">{plosResults.length}</Badge>}
+                                    </div>
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                    {isSearchingExternal ? <SkeletonLoader /> : plosResults.length > 0 ? (
+                                        <div className="flex flex-col">
+                                            {plosResults.map((article, index) => {
+                                                const pinned = isManuallyPinned(article.url);
+                                                return (
+                                                  <div key={article.id || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
+                                                      </a>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
+                                                      </Button>
+                                                  </div>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en PLOS.</p>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                             <Collapsible defaultOpen={false}>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                        <Library className="h-4 w-4" />
+                                        Resultados de DOAJ (Acceso Abierto)
+                                        {!isSearchingExternal && <Badge variant="secondary">{doajResults.length}</Badge>}
+                                    </div>
+                                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                    {isSearchingExternal ? <SkeletonLoader /> : doajResults.length > 0 ? (
+                                        <div className="flex flex-col">
+                                            {doajResults.map((article, index) => {
+                                                const pinned = isManuallyPinned(article.url);
+                                                return (
+                                                  <div key={article.id || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
+                                                      </a>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
+                                                      </Button>
+                                                  </div>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en DOAJ.</p>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
+
                           </div>
                         </>
                       )}
