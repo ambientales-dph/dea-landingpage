@@ -44,4 +44,8 @@ export const RECURSOS_PROPIOS: {title: string, url: string}[] = [
     title: 'Matriz de Impactos y Cálculo de VIA',
     url: 'https://docs.google.com/spreadsheets/d/1EDbhZZH_W71usWJvC7xZ915DVupcxHeL/edit?usp=sharing&ouid=113275923928117347447&rtpof=true&sd=true',
   },
+  {
+    title: 'Atlas de Cuencas y Regiones Hídricas - Etapa I',
+    url: 'https://drive.google.com/file/d/1DBZwunjGFTZ0M_E9PGyOT4doeo2g8uxy/view?usp=sharing',
+  },
 ];
