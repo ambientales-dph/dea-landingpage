@@ -6,4 +6,7 @@ export const PROYECTISTAS = [
   'Andrea Ferro',
   'Leandro Mugetti',
   'Marcela Busquets',
+  'Laura Agabios',
+  'Joaquín Bonoldi',
+  'Iván Brielfritsch',
 ].sort((a, b) => a.localeCompare(b));
