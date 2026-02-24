@@ -438,7 +438,7 @@ export default function Home() {
         {selectedCard && (
           <div className="absolute top-20 left-0 right-0 z-10 container mx-auto px-4 pointer-events-none">
             <h2 
-              className="text-2xl md:text-3xl font-bold text-primary-foreground max-w-2xl text-balance"
+              className="text-2xl font-bold text-primary-foreground max-w-2xl text-balance"
               style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
             >
               {selectedCard.name}
@@ -645,15 +645,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
-
-
-
-    
-
-    
-
-
-
-
