@@ -502,8 +502,8 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
       <Dialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="text-base font-medium">Crear Nuevo Proyecto</DialogTitle>
+                <DialogDescription className="text-xs">
                   Complete el formulario para crear una nueva tarjeta de proyecto en Trello.
                 </DialogDescription>
               </DialogHeader>
@@ -516,25 +516,25 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       <input type="hidden" name="diagnosticoEquipo" value={selectedEquipoCreate.join('; ')} />
                       <input type="hidden" name="informacionSig" value={selectedSigCreate.join('; ')} />
                       <div className="space-y-2">
-                        <Label htmlFor="nombre-create">Nombre del Proyecto *</Label>
-                        <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required className="bg-white" />
-                        {createState.errors?.nombre && <p className="text-sm font-medium text-destructive">{createState.errors.nombre[0]}</p>}
+                        <Label htmlFor="nombre-create" className="text-xs">Nombre del Proyecto *</Label>
+                        <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required className="bg-white text-xs h-9" />
+                        {createState.errors?.nombre && <p className="text-xs font-medium text-destructive">{createState.errors.nombre[0]}</p>}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="cuenca-create">Cuenca *</Label>
+                        <Label htmlFor="cuenca-create" className="text-xs">Cuenca *</Label>
                         <Select name="cuenca" required>
-                          <SelectTrigger id="cuenca-create" className="bg-white"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
+                          <SelectTrigger id="cuenca-create" className="bg-white text-xs h-9"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
                           <SelectContent>
                             {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        {createState.errors?.cuenca && <p className="text-sm font-medium text-destructive">{createState.errors.cuenca[0]}</p>}
+                        {createState.errors?.cuenca && <p className="text-xs font-medium text-destructive">{createState.errors.cuenca[0]}</p>}
                       </div>
                       <div className="space-y-2">
-                        <Label>Partido(s)</Label>
+                        <Label className="text-xs">Partido(s)</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-9">
                               <span>
                                 {selectedPartidosCreate.length > 0 ? `${selectedPartidosCreate.length} partido(s) seleccionado(s)` : 'Seleccioná uno o más partidos'}
                               </span>
@@ -561,9 +561,9 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="proyectista-create">Proyectista</Label>
+                        <Label htmlFor="proyectista-create" className="text-xs">Proyectista</Label>
                         <Select value={selectedProyectistaCreate} onValueChange={setSelectedProyectistaCreate}>
-                          <SelectTrigger id="proyectista-create" className="bg-white"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
+                          <SelectTrigger id="proyectista-create" className="bg-white text-xs h-9"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
                           <SelectContent>
                             {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                           </SelectContent>
@@ -571,10 +571,10 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Financiamiento</Label>
+                        <Label className="text-xs">Financiamiento</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-9">
                               <span>
                                 {selectedFinanciamientoCreate.length > 0 ? `${selectedFinanciamientoCreate.length} fuente(s) seleccionada(s)` : 'Seleccioná una o más fuentes'}
                               </span>
@@ -601,10 +601,10 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Diagnóstico ambiental-socioeconómico</Label>
+                        <Label className="text-xs">Diagnóstico ambiental-socioeconómico</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-9">
                               <span>
                                 {selectedEquipoCreate.length > 0 ? `${selectedEquipoCreate.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
                               </span>
@@ -630,10 +630,10 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                         </DropdownMenu>
                       </div>
                       <div className="space-y-2">
-                        <Label>Información SIG-Imágenes</Label>
+                        <Label className="text-xs">Información SIG-Imágenes</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-9">
                               <span>
                                 {selectedSigCreate.length > 0 ? `${selectedSigCreate.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
                               </span>
@@ -661,7 +661,6 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                     </div>
                   </ScrollArea>
                   <DialogFooter className="pt-4 flex-shrink-0">
-                    <Button type="button" variant="ghost" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
                     <Button type="submit">Crear Proyecto</Button>
                   </DialogFooter>
               </form>
