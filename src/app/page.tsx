@@ -435,6 +435,17 @@ export default function Home() {
           </div>
         </header>
 
+        {selectedCard && (
+          <div className="absolute top-20 left-0 right-0 z-10 container mx-auto px-4 pointer-events-none">
+            <h2 
+              className="text-2xl md:text-3xl font-bold text-primary-foreground max-w-2xl text-balance"
+              style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
+            >
+              {selectedCard.name}
+            </h2>
+          </div>
+        )}
+
         <main className="flex-1 flex flex-col p-4 md:p-16 overflow-y-auto min-h-0">
           <div className="w-full md:w-4/5 mx-auto flex flex-col gap-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -642,6 +653,7 @@ export default function Home() {
     
 
     
+
 
 
 
