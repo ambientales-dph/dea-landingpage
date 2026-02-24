@@ -18,10 +18,6 @@ const drive = google.drive({
 });
 
 export async function createProjectFolder(projectName: string, cuencaId: string): Promise<string> {
-    if (!process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID) {
-        throw new Error('La carpeta raíz de Google Drive no está configurada en las variables de entorno.');
-    }
-
     const cuenca = CUENCAS.find(c => c.id === cuencaId);
     if (!cuenca || !cuenca.driveFolderId || cuenca.driveFolderId === 'REEMPLAZAR_CON_ID_DE_DRIVE') {
         throw new Error(`La carpeta de la cuenca "${cuenca?.name || cuencaId}" no está configurada en src/lib/cuencas.ts.`);
@@ -62,6 +58,16 @@ export async function createProjectFolder(projectName: string, cuencaId: string)
 
     } catch (error: any) {
         console.error('Error creating Google Drive folder:', error);
+        // Check for specific auth errors to give a better message
+        if (error.message && error.message.includes('invalid_grant')) {
+            throw new Error('El Refresh Token de Google no es válido. Por favor, generá uno nuevo.');
+        }
+        if (error.message && (error.message.includes('invalid_request') || error.message.includes('invalid client'))) {
+            throw new Error('El Client ID o Client Secret de Google no son válidos.');
+        }
+        if (error.message && error.message.includes('File not found')) {
+            throw new Error(`La carpeta de la cuenca con ID "${parentFolderId}" no se encontró en Google Drive o no tenés permisos para verla.`);
+        }
         throw new Error(`No se pudo crear la carpeta en Google Drive: ${error.message || 'Error desconocido'}`);
     }
 }
