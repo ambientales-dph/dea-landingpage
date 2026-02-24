@@ -2,7 +2,8 @@
 
 import { z } from 'zod';
 import { CUENCAS, DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
-import { createTrelloCard, getCardById, getListsOnBoard, getNextProjectCode, updateTrelloCard } from '@/services/trello';
+import { createTrelloCard, getCardById, getListsOnBoard, getNextProjectCode, updateTrelloCard, addAttachmentToTrelloCard, addCommentToCard } from '@/services/trello';
+import { createProjectFolder } from '@/services/google-drive';
 
 const PROYECTOS_BOARD_ID = 'CgG4b3B0';
 
@@ -110,6 +111,20 @@ export async function createProject(
       desc: finalDescription,
     });
 
+    let driveFolderUrl: string | null = null;
+    try {
+      driveFolderUrl = await createProjectFolder(cardName, cuencaId);
+      await addAttachmentToTrelloCard({
+        cardId: card.id,
+        url: driveFolderUrl,
+        name: 'Carpeta de Google Drive',
+      });
+    } catch (driveError: any) {
+      // If Drive fails, add a comment to the card instead of failing the whole operation.
+      const driveErrorMessage = `ATENCIÓN: No se pudo crear la carpeta de Google Drive automáticamente. Error: ${driveError.message}`;
+      await addCommentToCard({ cardId: card.id, text: driveErrorMessage });
+    }
+
     await updateTrelloCard({
       cardId: card.id,
       cover: { color: 'red' },
@@ -117,7 +132,7 @@ export async function createProject(
 
 
     return {
-      message: `¡Proyecto "${cardName}" creado con éxito!`,
+      message: `¡Proyecto "${cardName}" creado con éxito! ${driveFolderUrl ? 'Se creó y adjuntó la carpeta de Drive.' : 'Pero falló la creación de la carpeta de Drive.'}`,
       success: true,
       cardUrl: card.url,
     };
