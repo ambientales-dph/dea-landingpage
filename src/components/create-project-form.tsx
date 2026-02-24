@@ -160,7 +160,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
           </DialogHeader>
           <form ref={formRef} action={formAction} className="flex flex-col h-full min-h-0">
               <ScrollArea className="flex-grow pr-6 -mr-6 max-h-[65vh]">
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <input type="hidden" name="cardId" value={project.id} />
                   <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
                   <input type="hidden" name="proyectista" value={proyectista} />
@@ -169,15 +169,15 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
                   
                   <div className="space-y-2">
-                    <Label htmlFor="nombre-edit">Nombre del Proyecto</Label>
-                    <Input id="nombre-edit" name="nombre" value={nombre} onChange={e => setNombre(e.target.value)} required className="bg-white" />
+                    <Label htmlFor="nombre-edit" className="text-xs">Nombre del Proyecto</Label>
+                    <Input id="nombre-edit" name="nombre" value={nombre} onChange={e => setNombre(e.target.value)} required className="bg-white h-8 text-xs" />
                     {state.errors?.nombre && <p className="text-sm font-medium text-destructive">{state.errors.nombre[0]}</p>}
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="cuenca-edit">Cuenca</Label>
+                    <Label htmlFor="cuenca-edit" className="text-xs">Cuenca</Label>
                     <Select name="cuenca" required value={cuencaId} onValueChange={setCuencaId}>
-                      <SelectTrigger id="cuenca-edit" className="bg-white"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
+                      <SelectTrigger id="cuenca-edit" className="bg-white h-8 text-xs"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
                       <SelectContent>
                         {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
                       </SelectContent>
@@ -185,10 +185,10 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   </div>
                   
                    <div className="space-y-2">
-                    <Label>Partido(s)</Label>
+                    <Label className="text-xs">Partido(s)</Label>
                      <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal bg-white">
+                        <Button variant="outline" className="w-full justify-between font-normal bg-white h-8 text-xs">
                           <span>{selectedPartidos.length > 0 ? `${selectedPartidos.length} partido(s) seleccionado(s)` : 'Seleccioná uno o más partidos'}</span>
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
@@ -211,9 +211,9 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="proyectista-edit">Proyectista</Label>
+                    <Label htmlFor="proyectista-edit" className="text-xs">Proyectista</Label>
                     <Select value={proyectista} onValueChange={setProyectista}>
-                        <SelectTrigger id="proyectista-edit" className="bg-white"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
+                        <SelectTrigger id="proyectista-edit" className="bg-white h-8 text-xs"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
                         <SelectContent>
                             {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                         </SelectContent>
@@ -221,10 +221,10 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Financiamiento</Label>
+                    <Label className="text-xs">Financiamiento</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal bg-white">
+                        <Button variant="outline" className="w-full justify-between font-normal bg-white h-8 text-xs">
                           <span>{selectedFinanciamiento.length > 0 ? `${selectedFinanciamiento.length} fuente(s) seleccionada(s)` : 'Seleccioná una o más fuentes'}</span>
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
@@ -247,10 +247,10 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   </div>
                   
                   <div className="space-y-2">
-                    <Label>Diagnóstico ambiental-socioeconómico</Label>
+                    <Label className="text-xs">Diagnóstico ambiental-socioeconómico</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal bg-white">
+                        <Button variant="outline" className="w-full justify-between font-normal bg-white h-8 text-xs">
                           <span>{selectedEquipo.length > 0 ? `${selectedEquipo.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}</span>
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
@@ -273,10 +273,10 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   </div>
 
                    <div className="space-y-2">
-                    <Label>Información SIG-Imágenes</Label>
+                    <Label className="text-xs">Información SIG-Imágenes</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal bg-white">
+                        <Button variant="outline" className="w-full justify-between font-normal bg-white h-8 text-xs">
                           <span>{selectedSig.length > 0 ? `${selectedSig.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}</span>
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
@@ -299,7 +299,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   </div>
                 </div>
               </ScrollArea>
-              <DialogFooter className="pt-4 flex-shrink-0">
+              <DialogFooter className="pt-2 flex-shrink-0">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
                 <Button type="submit">Guardar Cambios</Button>
               </DialogFooter>
@@ -509,7 +509,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
               </DialogHeader>
               <form ref={createFormRef} action={createFormAction} className="flex flex-col h-full min-h-0">
                   <ScrollArea className="flex-grow pr-6 -mr-6 max-h-[65vh]">
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <input type="hidden" name="partido" value={selectedPartidosCreate.join(', ')} />
                       <input type="hidden" name="proyectista" value={selectedProyectistaCreate} />
                       <input type="hidden" name="financiamiento" value={selectedFinanciamientoCreate.join(', ')} />
@@ -517,13 +517,13 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       <input type="hidden" name="informacionSig" value={selectedSigCreate.join('; ')} />
                       <div className="space-y-2">
                         <Label htmlFor="nombre-create" className="text-xs">Nombre del Proyecto *</Label>
-                        <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required className="bg-white text-xs h-9" />
+                        <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required className="bg-white text-xs h-8" />
                         {createState.errors?.nombre && <p className="text-xs font-medium text-destructive">{createState.errors.nombre[0]}</p>}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="cuenca-create" className="text-xs">Cuenca *</Label>
                         <Select name="cuenca" required>
-                          <SelectTrigger id="cuenca-create" className="bg-white text-xs h-9"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
+                          <SelectTrigger id="cuenca-create" className="bg-white text-xs h-8"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
                           <SelectContent>
                             {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
                           </SelectContent>
@@ -534,7 +534,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                         <Label className="text-xs">Partido(s)</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-9">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-8">
                               <span>
                                 {selectedPartidosCreate.length > 0 ? `${selectedPartidosCreate.length} partido(s) seleccionado(s)` : 'Seleccioná uno o más partidos'}
                               </span>
@@ -563,7 +563,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       <div className="space-y-2">
                         <Label htmlFor="proyectista-create" className="text-xs">Proyectista</Label>
                         <Select value={selectedProyectistaCreate} onValueChange={setSelectedProyectistaCreate}>
-                          <SelectTrigger id="proyectista-create" className="bg-white text-xs h-9"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
+                          <SelectTrigger id="proyectista-create" className="bg-white text-xs h-8"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
                           <SelectContent>
                             {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                           </SelectContent>
@@ -574,7 +574,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                         <Label className="text-xs">Financiamiento</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-9">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-8">
                               <span>
                                 {selectedFinanciamientoCreate.length > 0 ? `${selectedFinanciamientoCreate.length} fuente(s) seleccionada(s)` : 'Seleccioná una o más fuentes'}
                               </span>
@@ -604,7 +604,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                         <Label className="text-xs">Diagnóstico ambiental-socioeconómico</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-9">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-8">
                               <span>
                                 {selectedEquipoCreate.length > 0 ? `${selectedEquipoCreate.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
                               </span>
@@ -633,7 +633,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                         <Label className="text-xs">Información SIG-Imágenes</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-9">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-8">
                               <span>
                                 {selectedSigCreate.length > 0 ? `${selectedSigCreate.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
                               </span>
@@ -660,7 +660,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       </div>
                     </div>
                   </ScrollArea>
-                  <DialogFooter className="pt-4 flex-shrink-0">
+                  <DialogFooter className="pt-2 flex-shrink-0">
                     <Button type="submit">Crear Proyecto</Button>
                   </DialogFooter>
               </form>
