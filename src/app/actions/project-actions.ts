@@ -87,6 +87,7 @@ export async function createProject(
     }
 
     const cardName = `${nombre} (${projectCode})`;
+    const folderName = `${projectCode} - ${nombre}`;
     
     let finalDescription = DESCRIPCION_PLANTILLA;
     if (partido) {
@@ -113,11 +114,11 @@ export async function createProject(
 
     let driveFolderUrl: string | null = null;
     try {
-      driveFolderUrl = await createProjectFolder(cardName, cuencaId);
+      driveFolderUrl = await createProjectFolder(folderName, cuencaId);
       await addAttachmentToTrelloCard({
         cardId: card.id,
         url: driveFolderUrl,
-        name: 'Carpeta de Google Drive',
+        name: folderName,
       });
     } catch (driveError: any) {
       // If Drive fails, add a comment to the card instead of failing the whole operation.
