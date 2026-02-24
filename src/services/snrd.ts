@@ -13,7 +13,7 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
     '"ciencias ambientales"', 'geología', 'geomorfología', 'hidráulica',
     'hidrología', 'cuencas', '"manejo del agua"', '"química ambiental"',
     '"ingeniería ambiental"', 'antropología', 'biología', 'botánica',
-    'zoología', 'ecología', 'clima'
+    'zoología', 'ecología', 'clima', 'ciencias agronómicas', 'ciencias forestales'
   ];
   const keywordFilter = keywords.join(' OR ');
   const finalQuery = `((${query}) AND ("buenos aires" OR "provincia de buenos aires")) AND (${keywordFilter})`;
