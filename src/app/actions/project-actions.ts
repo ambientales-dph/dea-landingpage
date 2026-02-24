@@ -76,7 +76,7 @@ export async function createProject(
       throw new Error('La cuenca seleccionada no es válida.');
     }
     
-    const projectCode = await getNextProjectCode(PROYECTOS_BOARD_ID, selectedCuenca.code);
+    const projectCode = await getNextProjectCode(selectedCuenca.code);
     
     const lists = await getListsOnBoard(PROYECTOS_BOARD_ID);
     const targetList = lists.find(list => list.name.toLowerCase() === selectedCuenca.trelloListName.toLowerCase());
@@ -188,7 +188,7 @@ export async function updateProject(
             throw new Error('La nueva cuenca seleccionada no es válida.');
         }
 
-        const newProjectCode = await getNextProjectCode(PROYECTOS_BOARD_ID, newSelectedCuenca.code);
+        const newProjectCode = await getNextProjectCode(newSelectedCuenca.code);
         const finalNewName = `${nombre} (${newProjectCode})`;
 
         const lists = await getListsOnBoard(PROYECTOS_BOARD_ID);

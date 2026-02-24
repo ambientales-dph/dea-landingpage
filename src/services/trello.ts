@@ -405,9 +405,9 @@ export async function getListsOnBoard(boardId: string): Promise<{ id: string, na
   }
 }
 
-export async function getNextProjectCode(boardId: string, cuencaCode: string): Promise<string> {
+export async function getNextProjectCode(cuencaCode: string): Promise<string> {
   try {
-    const cards = await getCardsFromBoard(boardId);
+    const cards = await getAllCardsFromAllBoards();
     const codeRegex = new RegExp(`\\((${cuencaCode}(\\d{3}))\\)`);
     let maxNum = 0;
 
@@ -453,4 +453,5 @@ export async function createTrelloCard(cardInfo: NewCardInfo): Promise<TrelloCar
 }
 
     
+
 

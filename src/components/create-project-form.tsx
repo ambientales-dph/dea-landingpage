@@ -170,14 +170,14 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   
                   <div className="space-y-2">
                     <Label htmlFor="nombre-edit">Nombre del Proyecto</Label>
-                    <Input id="nombre-edit" name="nombre" value={nombre} onChange={e => setNombre(e.target.value)} required />
+                    <Input id="nombre-edit" name="nombre" value={nombre} onChange={e => setNombre(e.target.value)} required className="bg-white" />
                     {state.errors?.nombre && <p className="text-sm font-medium text-destructive">{state.errors.nombre[0]}</p>}
                   </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="cuenca-edit">Cuenca</Label>
                     <Select name="cuenca" required value={cuencaId} onValueChange={setCuencaId}>
-                      <SelectTrigger id="cuenca-edit"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
+                      <SelectTrigger id="cuenca-edit" className="bg-white"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
                       <SelectContent>
                         {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
                       </SelectContent>
@@ -188,7 +188,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                     <Label>Partido(s)</Label>
                      <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal">
+                        <Button variant="outline" className="w-full justify-between font-normal bg-white">
                           <span>{selectedPartidos.length > 0 ? `${selectedPartidos.length} partido(s) seleccionado(s)` : 'Seleccioná uno o más partidos'}</span>
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
@@ -213,7 +213,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                   <div className="space-y-2">
                     <Label htmlFor="proyectista-edit">Proyectista</Label>
                     <Select value={proyectista} onValueChange={setProyectista}>
-                        <SelectTrigger id="proyectista-edit"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
+                        <SelectTrigger id="proyectista-edit" className="bg-white"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
                         <SelectContent>
                             {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                         </SelectContent>
@@ -224,7 +224,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                     <Label>Financiamiento</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal">
+                        <Button variant="outline" className="w-full justify-between font-normal bg-white">
                           <span>{selectedFinanciamiento.length > 0 ? `${selectedFinanciamiento.length} fuente(s) seleccionada(s)` : 'Seleccioná una o más fuentes'}</span>
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
@@ -250,7 +250,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                     <Label>Diagnóstico ambiental-socioeconómico</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal">
+                        <Button variant="outline" className="w-full justify-between font-normal bg-white">
                           <span>{selectedEquipo.length > 0 ? `${selectedEquipo.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}</span>
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
@@ -276,7 +276,7 @@ function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditPro
                     <Label>Información SIG-Imágenes</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal">
+                        <Button variant="outline" className="w-full justify-between font-normal bg-white">
                           <span>{selectedSig.length > 0 ? `${selectedSig.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}</span>
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
@@ -516,14 +516,14 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       <input type="hidden" name="diagnosticoEquipo" value={selectedEquipoCreate.join('; ')} />
                       <input type="hidden" name="informacionSig" value={selectedSigCreate.join('; ')} />
                       <div className="space-y-2">
-                        <Label htmlFor="nombre-create">Nombre del Proyecto (obligatorio)</Label>
-                        <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required />
+                        <Label htmlFor="nombre-create">Nombre del Proyecto *</Label>
+                        <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required className="bg-white" />
                         {createState.errors?.nombre && <p className="text-sm font-medium text-destructive">{createState.errors.nombre[0]}</p>}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="cuenca-create">Cuenca (obligatorio)</Label>
+                        <Label htmlFor="cuenca-create">Cuenca *</Label>
                         <Select name="cuenca" required>
-                          <SelectTrigger id="cuenca-create"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
+                          <SelectTrigger id="cuenca-create" className="bg-white"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
                           <SelectContent>
                             {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
                           </SelectContent>
@@ -534,7 +534,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                         <Label>Partido(s)</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white">
                               <span>
                                 {selectedPartidosCreate.length > 0 ? `${selectedPartidosCreate.length} partido(s) seleccionado(s)` : 'Seleccioná uno o más partidos'}
                               </span>
@@ -563,7 +563,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       <div className="space-y-2">
                         <Label htmlFor="proyectista-create">Proyectista</Label>
                         <Select value={selectedProyectistaCreate} onValueChange={setSelectedProyectistaCreate}>
-                          <SelectTrigger id="proyectista-create"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
+                          <SelectTrigger id="proyectista-create" className="bg-white"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
                           <SelectContent>
                             {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                           </SelectContent>
@@ -574,7 +574,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                         <Label>Financiamiento</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white">
                               <span>
                                 {selectedFinanciamientoCreate.length > 0 ? `${selectedFinanciamientoCreate.length} fuente(s) seleccionada(s)` : 'Seleccioná una o más fuentes'}
                               </span>
@@ -604,7 +604,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                         <Label>Diagnóstico ambiental-socioeconómico</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white">
                               <span>
                                 {selectedEquipoCreate.length > 0 ? `${selectedEquipoCreate.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
                               </span>
@@ -633,7 +633,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                         <Label>Información SIG-Imágenes</Label>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal">
+                            <Button variant="outline" className="w-full justify-between font-normal bg-white">
                               <span>
                                 {selectedSigCreate.length > 0 ? `${selectedSigCreate.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
                               </span>
