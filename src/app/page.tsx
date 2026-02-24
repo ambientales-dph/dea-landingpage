@@ -438,7 +438,7 @@ export default function Home() {
         {selectedCard && (
           <div className="absolute top-20 left-0 right-0 z-10 container mx-auto px-4 pointer-events-none">
             <h2
-              className="text-sm font-bold text-primary-foreground text-balance"
+              className="text-sm font-bold text-primary-foreground"
               style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
             >
               {selectedCard.name}
@@ -473,12 +473,6 @@ export default function Home() {
                 <Clock className="h-8 w-8 text-primary" />
                 <div className="flex flex-col items-center text-center">
                   <span>Línea de tiempo</span>
-                  {selectedCard && (
-                    <span
-                      className="text-xs font-normal mt-1"
-                      dangerouslySetInnerHTML={formatCardName(selectedCard.name)}
-                    />
-                  )}
                 </div>
               </Button>
               <Button
@@ -489,12 +483,6 @@ export default function Home() {
                 {selectedCard ? <FileText className="h-8 w-8 text-primary" /> : <LayoutGrid className="h-8 w-8 text-primary" />}
                 <div className="flex flex-col items-center text-center">
                   <span>{selectedCard ? 'Tarjeta' : 'Tablero'}</span>
-                  {selectedCard && (
-                     <span
-                        className="text-xs font-normal mt-1"
-                        dangerouslySetInnerHTML={formatCardName(selectedCard.name)}
-                     />
-                  )}
                 </div>
               </Button>
               <Dialog open={isCreateProjectOpen} onOpenChange={setCreateProjectOpen}>
@@ -645,3 +633,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
