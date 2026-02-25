@@ -200,98 +200,143 @@ export default function Home() {
     toast({ title: 'Generando PDF...', description: 'Obteniendo los datos más recientes de Trello.' });
     
     try {
-        const doc = new jsPDF();
-        doc.setFont('Helvetica', 'normal');
+        // Horizontal orientation (Landscape)
+        const doc = new jsPDF('l', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        const margin = 10;
+        let y = 20;
+
+        // Helper to extract data from description
+        const extractField = (desc: string, field: string): string => {
+            if (!desc) return '****';
+            const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`^${escapedField}:\\s*\\*\\*(.*?)\\*\\*`, 'm');
+            const match = desc.match(regex);
+            return (match && match[1] && !/^\*+$/.test(match[1])) ? match[1].trim() : '****';
+        };
 
         const allCardsFromTrello = await getAllCardsFromAllBoards();
         const cardsToProcess = allCardsFromTrello.filter(card => 
             getProjectInfo(card.name).code &&
             !card.name.includes('(XXX000)')
         );
-        const title = 'Lista de todos los proyectos';
 
         const groupedByBoard: Record<string, TrelloCard[]> = cardsToProcess.reduce((acc, card) => {
             const boardName = card.boardName || 'Sin tablero';
-            if (!acc[boardName]) {
-                acc[boardName] = [];
-            }
+            if (!acc[boardName]) acc[boardName] = [];
             acc[boardName].push(card);
             return acc;
         }, {} as Record<string, TrelloCard[]>);
 
         const sortedBoardNames = Object.keys(groupedByBoard).sort((a, b) => a.localeCompare(b));
 
-        for (const boardName of sortedBoardNames) {
-            groupedByBoard[boardName].sort((a, b) => {
-                const codeA = getProjectInfo(a.name).code;
-                const codeB = getProjectInfo(b.name).code;
-                if (codeA && codeB) {
-                    return codeA.localeCompare(codeB);
-                }
-                return codeA ? -1 : 1;
+        // Column definitions (Landscape A4 is 297mm)
+        const cols = {
+            code: { x: margin, w: 20, label: 'Código' },
+            name: { x: margin + 20, w: 90, label: 'Nombre del Proyecto' },
+            proyectista: { x: margin + 110, w: 45, label: 'Proyectista' },
+            financiamiento: { x: margin + 155, w: 45, label: 'Financiamiento' },
+            equipo: { x: margin + 200, w: 77, label: 'Equipo (DEA)' },
+        };
+
+        const drawHeader = (boardName?: string) => {
+            doc.setFontSize(10);
+            doc.setFont('Helvetica', 'bold');
+            if (boardName) {
+                doc.setFillColor(70, 70, 70);
+                doc.rect(margin, y - 5, pageWidth - (2 * margin), 7, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.text(boardName, margin + 2, y);
+                y += 10;
+            }
+
+            // Table headers
+            doc.setFillColor(200, 200, 200);
+            doc.rect(margin, y - 5, pageWidth - (2 * margin), 7, 'F');
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(8);
+            Object.values(cols).forEach(col => {
+                doc.text(col.label, col.x + 1, y);
             });
-        }
+            y += 5;
+            doc.setFont('Helvetica', 'normal');
+        };
 
-        doc.setFontSize(10);
-        doc.text(title, 10, 10);
-      
-        const lineHeight = 7;
-        const margin = 10;
-        const nameColWidth = doc.internal.pageSize.width - (2 * margin);
-        const pageHeight = doc.internal.pageSize.height;
-        let y = 20;
-
-        const checkPageBreak = (neededHeight: number) => {
+        const checkPageBreak = (neededHeight: number, boardName: string) => {
             if (y + neededHeight > pageHeight - margin) {
                 doc.addPage();
-                y = margin;
+                y = 20;
+                drawHeader(boardName + " (cont.)");
                 return true;
             }
             return false;
-        }
+        };
 
-        let isFirstBoard = true;
+        doc.setFontSize(12);
+        doc.setFont('Helvetica', 'bold');
+        doc.text('Lista Consolidada de Proyectos - DEA', margin, 12);
+        
+        let rowCount = 0;
         for (const boardName of sortedBoardNames) {
             if (groupedByBoard[boardName].length === 0) continue;
 
-            const boardHeaderHeight = isFirstBoard ? lineHeight : lineHeight * 2;
-            if (checkPageBreak(boardHeaderHeight)) {
-                isFirstBoard = true;
+            // Check if we need a new page for the board header
+            if (y > pageHeight - 40) {
+                doc.addPage();
+                y = 20;
             }
+            
+            drawHeader(boardName);
+            
+            // Sort cards in board by code
+            const sortedCards = groupedByBoard[boardName].sort((a, b) => {
+                const codeA = getProjectInfo(a.name).code || '';
+                const codeB = getProjectInfo(b.name).code || '';
+                return codeA.localeCompare(codeB);
+            });
 
-            if (!isFirstBoard) {
-                y += lineHeight;
-            }
-            
-            const nameColX = margin;
-            doc.setFont('Helvetica', 'bold');
-            doc.text(boardName, nameColX, y);
-            y += lineHeight;
-            doc.setFont('Helvetica', 'normal');
-            
-            for (const card of groupedByBoard[boardName]) {
+            for (const card of sortedCards) {
                 const { code, nameWithoutCode } = getProjectInfo(card.name);
-                
-                if (!code) continue; 
-        
-                const formattedName = `${code.replace(/[()]/g, '')} - ${nameWithoutCode}`;
-                const nameLines = doc.splitTextToSize(formattedName, nameColWidth);
-                const requiredHeight = nameLines.length * lineHeight;
+                const proyectista = extractField(card.desc, 'PROYECTISTA');
+                const financiamiento = extractField(card.desc, 'FINANCIAMIENTO');
+                const equipo = extractField(card.desc, '- Diagnóstico ambiental-socioeconómico');
 
-                if (checkPageBreak(requiredHeight + lineHeight)) {
-                    doc.setFont('Helvetica', 'bold');
-                    doc.text(boardName + " (cont.)", margin, y);
-                    y += lineHeight;
-                    doc.setFont('Helvetica', 'normal');
+                // Text wrapping for columns
+                const nameLines = doc.splitTextToSize(nameWithoutCode, cols.name.w - 2);
+                const proyectistaLines = doc.splitTextToSize(proyectista, cols.proyectista.w - 2);
+                const financiamientoLines = doc.splitTextToSize(financiamiento, cols.financiamiento.w - 2);
+                const equipoLines = doc.splitTextToSize(equipo, cols.equipo.w - 2);
+
+                const maxLines = Math.max(nameLines.length, proyectistaLines.length, financiamientoLines.length, equipoLines.length);
+                const rowHeight = Math.max(maxLines * 4, 6);
+
+                checkPageBreak(rowHeight, boardName);
+
+                // Alternating colors: light gray [245] and light blue [230, 245, 255]
+                if (rowCount % 2 === 0) {
+                    doc.setFillColor(245, 245, 245);
+                } else {
+                    doc.setFillColor(230, 245, 255);
                 }
+                doc.rect(margin, y - 4, pageWidth - (2 * margin), rowHeight, 'F');
                 
-                doc.text(nameLines, margin, y);
-                y += requiredHeight;
+                doc.setFontSize(7);
+                doc.setTextColor(0, 0, 0);
+                
+                doc.text(code || '', cols.code.x + 1, y);
+                doc.text(nameLines, cols.name.x + 1, y);
+                doc.text(proyectistaLines, cols.proyectista.x + 1, y);
+                doc.text(financiamientoLines, cols.financiamiento.x + 1, y);
+                doc.text(equipoLines, cols.equipo.x + 1, y);
+
+                y += rowHeight;
+                rowCount++;
             }
-            isFirstBoard = false;
+            y += 10; // Space between boards
         }
       
-        doc.save('trello-proyectos.pdf');
+        doc.save('DEA-Listado-Proyectos.pdf');
     } catch (error) {
         toast({
             variant: 'destructive',
@@ -436,10 +481,10 @@ export default function Home() {
         </header>
 
         {selectedCard && (
-          <div className="absolute top-20 left-0 right-0 z-10 container mx-auto px-4 pointer-events-none">
+          <div className="absolute top-20 left-0 right-0 z-10 container mx-auto px-4 pointer-events-none text-center">
             <h2
-              className="text-sm font-bold text-primary-foreground"
-              style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}
+              className="text-[10px] md:text-xs font-bold text-primary-foreground drop-shadow-md text-balance"
+              style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}
             >
               {selectedCard.name}
             </h2>
@@ -633,5 +678,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
