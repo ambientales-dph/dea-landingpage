@@ -34,18 +34,18 @@ export const RECURSOS_PROPIOS: {title: string, url: string}[] = [
   },
   {
     title: 'Anexo I - Digesto Normativo Ambiental',
-    url: 'https://docs.google.com/document/d/1c0ZRopXMBVlne2FIcPUX6mzGNpWEbea3/edit?usp=sharing&ouid=113275923928117347447&rtpof=true&sd=true',
+    url: 'https://docs.google.com/document/d/1c0ZRopXMBVlne2FIcPUX6mzGNpWEbea3/export?format=docx',
   },
   {
     title: 'Plan de Gestión Ambiental',
-    url: 'https://docs.google.com/document/d/1awzF11qKyQKgkGVcDcFCGp_z4Iw9VgwP/edit?usp=sharing&ouid=113275923928117347447&rtpof=true&sd=true',
+    url: 'https://docs.google.com/document/d/1awzF11qKyQKgkGVcDcFCGp_z4Iw9VgwP/export?format=docx',
   },
   {
     title: 'Matriz de Impactos y Cálculo de VIA',
-    url: 'https://docs.google.com/spreadsheets/d/1EDbhZZH_W71usWJvC7xZ915DVupcxHeL/edit?usp=sharing&ouid=113275923928117347447&rtpof=true&sd=true',
+    url: 'https://docs.google.com/spreadsheets/d/1EDbhZZH_W71usWJvC7xZ915DVupcxHeL/export?format=xlsx',
   },
   {
     title: 'Atlas de Cuencas y Regiones Hídricas - Etapa I',
-    url: 'https://drive.google.com/file/d/1DBZwunjGFTZ0M_E9PGyOT4doeo2g8uxy/view?usp=sharing',
+    url: 'https://drive.google.com/uc?export=download&id=1DBZwunjGFTZ0M_E9PGyOT4doeo2g8uxy',
   },
 ];
