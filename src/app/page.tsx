@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -18,6 +17,9 @@ import {
   AlertTriangle,
   Library,
   Bell,
+  LogIn,
+  LogOut,
+  User as UserIcon,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -49,7 +51,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { getAllCardsFromAllBoards } from '@/services/trello';
 import jsPDF from 'jspdf';
 import NotificationsBell from '@/components/notifications-bell';
-
+import { useAuth, useUser } from '@/firebase';
+import { loginConGoogle, cerrarSesion } from '@/services/auth-service';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const INITIAL_VIEW_STATE = {
   center: [-6450000, -4150000],
@@ -57,15 +61,40 @@ const INITIAL_VIEW_STATE = {
 };
 
 export default function Home() {
+  const { user, loading } = useUser();
+  const auth = useAuth();
+  const { toast } = useToast();
+
   const [selectedCard, setSelectedCard] = useState<TrelloCard | null>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
-  const { toast } = useToast();
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   
+  const handleLogin = async () => {
+    try {
+      await loginConGoogle(auth);
+      toast({ title: '¡Bienvenido!', description: 'Has iniciado sesión correctamente.' });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de acceso',
+        description: error.message || 'No se pudo iniciar sesión.',
+      });
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await cerrarSesion(auth);
+      toast({ title: 'Sesión cerrada', description: 'Has salido de la aplicación.' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cerrar la sesión.' });
+    }
+  };
+
   const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
     const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
     const match = name.match(projectRegex);
@@ -99,7 +128,6 @@ export default function Home() {
         const cardsFromTrello = await getAllCardsFromAllBoards();
         const cardsByCode: Record<string, TrelloCard[]> = {};
 
-        // Group cards by project code, excluding the template
         for (const card of cardsFromTrello) {
           if (card.name.includes('(XXX000)')) continue;
 
@@ -112,7 +140,6 @@ export default function Home() {
           }
         }
 
-        // Filter for groups with more than one card (duplicates) and sort by code
         const duplicates = Object.entries(cardsByCode)
           .filter(([, cards]) => cards.length > 1)
           .sort(([codeA], [codeB]) => codeA.localeCompare(codeB));
@@ -200,14 +227,12 @@ export default function Home() {
     toast({ title: 'Generando PDF...', description: 'Obteniendo los datos más recientes de Trello.' });
     
     try {
-        // Horizontal orientation (Landscape)
         const doc = new jsPDF('l', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
         const margin = 10;
         let y = 20;
 
-        // Helper to extract data from description
         const extractField = (desc: string, field: string): string => {
             if (!desc) return '****';
             const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -231,7 +256,6 @@ export default function Home() {
 
         const sortedBoardNames = Object.keys(groupedByBoard).sort((a, b) => a.localeCompare(b));
 
-        // Column definitions (Landscape A4 is 297mm)
         const cols = {
             code: { x: margin, w: 20, label: 'Código' },
             name: { x: margin + 20, w: 90, label: 'Nombre del Proyecto' },
@@ -251,7 +275,6 @@ export default function Home() {
                 y += 10;
             }
 
-            // Table headers
             doc.setFillColor(200, 200, 200);
             doc.rect(margin, y - 5, pageWidth - (2 * margin), 7, 'F');
             doc.setTextColor(0, 0, 0);
@@ -281,7 +304,6 @@ export default function Home() {
         for (const boardName of sortedBoardNames) {
             if (groupedByBoard[boardName].length === 0) continue;
 
-            // Check if we need a new page for the board header
             if (y > pageHeight - 40) {
                 doc.addPage();
                 y = 20;
@@ -289,7 +311,6 @@ export default function Home() {
             
             drawHeader(boardName);
             
-            // Sort cards in board by code
             const sortedCards = groupedByBoard[boardName].sort((a, b) => {
                 const codeA = getProjectInfo(a.name).code || '';
                 const codeB = getProjectInfo(b.name).code || '';
@@ -302,7 +323,6 @@ export default function Home() {
                 const financiamiento = extractField(card.desc, 'FINANCIAMIENTO');
                 const equipo = extractField(card.desc, '- Diagnóstico ambiental-socioeconómico');
 
-                // Text wrapping for columns
                 const nameLines = doc.splitTextToSize(nameWithoutCode, cols.name.w - 2);
                 const proyectistaLines = doc.splitTextToSize(proyectista, cols.proyectista.w - 2);
                 const financiamientoLines = doc.splitTextToSize(financiamiento, cols.financiamiento.w - 2);
@@ -313,7 +333,6 @@ export default function Home() {
 
                 checkPageBreak(rowHeight, boardName);
 
-                // Alternating colors: light gray [245] and light blue [230, 245, 255]
                 if (rowCount % 2 === 0) {
                     doc.setFillColor(245, 245, 245);
                 } else {
@@ -333,7 +352,7 @@ export default function Home() {
                 y += rowHeight;
                 rowCount++;
             }
-            y += 10; // Space between boards
+            y += 10;
         }
       
         doc.save('DEA-Listado-Proyectos.pdf');
@@ -377,27 +396,6 @@ export default function Home() {
     }
   };
   
-  const formatCardName = (name: string | null): { __html: string } => {
-    if (!name) return { __html: '' };
-    
-    const codeMatch = name.match(/\(([^)]+)\)$/);
-    const code = codeMatch ? codeMatch[0] : '';
-    let nameWithoutCode = code ? name.substring(0, name.length - code.length).trim() : name;
-  
-    const lines = [];
-    while (nameWithoutCode.length > 0) {
-      let cutPoint = 60;
-      if (nameWithoutCode.length > 60) {
-        const lastSpace = nameWithoutCode.substring(0, 60).lastIndexOf(' ');
-        cutPoint = lastSpace > 0 ? lastSpace : 60;
-      }
-      lines.push(nameWithoutCode.substring(0, cutPoint));
-      nameWithoutCode = nameWithoutCode.substring(cutPoint).trim();
-    }
-  
-    return { __html: `${lines.join('<br />')} ${code}`.trim() };
-  };
-  
   const handleCardOrBoardButtonClick = () => {
     if (selectedCard) {
       setIsSummaryOpen(true);
@@ -439,6 +437,50 @@ export default function Home() {
     return nullReturn;
   };
 
+  // Pantalla de carga inicial
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-primary">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 border-4 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+          <p className="text-primary-foreground font-medium">Iniciando sistema...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Pantalla de Login si no hay usuario
+  if (!user) {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden">
+        <MapBackground viewState={INITIAL_VIEW_STATE} />
+        <div className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm" />
+        <div className="relative z-10 flex h-full items-center justify-center p-4">
+          <div className="w-full max-w-md bg-neutral-800/90 p-8 rounded-2xl shadow-2xl border border-neutral-700 text-center">
+            <h1 className="text-3xl font-bold text-white mb-2">DEA</h1>
+            <p className="text-neutral-400 mb-8">Departamento de Estudios Ambientales</p>
+            <Separator className="bg-neutral-700 mb-8" />
+            <p className="text-sm text-neutral-300 mb-6">
+              Esta aplicación es de uso exclusivo para el personal autorizado del departamento.
+            </p>
+            <Button 
+              size="lg" 
+              className="w-full gap-2 bg-white text-black hover:bg-neutral-200"
+              onClick={handleLogin}
+            >
+              <LogIn className="h-5 w-5" />
+              Ingresar con Google
+            </Button>
+            <p className="mt-6 text-[10px] text-neutral-500 uppercase tracking-widest">
+              Seguridad garantizada por Firebase Auth
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Interfaz principal (Solo si está autenticado)
   return (
     <div className="relative h-screen w-screen">
       <TrelloConnectionToast />
@@ -476,6 +518,34 @@ export default function Home() {
               <Button variant="ghost" size="icon" onClick={() => setIsHelpPanelOpen(true)} className="text-primary-foreground hover:bg-primary/80">
                 <HelpCircle className="h-6 w-6" />
               </Button>
+              
+              <Separator orientation="vertical" className="h-8 bg-primary-foreground/20 mx-1" />
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10 border border-primary-foreground/50">
+                      <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'Usuario'} />
+                      <AvatarFallback className="bg-neutral-700 text-white">
+                        {user.displayName?.charAt(0) || <UserIcon className="h-5 w-5" />}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user.displayName}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Cerrar Sesión</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>
