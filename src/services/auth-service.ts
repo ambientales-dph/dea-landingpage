@@ -18,7 +18,6 @@ interface AuthorizedUser {
 
 /**
  * Whitelist de personal autorizado del Departamento de Estudios Ambientales.
- * Incluye email y teléfono para futuras integraciones.
  */
 const WHITELIST: AuthorizedUser[] = [
   { name: 'Nancy Neschuk', email: 'nancyneschuk@gmail.com', phone: '+549 221 465-1214' },
@@ -43,10 +42,7 @@ const WHITELIST: AuthorizedUser[] = [
   { name: 'Andrea D´Emilio', email: 'avdemilio@gmail.com', phone: '+549 221 555-6058' },
   { name: 'Carolina Silva', email: 'karitosilva@gmail.com', phone: '+549 221 542-6189' },
   { name: 'Joaquín Montorsi', email: 'joaquinmontorsi@gmail.com', phone: '+549 221 654-5669' },
-  { email: 'ambientales.dph@gmail.com', phone: '' },
-  { email: 'nancy.neschuk@gmail.com', phone: '' },
-  { email: 'luis.bree@gmail.com', phone: '' },
-  { email: 'mariano.mediavilla@gmail.com', phone: '' },
+  { email: 'ambientales.dph@gmail.com', name: 'DEA Genérico' },
 ];
 
 /**
@@ -66,7 +62,6 @@ export async function loginConGoogle(auth: Auth) {
     );
 
     if (!isAuthorized) {
-      // Si el correo no está autorizado, cerramos la sesión inmediatamente
       await firebaseSignOut(auth);
       throw new Error('Tu correo no está en la lista de personal autorizado del Departamento de Estudios Ambientales.');
     }
