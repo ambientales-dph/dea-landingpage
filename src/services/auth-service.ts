@@ -18,7 +18,6 @@ interface AuthorizedUser {
 
 /**
  * Whitelist de personal autorizado del Departamento de Estudios Ambientales.
- * Incluye nombre, correo y celular para futuras integraciones.
  */
 const WHITELIST: AuthorizedUser[] = [
   { name: 'Nancy Neschuk', email: 'nancyneschuk@gmail.com', phone: '+549 221 465-1214' },
@@ -48,7 +47,6 @@ const WHITELIST: AuthorizedUser[] = [
 
 /**
  * Inicia el proceso de autenticación con Google.
- * Verifica si el correo electrónico del usuario está en la whitelist.
  */
 export async function loginConGoogle(auth: Auth) {
   const provider = new GoogleAuthProvider();
@@ -69,6 +67,9 @@ export async function loginConGoogle(auth: Auth) {
 
     return user;
   } catch (error: any) {
+    if (error.code === 'auth/unauthorized-domain') {
+      throw new Error('Este dominio no está autorizado en la consola de Firebase. Por favor, añada el dominio actual en Authentication -> Settings -> Authorized domains.');
+    }
     console.error('Error durante el inicio de sesión:', error);
     throw error;
   }
