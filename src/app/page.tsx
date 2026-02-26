@@ -20,6 +20,7 @@ import {
   LogIn,
   LogOut,
   User as UserIcon,
+  Loader2,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -72,17 +73,25 @@ export default function Home() {
   const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   const handleLogin = async () => {
+    if (isLoggingIn) return;
+    setIsLoggingIn(true);
     try {
       await loginConGoogle(auth);
       toast({ title: '¡Bienvenido!', description: 'Has iniciado sesión correctamente.' });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error de acceso',
-        description: error.message || 'No se pudo iniciar sesión.',
-      });
+      // Si el usuario simplemente cerró la ventana, no mostramos un error intrusivo
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast({
+          variant: 'destructive',
+          title: 'Error de acceso',
+          description: error.message || 'No se pudo iniciar sesión.',
+        });
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -467,9 +476,10 @@ export default function Home() {
               size="lg" 
               className="w-full gap-2 bg-white text-black hover:bg-neutral-200"
               onClick={handleLogin}
+              disabled={isLoggingIn}
             >
-              <LogIn className="h-5 w-5" />
-              Ingresar con Google
+              {isLoggingIn ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogIn className="h-5 w-5" />}
+              {isLoggingIn ? 'Iniciando sesión...' : 'Ingresar con Google'}
             </Button>
             <p className="mt-6 text-[10px] text-neutral-500 uppercase tracking-widest">
               Seguridad garantizada por Firebase Auth
