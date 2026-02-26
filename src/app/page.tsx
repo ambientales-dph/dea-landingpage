@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -21,6 +22,7 @@ import {
   LogOut,
   User as UserIcon,
   Loader2,
+  ShieldAlert,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -53,7 +55,7 @@ import { getAllCardsFromAllBoards } from '@/services/trello';
 import jsPDF from 'jspdf';
 import NotificationsBell from '@/components/notifications-bell';
 import { useAuth, useUser } from '@/firebase';
-import { loginConGoogle, cerrarSesion } from '@/services/auth-service';
+import { loginConGoogle, cerrarSesion, isUserAuthorized } from '@/services/auth-service';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const INITIAL_VIEW_STATE = {
@@ -75,6 +77,9 @@ export default function Home() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   
+  // Verificamos si el usuario actual está en la whitelist
+  const authorized = user ? isUserAuthorized(user.email) : false;
+
   const handleLogin = async () => {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
@@ -489,7 +494,43 @@ export default function Home() {
     );
   }
 
-  // Interfaz principal (Solo si está autenticado)
+  // Pantalla de Acceso Denegado si el usuario está logueado pero NO está en la whitelist
+  if (user && !authorized) {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden">
+        <MapBackground viewState={INITIAL_VIEW_STATE} />
+        <div className="absolute inset-0 bg-red-950/80 backdrop-blur-md" />
+        <div className="relative z-10 flex h-full items-center justify-center p-4">
+          <div className="w-full max-w-md bg-neutral-900/90 p-8 rounded-2xl shadow-2xl border border-red-500/50 text-center">
+            <ShieldAlert className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-white mb-2">Acceso Denegado</h1>
+            <p className="text-red-400 font-medium mb-4">Personal no autorizado</p>
+            <Separator className="bg-neutral-700 mb-6" />
+            <p className="text-sm text-neutral-300 mb-2">
+              Has iniciado sesión como:
+            </p>
+            <p className="text-sm font-bold text-white mb-6 bg-neutral-800 p-2 rounded border border-neutral-700">
+              {user.email}
+            </p>
+            <p className="text-xs text-neutral-400 mb-8">
+              Este correo no se encuentra en la lista de personal del DEA. Si crees que esto es un error, por favor contacta al administrador.
+            </p>
+            <Button 
+              variant="destructive"
+              size="lg" 
+              className="w-full gap-2"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-5 w-5" />
+              Cerrar sesión e intentar con otro mail
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Interfaz principal (Solo si está autenticado y autorizado)
   return (
     <div className="relative h-screen w-screen">
       <TrelloConnectionToast />
@@ -534,9 +575,9 @@ export default function Home() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                     <Avatar className="h-10 w-10 border border-primary-foreground/50">
-                      <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'Usuario'} />
+                      <AvatarImage src={user?.photoURL || undefined} alt={user?.displayName || 'Usuario'} />
                       <AvatarFallback className="bg-neutral-700 text-white">
-                        {user.displayName?.charAt(0) || <UserIcon className="h-5 w-5" />}
+                        {user?.displayName?.charAt(0) || <UserIcon className="h-5 w-5" />}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -544,8 +585,8 @@ export default function Home() {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user.displayName}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                      <p className="text-sm font-medium leading-none">{user?.displayName}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

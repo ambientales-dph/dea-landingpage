@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -18,9 +19,8 @@ interface AuthorizedUser {
 
 /**
  * Whitelist de personal autorizado del Departamento de Estudios Ambientales.
- * Todos los correos se compararán en minúsculas y sin espacios.
  */
-const WHITELIST: AuthorizedUser[] = [
+export const WHITELIST: AuthorizedUser[] = [
   { name: 'Nancy Neschuk', email: 'nancyneschuk@gmail.com', phone: '+549 221 465-1214' },
   { name: 'Luis Bree', email: 'luisbree@gmail.com', phone: '+549 221 318-3040' },
   { name: 'Norma Bordón', email: 'normabordon@hotmail.com', phone: '+549 221 575-5057' },
@@ -47,6 +47,17 @@ const WHITELIST: AuthorizedUser[] = [
 ];
 
 /**
+ * Verifica si un correo está en la whitelist.
+ */
+export function isUserAuthorized(email: string | null): boolean {
+  if (!email) return false;
+  const normalizedEmail = email.trim().toLowerCase();
+  return WHITELIST.some(
+    (authorized) => authorized.email.trim().toLowerCase() === normalizedEmail
+  );
+}
+
+/**
  * Inicia el proceso de autenticación con Google.
  */
 export async function loginConGoogle(auth: Auth) {
@@ -56,25 +67,17 @@ export async function loginConGoogle(auth: Auth) {
   try {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
-
-    // Normalizamos el email a minúsculas y quitamos espacios accidentales
     const userEmail = (user.email || '').trim().toLowerCase();
 
-    // Verificamos contra la whitelist normalizada
-    const isAuthorized = WHITELIST.some(
-      (authorized) => authorized.email.trim().toLowerCase() === userEmail
-    );
-
-    if (!isAuthorized) {
-      // Si el correo no está en la lista, forzamos el cierre de sesión en Firebase
-      await firebaseSignOut(auth);
-      throw new Error(`El correo "${userEmail}" no está en la lista de personal autorizado del DEA.`);
+    if (!isUserAuthorized(userEmail)) {
+      // No cerramos sesión aquí para permitir que la UI muestre el mensaje de error con el mail detectado
+      throw new Error(`El correo "${userEmail}" no está en la lista de personal autorizado.`);
     }
 
     return user;
   } catch (error: any) {
     if (error.code === 'auth/unauthorized-domain') {
-      throw new Error('Este dominio no está autorizado. Por favor, agregalo en la consola de Firebase.');
+      throw new Error('Dominio no autorizado. Agregá esta URL en la consola de Firebase.');
     }
     throw error;
   }
