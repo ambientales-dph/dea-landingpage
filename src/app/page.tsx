@@ -360,7 +360,7 @@ export default function Home() {
         toast({
             variant: 'destructive',
             title: 'Error al generar el PDF',
-            description: error instanceof Error ? error.message : 'No se pudo generar el listado.',
+            description: error instanceof Error ? error.message : 'No se pudo generar le listado.',
         });
     } finally {
         setIsDownloading(false);
