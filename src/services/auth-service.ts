@@ -18,6 +18,7 @@ interface AuthorizedUser {
 
 /**
  * Whitelist de personal autorizado del Departamento de Estudios Ambientales.
+ * Incluye nombre, correo y celular para futuras integraciones.
  */
 const WHITELIST: AuthorizedUser[] = [
   { name: 'Nancy Neschuk', email: 'nancyneschuk@gmail.com', phone: '+549 221 465-1214' },

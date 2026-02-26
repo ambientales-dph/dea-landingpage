@@ -2,13 +2,13 @@
 
 /**
  * Configuración de Firebase.
- * Lee los valores de las variables de entorno definidas en el archivo .env
+ * Se utilizan los valores proporcionados directamente para asegurar la conexión.
  */
 export const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || ''
+  apiKey: "AIzaSyBXrFdYoxsPCTbTExf9ep9XA7VzlD8zH_g",
+  authDomain: "studio-1428739321-e57bb.firebaseapp.com",
+  projectId: "studio-1428739321-e57bb",
+  storageBucket: "studio-1428739321-e57bb.firebasestorage.app",
+  messagingSenderId: "433461708034",
+  appId: "1:433461708034:web:71d7e55ed5df9cc3d06e1b"
 };
