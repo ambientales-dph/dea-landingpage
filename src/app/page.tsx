@@ -82,7 +82,6 @@ export default function Home() {
       await loginConGoogle(auth);
       toast({ title: '¡Bienvenido!', description: 'Has iniciado sesión correctamente.' });
     } catch (error: any) {
-      // Si el usuario simplemente cerró la ventana, no mostramos un error intrusivo
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({
           variant: 'destructive',
