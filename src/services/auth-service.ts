@@ -18,6 +18,7 @@ interface AuthorizedUser {
 
 /**
  * Whitelist de personal autorizado del Departamento de Estudios Ambientales.
+ * Todos los correos se compararán en minúsculas y sin espacios.
  */
 const WHITELIST: AuthorizedUser[] = [
   { name: 'Nancy Neschuk', email: 'nancyneschuk@gmail.com', phone: '+549 221 465-1214' },
@@ -56,13 +57,16 @@ export async function loginConGoogle(auth: Auth) {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
+    // Normalizamos el email a minúsculas y quitamos espacios accidentales
     const userEmail = (user.email || '').trim().toLowerCase();
 
+    // Verificamos contra la whitelist normalizada
     const isAuthorized = WHITELIST.some(
       (authorized) => authorized.email.trim().toLowerCase() === userEmail
     );
 
     if (!isAuthorized) {
+      // Si el correo no está en la lista, forzamos el cierre de sesión en Firebase
       await firebaseSignOut(auth);
       throw new Error(`El correo "${userEmail}" no está en la lista de personal autorizado del DEA.`);
     }
