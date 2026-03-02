@@ -169,7 +169,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
               placeholder="Buscar..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-8 text-xs"
+              className="pl-9 h-8 text-xs bg-white"
             />
           </div>
         </CardHeader>
@@ -220,27 +220,27 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
             <input type="hidden" name="informacionDron" value={selectedDron.join('; ')} />
             
             <ScrollArea className="flex-grow px-4">
-              <div className="space-y-4 py-4">
+              <div className="space-y-3 py-2">
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase font-bold text-muted-foreground">Nombre del Proyecto *</Label>
-                  <Input name="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="h-8 text-xs" />
+                  <Input name="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="h-8 text-xs bg-white" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase font-bold text-muted-foreground">Cuenca *</Label>
                   <Select name="cuenca" value={selectedCuenca} onValueChange={setSelectedCuenca} required>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccioná cuenca" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Seleccioná cuenca" /></SelectTrigger>
                     <SelectContent>{CUENCAS.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                   </Select>
-                  {editingCard && <p className="text-[10px] text-amber-600 font-medium pt-1">Nota: Si cambiás la cuenca, se generará un nuevo código de proyecto.</p>}
+                  {editingCard && <p className="text-[10px] text-amber-600 font-medium pt-0.5">Nota: Si cambiás la cuenca, se generará un nuevo código.</p>}
                 </div>
                 
-                <Separator className="my-2" />
+                <Separator className="my-1" />
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Partido(s)</Label>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal">{selectedPartidos.length > 0 ? `${selectedPartidos.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedPartidos.length > 0 ? `${selectedPartidos.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent className="max-h-48 overflow-y-auto">
                         {MUNICIPIOS.map(m => <DropdownMenuCheckboxItem key={m} checked={selectedPartidos.includes(m)} onCheckedChange={c => setSelectedPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}
                       </DropdownMenuContent>
@@ -249,7 +249,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                   <div className="space-y-1">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Proyectista</Label>
                     <Select name="proyectista_ui" value={selectedProyectista} onValueChange={setSelectedProyectista}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
                       <SelectContent>{PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
@@ -258,20 +258,20 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase font-bold text-muted-foreground">Financiamiento</Label>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal">{selectedFinanciamiento.length > 0 ? `${selectedFinanciamiento.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedFinanciamiento.length > 0 ? `${selectedFinanciamiento.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-48 overflow-y-auto">
                       {FINANCIAMIENTO.map(f => <DropdownMenuCheckboxItem key={f} checked={selectedFinanciamiento.includes(f)} onCheckedChange={c => setSelectedFinanciamiento(curr => c ? [...curr, f] : curr.filter(x => x !== f))} onSelect={e => e.preventDefault()}>{f}</DropdownMenuCheckboxItem>)}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
 
-                <Separator className="my-2" />
+                <Separator className="my-1" />
                 <p className="text-[10px] font-bold uppercase text-muted-foreground">Nominados del Equipo</p>
 
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium">Diagnóstico Ambiental-Socioeconómico (DEA)</Label>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal">{selectedEquipo.length > 0 ? `${selectedEquipo.length} sel.` : 'Seleccioná responsables'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedEquipo.length > 0 ? `${selectedEquipo.length} sel.` : 'Seleccioná responsables'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-48 overflow-y-auto">
                       {EQUIPO_DEA.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedEquipo.includes(p)} onCheckedChange={c => setSelectedEquipo(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
                     </DropdownMenuContent>
@@ -282,7 +282,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                   <div className="space-y-1">
                     <Label className="text-[11px] font-medium">Equipo SIG</Label>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal">{selectedSig.length > 0 ? `${selectedSig.length} sel.` : 'Personal SIG'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedSig.length > 0 ? `${selectedSig.length} sel.` : 'Personal SIG'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent className="max-h-48 overflow-y-auto">
                         {EQUIPO_SIG.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedSig.includes(p)} onCheckedChange={c => setSelectedSig(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
                       </DropdownMenuContent>
@@ -291,7 +291,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                   <div className="space-y-1">
                     <Label className="text-[11px] font-medium">Equipo Dron</Label>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal">{selectedDron.length > 0 ? `${selectedDron.length} sel.` : 'Personal Dron'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedDron.length > 0 ? `${selectedDron.length} sel.` : 'Personal Dron'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent className="max-h-48 overflow-y-auto">
                         {EQUIPO_DRON.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedDron.includes(p)} onCheckedChange={c => setSelectedDron(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
                       </DropdownMenuContent>
