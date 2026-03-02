@@ -305,7 +305,7 @@ export default function Home() {
             
             // Título del Tablero
             doc.setFontSize(9);
-            doc.setFillColor(240, 240, 240);
+            doc.setFillColor(230, 230, 230);
             doc.rect(margin, y - 5, pageWidth - (2 * margin), 7, 'F');
             doc.setTextColor(0, 0, 0);
             doc.setFont('Helvetica', 'bold');
@@ -325,6 +325,7 @@ export default function Home() {
             doc.setTextColor(0, 0, 0);
             doc.setFont('Helvetica', 'normal');
 
+            let rowIndex = 0;
             for (const card of groupedByBoard[boardName].sort((a,b) => a.name.localeCompare(b.name))) {
                 const { code, nameWithoutCode } = getProjectInfo(card.name);
                 
@@ -344,12 +345,20 @@ export default function Home() {
                 const nameLines = doc.splitTextToSize(nameWithoutCode, cols.name.w - 2);
                 const equipoLines = doc.splitTextToSize(equipoText, cols.equipo.w - 2);
                 const maxLines = Math.max(nameLines.length, equipoLines.length);
-                const rowHeight = Math.max(5, maxLines * 3.5 + 2);
+                const rowHeight = Math.max(6, maxLines * 3.5 + 2);
 
                 if (y + rowHeight > pageHeight - margin) { 
                     doc.addPage(); 
                     y = 20; 
                 }
+
+                // Alternating row colors
+                if (rowIndex % 2 === 0) {
+                    doc.setFillColor(204, 238, 255); // Celeste
+                } else {
+                    doc.setFillColor(245, 245, 245); // Gris claro
+                }
+                doc.rect(margin, y - 4, pageWidth - (2 * margin), rowHeight, 'F');
 
                 doc.setFontSize(6);
                 doc.text(code || '', cols.code.x + 1, y);
@@ -359,10 +368,8 @@ export default function Home() {
                 doc.text(doc.splitTextToSize(financiamiento, cols.financiamiento.w - 2), cols.financiamiento.x + 1, y);
                 doc.text(equipoLines, cols.equipo.x + 1, y);
                 
-                doc.setDrawColor(220, 220, 220);
-                doc.line(margin, y + rowHeight - 2, pageWidth - margin, y + rowHeight - 2);
-                
                 y += rowHeight;
+                rowIndex++;
             }
             y += 10;
         }
@@ -373,6 +380,10 @@ export default function Home() {
     } finally {
         setIsDownloading(false);
     }
+  };
+
+  const handleDownloadDuplicatesPdfNew = async () => {
+    // Legacy function placeholder
   };
 
   if (loading) {

@@ -26,6 +26,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, X, Search } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Activity {
   id: string;
@@ -149,7 +150,6 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
           </div>
         </DialogHeader>
         
-        {/* Mobile Search Bar */}
         <div className="sm:hidden p-3 border-b bg-muted/10">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -174,8 +174,14 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredActivities.map((activity) => (
-                  <TableRow key={activity.id} className="hover:bg-muted/30 border-b border-muted/20">
+                {filteredActivities.map((activity, index) => (
+                  <TableRow 
+                    key={activity.id} 
+                    className={cn(
+                      "hover:bg-muted/40 transition-colors border-b border-muted/20",
+                      index % 2 === 0 ? "bg-[#cceeff]/40" : "bg-muted/10"
+                    )}
+                  >
                     <TableCell className="text-[10px] font-mono whitespace-nowrap px-3 py-1.5 text-muted-foreground">
                       {activity.timestamp ? format(activity.timestamp.toDate(), 'dd/MM/yy HH:mm', { locale: es }) : '---'}
                     </TableCell>
