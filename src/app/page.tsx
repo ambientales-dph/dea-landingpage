@@ -23,6 +23,8 @@ import {
   Loader2,
   ShieldAlert,
   History,
+  Info,
+  Map as MapIcon,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -46,6 +48,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import CreateProjectForm from '@/components/create-project-form';
 import ResourceLibrary from '@/components/resource-library';
 import ActivityLogDialog from '@/components/activity-log-dialog';
@@ -380,7 +388,6 @@ export default function Home() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={(e) => {
                           e.preventDefault();
-                          // UN DELAY MAYOR Y SEGURO: Cerramos el menú completamente antes de disparar el estado del diálogo
                           setTimeout(() => {
                             setIsActivityLogOpen(true);
                           }, 300);
@@ -459,13 +466,111 @@ export default function Home() {
         </main>
 
         <Sheet open={isHelpPanelOpen} onOpenChange={setIsHelpPanelOpen}>
-          <SheetContent className="bg-neutral-700/95 text-primary-foreground sm:max-w-md">
-            <SheetHeader><SheetTitle className="text-primary">Centro de Ayuda</SheetTitle></SheetHeader>
-            <ScrollArea className="h-[calc(100%-4rem)] w-full mt-4 pr-4">
-              <div className="space-y-6 text-sm">
-                <p>La campana te avisa sobre actividad reciente. Al hacer clic en una notificación, se abrirá la ventana de detalles de esa tarjeta.</p>
-              </div>
+          <SheetContent className="bg-neutral-800 text-white sm:max-w-md border-l-primary/20">
+            <SheetHeader>
+              <SheetTitle className="text-primary text-xl font-bold flex items-center gap-2">
+                <HelpCircle className="h-6 w-6" />
+                Centro de Ayuda
+              </SheetTitle>
+              <SheetDescription className="text-neutral-400">
+                Guía rápida de uso del Portal DEA
+              </SheetDescription>
+            </SheetHeader>
+            <ScrollArea className="h-[calc(100%-8rem)] w-full mt-6 pr-4">
+              <Accordion type="single" collapsible className="w-full space-y-2">
+                <AccordionItem value="busqueda" className="border-neutral-700">
+                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      Búsqueda y Mapa
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="text-neutral-300 leading-relaxed">
+                    Utilizá el buscador central para filtrar proyectos por nombre o código (ej: MAR001). 
+                    Si la descripción de la tarjeta en Trello contiene un hashtag con una ubicación (ej: #LaPlata), 
+                    el mapa se desplazará automáticamente hacia ese punto al seleccionar la tarjeta.
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="gestion" className="border-neutral-700">
+                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <FolderKanban className="h-4 w-4" />
+                      Gestión de Proyectos
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="text-neutral-300 leading-relaxed space-y-2">
+                    <p>Al crear un proyecto nuevo desde el botón central:</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>Se genera un código correlativo único según la cuenca seleccionada.</li>
+                      <li>Se crea una tarjeta en la lista correspondiente del tablero de Trello.</li>
+                      <li>Se crea automáticamente una carpeta en Google Drive dentro de la estructura de la cuenca.</li>
+                      <li>Se otorgan permisos de edición en Drive a los profesionales seleccionados.</li>
+                    </ul>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="recursos" className="border-neutral-700">
+                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <Library className="h-4 w-4" />
+                      Biblioteca de Recursos
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="text-neutral-300 leading-relaxed">
+                    Podés adjuntar enlaces de interés a cualquier proyecto seleccionado. 
+                    Buscá en repositorios nacionales (SNRD) o bases internacionales (Elsevier, Crossref, PLOS, DOAJ). 
+                    Hacé clic en el ícono del clip para "vincular" el recurso directamente en la tarjeta de Trello.
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="notificaciones" className="border-neutral-700">
+                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-4 w-4" />
+                      Notificaciones y Bitácora
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="text-neutral-300 leading-relaxed">
+                    La campana muestra la actividad reciente de todo el equipo. 
+                    Al hacer clic en una notificación, se abrirá la ficha técnica del proyecto. 
+                    La <strong>Bitácora de Actividad</strong> (accesible desde el engranaje) ofrece un registro detallado de todas las acciones del portal.
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="herramientas" className="border-neutral-700">
+                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Herramientas Extra
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="text-neutral-300 leading-relaxed">
+                    En el menú de configuración (engranaje) podés descargar el listado consolidado del departamento en PDF 
+                    o ejecutar el detector de códigos duplicados para mantener la base de datos limpia.
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="contacto" className="border-neutral-700">
+                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Soporte Técnico
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="text-neutral-300 leading-relaxed">
+                    Para problemas de acceso, reporte de errores o sugerencias, comunicate con los administradores del sistema 
+                    según la lista de contactos autorizados del Departamento de Estudios Ambientales.
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </ScrollArea>
+            <div className="absolute bottom-6 left-6 right-6">
+               <Separator className="mb-4 bg-neutral-700" />
+               <p className="text-[10px] text-neutral-500 text-center uppercase tracking-widest font-bold">
+                 Departamento de Estudios Ambientales - 2024
+               </p>
+            </div>
           </SheetContent>
         </Sheet>
         <ResourceLibrary isOpen={isLibraryOpen} onOpenChange={setIsLibraryOpen} selectedCard={selectedCard} onCardUpdate={handleCardSelect} />
