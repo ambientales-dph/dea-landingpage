@@ -58,7 +58,6 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
     if (createState.success && createState.message) {
       toast({ title: '¡Éxito!', description: createState.message });
       
-      // Registrar actividad en Firestore (desde el CLIENTE)
       if (user) {
         addDoc(collection(db, 'app_activities'), {
             userId: user.uid,
@@ -67,6 +66,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
             userPhoto: user.photoURL || '',
             actionType: 'create_project',
             projectName: createState.projectName || 'Proyecto nuevo',
+            cardId: createState.cardId,
             timestamp: serverTimestamp(),
         });
       }

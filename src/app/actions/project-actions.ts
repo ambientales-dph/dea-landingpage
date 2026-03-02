@@ -28,6 +28,7 @@ export type ProjectState = {
   };
   success: boolean;
   cardUrl?: string;
+  cardId?: string;
   projectName?: string;
 };
 
@@ -49,7 +50,6 @@ function updateDescriptionField(description: string, field: string, value: strin
 
 function getEmailsFromSelection(selection: string): string[] {
     if (!selection) return [];
-    // Dividimos por ; o ; seguido de espacio
     const names = selection.split(';').map(n => n.trim()).filter(Boolean);
     return names.map(name => {
         const person = WHITELIST.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
@@ -104,45 +104,32 @@ export async function createProject(
     if (informacionSig) finalDescription = updateDescriptionField(finalDescription, '- Información SIG-imágenes', informacionSig);
     if (informacionDron) finalDescription = updateDescriptionField(finalDescription, '- Información LIDAR/vuelos Dron', informacionDron);
     
-    // 1. Crear Tarjeta
     const card = await createTrelloCard({
       name: cardName,
       idList: targetList.id,
       desc: finalDescription,
     });
 
-    // 2. Portada Roja
     await updateTrelloCard({ cardId: card.id, cover: { color: 'red' } });
 
-    // 3. Gestión de Drive
     try {
-      // 3.1 Crear carpeta
       const folderData = await createProjectFolder(folderName, cuencaId);
-      
-      // 3.2 Adjuntar a Trello
       await addAttachmentToTrelloCard({ cardId: card.id, url: folderData.url, name: folderName });
       
-      // 4. Compartir Carpeta automáticamente con el equipo
       const emailsToShare = new Set<string>();
-      
-      // Añadir al creador
       if (userEmail && userEmail.includes('@')) {
         emailsToShare.add(userEmail.trim().toLowerCase());
       }
-      
-      // Añadir a los integrantes seleccionados
       getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
       getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
       getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
       
       const emailList = Array.from(emailsToShare);
       if (emailList.length > 0) {
-          // Esperamos a que termine el proceso de compartir
           await shareFolderWithEmails(folderData.id, emailList);
       }
     } catch (e: any) {
       console.error('Error en gestión de Drive:', e);
-      // Si falla algo de Drive, dejamos un comentario detallado en la tarjeta
       await addCommentToCard({ 
         cardId: card.id, 
         text: `ATENCIÓN: No se pudo gestionar Drive automáticamente. Detalle: ${e.message || 'Error desconocido'}` 
@@ -153,6 +140,7 @@ export async function createProject(
       message: `¡Proyecto "${cardName}" creado con éxito!`,
       success: true,
       cardUrl: card.url,
+      cardId: card.id,
       projectName: cardName,
     };
   } catch (error) {

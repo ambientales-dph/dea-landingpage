@@ -57,22 +57,17 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
     const filterDuplicateActions = (actions: CombinedAction[]): CombinedAction[] => {
         return actions.filter((action, index, self) => {
             if (action.source === 'trello') {
-                // Extraer el nombre del proyecto/tarjeta entre comillas
                 const cardNameMatch = action.text.match(/"([^"]+)"/);
                 const cardName = cardNameMatch ? cardNameMatch[1] : null;
 
                 if (cardName) {
-                    // Tipos de acciones de Trello que suelen ser automáticas durante la creación
                     const isAutomated = ['createCard', 'addAttachmentToCard', 'updateCard'].includes(action.type);
-                    
                     if (isAutomated) {
-                        // Buscar si hay una acción del Portal para el mismo proyecto en un margen de 2 minutos
                         const hasPortalEquivalent = self.some(other => 
                             other.source === 'portal' && 
                             other.text.includes(`"${cardName}"`) &&
-                            Math.abs(other.date.getTime() - action.date.getTime()) < 120000 // 2 minutos
+                            Math.abs(other.date.getTime() - action.date.getTime()) < 120000 
                         );
-                        // Si existe una equivalente del portal, filtramos esta de Trello
                         if (hasPortalEquivalent) return false;
                     }
                 }
@@ -84,7 +79,6 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
     useEffect(() => {
         setIsLoading(true);
         
-        // 1. Escuchar Actividades del Portal (Firestore)
         const q = query(collection(db, 'app_activities'), orderBy('timestamp', 'desc'), limit(20));
         const unsubscribePortal = onSnapshot(q, (snapshot) => {
             const portalActions: CombinedAction[] = snapshot.docs.map(doc => {
@@ -96,6 +90,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                     date: data.timestamp?.toDate() || new Date(),
                     userName: data.userName,
                     userAvatar: data.userPhoto,
+                    cardId: data.cardId,
                     text: data.actionType === 'create_project' 
                         ? `creó el proyecto "${data.projectName}" desde el portal`
                         : `actualizó el proyecto "${data.projectName}" desde el portal`,
@@ -113,7 +108,6 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
             });
         });
 
-        // 2. Cargar Acciones de Trello (Periódico)
         const fetchTrello = async () => {
             try {
                 const trelloRaw = await getAllRecentActions(24);
