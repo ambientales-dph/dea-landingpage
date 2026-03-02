@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useActionState, useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useActionState, useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,22 +10,22 @@ import { CUENCAS } from '@/lib/cuencas';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from './ui/scroll-area';
-import { getAllCardsFromAllBoards, TrelloCard, getCardById } from '@/services/trello';
+import { getAllCardsFromAllBoards, TrelloCard } from '@/services/trello';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Pencil, Trash2, Search, X, Plus, ChevronDown, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Pencil, Search, Plus, ChevronDown, Loader2 } from 'lucide-react';
 import { EQUIPO_DEA, EQUIPO_SIG, EQUIPO_DRON } from '@/lib/equipo';
 import { MUNICIPIOS } from '@/lib/municipios';
 import { PROYECTISTAS } from '@/lib/proyectistas';
-import { FINANCIAMIENTO } from '@/lib/financiamiento';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { useUser } from '@/firebase';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const createInitialState: ProjectState = { message: undefined, success: false };
 
 export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean) => void }) {
   const { user } = useUser();
+  const db = useFirestore();
   const [createState, createFormAction, isPending] = useActionState(createProject, createInitialState);
   const { toast } = useToast();
   const createFormRef = useRef<HTMLFormElement>(null);
@@ -58,6 +57,20 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
   useEffect(() => {
     if (createState.success && createState.message) {
       toast({ title: '¡Éxito!', description: createState.message });
+      
+      // Registrar actividad en Firestore (desde el CLIENTE)
+      if (user) {
+        addDoc(collection(db, 'app_activities'), {
+            userId: user.uid,
+            userName: user.displayName || 'Usuario',
+            userEmail: user.email,
+            userPhoto: user.photoURL || '',
+            actionType: 'create_project',
+            projectName: createState.projectName || 'Proyecto nuevo',
+            timestamp: serverTimestamp(),
+        });
+      }
+
       setCreateDialogOpen(false);
       fetchProjects();
       createFormRef.current?.reset();
@@ -70,17 +83,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
     } else if (!createState.success && createState.message) {
       toast({ variant: 'destructive', title: 'Error', description: createState.message });
     }
-  }, [createState, toast, fetchProjects]);
-
-  const userDataJson = useMemo(() => {
-    if (!user) return '';
-    return JSON.stringify({
-        id: user.uid,
-        name: user.displayName || 'Usuario',
-        email: user.email,
-        photo: user.photoURL,
-    });
-  }, [user]);
+  }, [createState, toast, fetchProjects, user, db]);
 
   return (
     <>
@@ -128,7 +131,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>Crear Nuevo Proyecto</DialogTitle></DialogHeader>
           <form ref={createFormRef} action={createFormAction}>
-            <input type="hidden" name="userData" value={userDataJson} />
+            <input type="hidden" name="userEmail" value={user?.email || ''} />
             <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
             <input type="hidden" name="proyectista" value={selectedProyectista} />
             <input type="hidden" name="financiamiento" value={selectedFinanciamiento.join(', ')} />

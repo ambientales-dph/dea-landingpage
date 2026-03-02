@@ -4,8 +4,6 @@ import { z } from 'zod';
 import { CUENCAS, DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
 import { createTrelloCard, getNextProjectCode, updateTrelloCard, addAttachmentToTrelloCard, addCommentToCard, getListsOnBoard } from '@/services/trello';
 import { createProjectFolder, shareFolderWithEmails } from '@/services/google-drive';
-import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { WHITELIST } from '@/services/auth-service';
 
 const PROYECTOS_BOARD_ID = 'CgG4b3B0';
@@ -19,12 +17,7 @@ const ProjectSchema = z.object({
   diagnosticoEquipo: z.string().optional(),
   informacionSig: z.string().optional(),
   informacionDron: z.string().optional(),
-  user: z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string(),
-    photo: z.string().optional(),
-  }).optional(),
+  userEmail: z.string().optional(),
 });
 
 export type ProjectState = {
@@ -35,6 +28,7 @@ export type ProjectState = {
   };
   success: boolean;
   cardUrl?: string;
+  projectName?: string;
 };
 
 function updateDescriptionField(description: string, field: string, value: string): string {
@@ -66,9 +60,6 @@ export async function createProject(
   prevState: ProjectState,
   formData: FormData
 ): Promise<ProjectState> {
-  const userJson = formData.get('userData');
-  const userData = userJson ? JSON.parse(userJson as string) : undefined;
-
   const validatedFields = ProjectSchema.safeParse({
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
@@ -78,7 +69,7 @@ export async function createProject(
     diagnosticoEquipo: formData.get('diagnosticoEquipo'),
     informacionSig: formData.get('informacionSig'),
     informacionDron: formData.get('informacionDron'),
-    user: userData,
+    userEmail: formData.get('userEmail'),
   });
 
   if (!validatedFields.success) {
@@ -89,7 +80,7 @@ export async function createProject(
     };
   }
 
-  const { nombre, cuenca: cuencaId, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, user } = validatedFields.data;
+  const { nombre, cuenca: cuencaId, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, userEmail } = validatedFields.data;
 
   try {
     const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
@@ -131,7 +122,7 @@ export async function createProject(
       // 4. Compartir Carpeta (Opcional, no bloqueante)
       if (driveFolderUrl) {
           const emailsToShare = new Set<string>();
-          if (user?.email) emailsToShare.add(user.email);
+          if (userEmail) emailsToShare.add(userEmail);
           getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e));
           getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e));
           getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e));
@@ -143,24 +134,11 @@ export async function createProject(
       await addCommentToCard({ cardId: card.id, text: `ATENCIÓN: No se pudo gestionar Drive automáticamente.` });
     }
 
-    // 5. Registrar Actividad en Bitácora (Firestore)
-    if (user) {
-        const { db } = initializeFirebase();
-        await addDoc(collection(db, 'app_activities'), {
-            userId: user.id,
-            userName: user.name,
-            userEmail: user.email,
-            userPhoto: user.photo || '',
-            actionType: 'create_project',
-            projectName: cardName,
-            timestamp: serverTimestamp(),
-        });
-    }
-
     return {
       message: `¡Proyecto "${cardName}" creado con éxito!`,
       success: true,
       cardUrl: card.url,
+      projectName: cardName,
     };
   } catch (error) {
     return {
