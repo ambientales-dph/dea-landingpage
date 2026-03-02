@@ -190,7 +190,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return allCards.filter(card => 
       removeAccents(card.name.toLowerCase()).includes(normalizedQuery) || 
       removeAccents(card.desc || '').toLowerCase().includes(normalizedQuery)
-    ).slice(0, 10);
+    );
   }, [query, allCards, selectedCard?.id]);
   
   const handleSelect = (card: TrelloCard) => {
