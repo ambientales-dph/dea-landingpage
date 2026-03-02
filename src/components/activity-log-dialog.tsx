@@ -46,6 +46,22 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
   const [isLoading, setIsLoading] = useState(true);
   const db = useFirestore();
 
+  // EFECTO CRÍTICO: Limpieza forzada de pointer-events al cerrar
+  useEffect(() => {
+    if (!isOpen) {
+      // Restauramos la interactividad de la página manualmente por si Radix falla
+      const cleanup = () => {
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+      };
+      
+      // Ejecutamos inmediatamente y después de un breve delay por las animaciones
+      cleanup();
+      const timer = setTimeout(cleanup, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -90,6 +106,10 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
       <DialogContent 
         className="max-w-4xl h-[70vh] flex flex-col p-0 overflow-hidden border-0"
         showCloseButton={false}
+        onPointerDownOutside={(e) => {
+          // Aseguramos que el cierre por fuera también funcione bien
+          onOpenChange(false);
+        }}
       >
         <DialogHeader className="p-4 bg-muted/30 border-b flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-sm font-bold flex items-center gap-2">

@@ -380,8 +380,10 @@ export default function Home() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={(e) => {
                           e.preventDefault();
-                          // Un pequeño retraso asegura que el menú se cierre y libere el scroll antes de abrir el diálogo
-                          setTimeout(() => setIsActivityLogOpen(true), 100);
+                          // UN DELAY MAYOR Y SEGURO: Cerramos el menú completamente antes de disparar el estado del diálogo
+                          setTimeout(() => {
+                            setIsActivityLogOpen(true);
+                          }, 300);
                       }}>
                           <History className="mr-2 h-4 w-4" />
                           <span>Ver Bitácora de Actividad</span>
