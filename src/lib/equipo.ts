@@ -1,3 +1,4 @@
+
 export const EQUIPO_DEA = [
   'Nancy Neschuk',
   'Luis Bree',
@@ -27,5 +28,11 @@ export const EQUIPO_SIG = [
   'Luis Bree',
   'Cintia Di Grazia',
   'María Ángeles González',
+  'Alan Santamarina',
+].sort((a, b) => a.localeCompare(b));
+
+export const EQUIPO_DRON = [
+  'Luis Bree',
+  'Gonzalo Castro',
   'Alan Santamarina',
 ].sort((a, b) => a.localeCompare(b));

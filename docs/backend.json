@@ -1,0 +1,29 @@
+
+{
+  "entities": {
+    "AppActivity": {
+      "title": "AppActivity",
+      "description": "Registro de acciones realizadas por los usuarios dentro del portal.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "actionType": { "type": "string", "enum": ["create_project", "update_project", "delete_project"] },
+        "projectName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "userEmail", "actionType", "projectName", "timestamp"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/app_activities/{activityId}": {
+      "schema": { "$ref": "#/entities/AppActivity" },
+      "description": "Colección global de actividades realizadas en la aplicación."
+    }
+  }
+}

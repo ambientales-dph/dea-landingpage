@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, AppWindow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,121 +19,158 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from './ui/skeleton';
+import { useFirestore } from '@/firebase';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+
+interface CombinedAction {
+    id: string;
+    type: string;
+    source: 'trello' | 'portal';
+    date: Date;
+    text: string;
+    userName: string;
+    userAvatar?: string;
+    cardId?: string;
+}
 
 interface NotificationsBellProps {
     onNotificationClick: (card: TrelloCard) => void;
 }
 
 export default function NotificationsBell({ onNotificationClick }: NotificationsBellProps) {
-    const [notifications, setNotifications] = useState<TrelloBoardAction[]>([]);
+    const [notifications, setNotifications] = useState<CombinedAction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
+    const db = useFirestore();
     const { toast } = useToast();
 
     useEffect(() => {
-        const fetchNotifications = async () => {
-            setIsLoading(true);
-            const actions = await getAllRecentActions(8); // Last 8 hours
-            setNotifications(actions);
+        setIsLoading(true);
+        
+        // 1. Listen to Portal Activities (Firestore)
+        const q = query(collection(db, 'app_activities'), orderBy('timestamp', 'desc'), limit(20));
+        const unsubscribePortal = onSnapshot(q, (snapshot) => {
+            const portalActions: CombinedAction[] = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    source: 'portal',
+                    type: data.actionType,
+                    date: data.timestamp?.toDate() || new Date(),
+                    userName: data.userName,
+                    userAvatar: data.userPhoto,
+                    text: data.actionType === 'create_project' 
+                        ? `creó el proyecto "${data.projectName}" desde el portal`
+                        : `actualizó el proyecto "${data.projectName}" desde el portal`,
+                };
+            });
+            
+            updateNotifications(portalActions, 'portal');
+        });
+
+        // 2. Fetch Trello Actions (Periodic)
+        const fetchTrello = async () => {
+            const trelloRaw = await getAllRecentActions(24); // Last 24 hours
+            const trelloActions: CombinedAction[] = trelloRaw.map(a => ({
+                id: a.id,
+                source: 'trello',
+                type: a.type,
+                date: new Date(a.date),
+                userName: a.memberCreator.fullName,
+                userAvatar: a.memberCreator.avatarUrl ? `${a.memberCreator.avatarUrl}/50.png` : undefined,
+                cardId: a.data.card?.id,
+                text: formatTrelloAction(a),
+            }));
+            updateNotifications(trelloActions, 'trello');
             setIsLoading(false);
         };
 
-        fetchNotifications();
-        // Refresh every 5 minutes
-        const interval = setInterval(fetchNotifications, 5 * 60 * 1000); 
+        fetchTrello();
+        const interval = setInterval(fetchTrello, 5 * 60 * 1000);
 
-        return () => clearInterval(interval);
-    }, []);
+        return () => {
+            unsubscribePortal();
+            clearInterval(interval);
+        };
+    }, [db]);
 
-    const handleNotificationSelect = async (cardId: string) => {
+    const [allActions, setAllActions] = useState<{trello: CombinedAction[], portal: CombinedAction[]}>({ trello: [], portal: [] });
+
+    const updateNotifications = (newActions: CombinedAction[], source: 'trello' | 'portal') => {
+        setAllActions(prev => {
+            const updated = { ...prev, [source]: newActions };
+            const combined = [...updated.trello, ...updated.portal]
+                .sort((a, b) => b.date.getTime() - a.date.getTime())
+                .slice(0, 30);
+            setNotifications(combined);
+            return updated;
+        });
+    };
+
+    const formatTrelloAction = (a: TrelloBoardAction): string => {
+        const cardName = a.data.card ? `"${a.data.card.name}"` : 'una tarjeta';
+        if (a.type === 'commentCard') return `comentó en ${cardName}`;
+        if (a.type === 'updateCard' && a.data.listAfter) return `movió ${cardName} a ${a.data.listAfter.name}`;
+        return `realizó una acción en ${cardName}`;
+    };
+
+    const handleSelect = async (action: CombinedAction) => {
         setIsOpen(false);
-        try {
-            const card = await getCardById(cardId);
-            onNotificationClick(card);
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Error al cargar tarjeta',
-                description: 'No se pudo encontrar la tarjeta seleccionada.',
-            });
+        if (action.cardId) {
+            try {
+                const card = await getCardById(action.cardId);
+                onNotificationClick(card);
+            } catch (e) {
+                toast({ variant: 'destructive', title: 'Error', description: 'No se pudo abrir la tarjeta.' });
+            }
         }
     };
-    
-    const formatActionText = (action: TrelloBoardAction): string => {
-        const cardName = `"${action.data.card.name}"`;
-        switch (action.type) {
-            case 'commentCard': return `comentó en ${cardName}`;
-            case 'createCard': return `creó la tarjeta ${cardName}`;
-            case 'updateCard':
-                if (action.data.listBefore && action.data.listAfter) {
-                    return `movió ${cardName} de ${action.data.listBefore.name} a ${action.data.listAfter.name}`;
-                }
-                if (action.data.old?.name) {
-                    return `renombró una tarjeta a ${cardName}`;
-                }
-                 if (action.data.old?.desc) {
-                    return `actualizó la descripción de ${cardName}`;
-                }
-                return `actualizó ${cardName}`;
-            case 'addAttachmentToCard': return `adjuntó un archivo a ${cardName}`;
-            case 'moveCardToBoard': return `movió ${cardName} al tablero ${action.data.board.name}`;
-            default: return `realizó una acción en ${cardName}`;
-        }
-    };
-
 
     return (
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative text-primary-foreground hover:bg-primary/80">
+                <Button variant="ghost" size="icon" className="relative text-primary-foreground">
                     <Bell className="h-6 w-6" />
-                    { !isLoading && notifications.length > 0 && (
-                         <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center rounded-full p-0 text-xs">
-                            {notifications.length > 9 ? '9+' : notifications.length}
+                    {notifications.length > 0 && (
+                         <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center rounded-full p-0 text-[10px]">
+                            {notifications.length}
                         </Badge>
                     )}
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 md:w-96 max-h-[60vh] overflow-y-auto">
-                <DropdownMenuLabel>Notificaciones recientes</DropdownMenuLabel>
+                <DropdownMenuLabel className="flex justify-between items-center">
+                    <span>Notificaciones</span>
+                    {isLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {isLoading ? (
-                    <div className="p-2 space-y-3">
-                       {[...Array(3)].map((_, i) => (
-                           <div className="flex items-start space-x-2 px-2" key={i}>
-                               <Skeleton className="h-8 w-8 rounded-full" />
-                               <div className="space-y-1.5 flex-1">
-                                   <Skeleton className="h-3 w-4/5" />
-                                   <Skeleton className="h-3 w-1/2" />
-                               </div>
-                           </div>
-                       ))}
-                    </div>
-                ) : notifications.length > 0 ? (
+                {notifications.length > 0 ? (
                     notifications.map(action => (
-                        <DropdownMenuItem key={action.id} onSelect={() => handleNotificationSelect(action.data.card.id)} className="h-auto items-start gap-3 py-2 cursor-pointer">
-                           <Avatar className="h-8 w-8 mt-1">
-                                <AvatarImage src={action.memberCreator.avatarUrl ? `${action.memberCreator.avatarUrl}/50.png` : undefined} alt={action.memberCreator.fullName} />
-                                <AvatarFallback>{action.memberCreator.fullName.charAt(0)}</AvatarFallback>
+                        <DropdownMenuItem key={action.id} onSelect={() => handleSelect(action)} className="h-auto items-start gap-3 py-2 cursor-pointer">
+                           <Avatar className="h-8 w-8 mt-1 border">
+                                <AvatarImage src={action.userAvatar} />
+                                <AvatarFallback className="text-[10px]">{action.userName.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1 text-xs whitespace-normal">
                                 <p>
-                                    <span className="font-semibold">{action.memberCreator.fullName}</span>
-                                    {' '}
-                                    {formatActionText(action)}
+                                    <span className="font-semibold">{action.userName}</span>{' '}
+                                    <span className="text-muted-foreground">{action.text}</span>
                                 </p>
-                                <p className="text-muted-foreground text-[10px] mt-0.5">
-                                    {formatDistanceToNow(new Date(action.date), { addSuffix: true, locale: es })}
-                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] text-muted-foreground">
+                                        {formatDistanceToNow(action.date, { addSuffix: true, locale: es })}
+                                    </span>
+                                    {action.source === 'portal' && (
+                                        <Badge variant="outline" className="text-[8px] h-3 px-1 border-primary/30 text-primary uppercase">Portal</Badge>
+                                    )}
+                                </div>
                             </div>
                         </DropdownMenuItem>
                     ))
                 ) : (
-                    <p className="p-4 text-center text-sm text-muted-foreground">No hay notificaciones nuevas.</p>
+                    <p className="p-4 text-center text-sm text-muted-foreground">No hay actividad reciente.</p>
                 )}
             </DropdownMenuContent>
         </DropdownMenu>
     );
 }
-
-    

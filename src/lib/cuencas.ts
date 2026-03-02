@@ -1,6 +1,5 @@
-// TODO: Completa esta lista con todas las cuencas y sus datos correspondientes.
+
 // El `trelloListName` debe coincidir EXACTAMENTE con el nombre de la lista en tu tablero de Trello "Proyectos".
-// El `driveFolderId` es el ID de la carpeta de la cuenca en Google Drive.
 export const CUENCAS = [
   { id: 'mar', name: 'Cuenca Matanza-Riachuelo', code: 'MAR', trelloListName: 'Cuenca Matanza-Riachuelo', driveFolderId: '1-OKZ-1xwM_bLRlwQfg00Z9-do2Q1YTSt' },
   { id: 'rrq', name: 'Cuenca Río Reconquista', code: 'RRQ', trelloListName: 'Cuenca Río Reconquista', driveFolderId: '1E_tP2pQCyEGbjKlBA2sa-p4ttt3WXutq' },

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState, useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -5,312 +6,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createProject, updateProject, type ProjectState } from '@/app/actions/project-actions';
+import { createProject, type ProjectState } from '@/app/actions/project-actions';
 import { CUENCAS } from '@/lib/cuencas';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from './ui/scroll-area';
 import { getAllCardsFromAllBoards, TrelloCard, getCardById } from '@/services/trello';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Pencil, Trash2, Search, X, Plus, ChevronDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { EQUIPO_DEA, EQUIPO_SIG } from '@/lib/equipo';
+import { EQUIPO_DEA, EQUIPO_SIG, EQUIPO_DRON } from '@/lib/equipo';
 import { MUNICIPIOS } from '@/lib/municipios';
 import { PROYECTISTAS } from '@/lib/proyectistas';
 import { FINANCIAMIENTO } from '@/lib/financiamiento';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { useUser } from '@/firebase';
 
-const createInitialState: ProjectState = {
-  message: undefined,
-  errors: undefined,
-  success: false,
-};
-
-const updateInitialState: ProjectState = {
-  message: undefined,
-  errors: undefined,
-  success: false,
-};
-
-const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
-  const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
-  const match = name.match(projectRegex);
-  if (match && match[1]) {
-    return {
-      code: match[1],
-      nameWithoutCode: name.replace(projectRegex, '').trim()
-    };
-  }
-  return { code: null, nameWithoutCode: name };
-};
-
-// Edit Project Dialog Component
-interface EditProjectDialogProps {
-  project: TrelloCard;
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
-}
-
-function EditProjectDialog({ project, isOpen, onOpenChange, onSuccess }: EditProjectDialogProps) {
-  const [state, formAction] = useActionState(updateProject, updateInitialState);
-  const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
-  
-  const [nombre, setNombre] = useState('');
-  const [cuencaId, setCuencaId] = useState('');
-  const [selectedPartidos, setSelectedPartidos] = useState<string[]>([]);
-  const [proyectista, setProyectista] = useState('');
-  const [selectedFinanciamiento, setSelectedFinanciamiento] = useState<string[]>([]);
-  const [selectedEquipo, setSelectedEquipo] = useState<string[]>([]);
-  const [selectedSig, setSelectedSig] = useState<string[]>([]);
-  
-  const getValuesFromDesc = useCallback((desc: string, field: string): string[] => {
-      if (!desc) return [];
-      const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`^${escapedField}:\\s*\\*\\*(.*?)\\*\\*`, 'm');
-      const match = desc.match(regex);
-      
-      if (match && match[1]) {
-          const value = match[1];
-          if (/^\*+$/.test(value)) return [];
-          const separator = (field === 'PARTIDO' || field === 'FINANCIAMIENTO') ? ',' : ';';
-          return value.split(separator).map(s => s.trim()).filter(Boolean);
-      }
-      return [];
-  }, []);
-
-  const getValueFromDesc = useCallback((desc: string, field: string): string => {
-      if (!desc) return '';
-      const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`^${escapedField}:\\s*\\*\\*(.*?)\\*\\*`, 'm');
-      const match = desc.match(regex);
-      return match && match[1] && !/^\*+$/.test(match[1]) ? match[1].trim() : '';
-  }, []);
-
-  useEffect(() => {
-    if (project) {
-        const { nameWithoutCode, code } = getProjectInfo(project.name);
-        setNombre(nameWithoutCode);
-
-        const projectCuenca = CUENCAS.find(c => code?.startsWith(c.code));
-        setCuencaId(projectCuenca?.id || '');
-        
-        setSelectedPartidos(getValuesFromDesc(project.desc, 'PARTIDO'));
-        setProyectista(getValueFromDesc(project.desc, 'PROYECTISTA'));
-        setSelectedFinanciamiento(getValuesFromDesc(project.desc, 'FINANCIAMIENTO'));
-        setSelectedEquipo(getValuesFromDesc(project.desc, '- Diagnóstico ambiental-socioeconómico'));
-        setSelectedSig(getValuesFromDesc(project.desc, '- Información SIG-imágenes'));
-    }
-  }, [project, getValuesFromDesc, getValueFromDesc]);
-  
-  useEffect(() => {
-    if (state.message) {
-      if (state.success) {
-        toast({
-          title: '¡Éxito!',
-          description: state.message,
-        });
-        onOpenChange(false);
-        onSuccess();
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Error al actualizar el proyecto',
-          description: state.message,
-        });
-      }
-    }
-  }, [state, toast, onOpenChange, onSuccess]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Editar Proyecto</DialogTitle>
-            <DialogDescription>
-              Modificá los datos del proyecto. Si cambiás la cuenca, se generará un nuevo código.
-            </DialogDescription>
-          </DialogHeader>
-          <form ref={formRef} action={formAction} className="flex flex-col h-full min-h-0">
-              <ScrollArea className="flex-grow pr-6 -mr-6 max-h-[65vh]">
-                <div className="space-y-2">
-                  <input type="hidden" name="cardId" value={project.id} />
-                  <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
-                  <input type="hidden" name="proyectista" value={proyectista} />
-                  <input type="hidden" name="financiamiento" value={selectedFinanciamiento.join(', ')} />
-                  <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
-                  <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
-                  
-                  <div className="space-y-1">
-                    <Label htmlFor="nombre-edit" className="text-xs">Nombre del Proyecto</Label>
-                    <Input id="nombre-edit" name="nombre" value={nombre} onChange={e => setNombre(e.target.value)} required className="bg-white h-7 text-xs" />
-                    {state.errors?.nombre && <p className="text-sm font-medium text-destructive">{state.errors.nombre[0]}</p>}
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <Label htmlFor="cuenca-edit" className="text-xs">Cuenca</Label>
-                    <Select name="cuenca" required value={cuencaId} onValueChange={setCuencaId}>
-                      <SelectTrigger id="cuenca-edit" className="bg-white h-7 text-xs"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
-                      <SelectContent>
-                        {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                   <div className="space-y-1">
-                    <Label className="text-xs">Partido(s)</Label>
-                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal bg-white h-7 text-xs">
-                          <span>{selectedPartidos.length > 0 ? `${selectedPartidos.length} partido(s) seleccionado(s)` : 'Seleccioná uno o más partidos'}</span>
-                          <ChevronDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                        <DropdownMenuLabel>Municipios</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {MUNICIPIOS.map(partido => (
-                          <DropdownMenuCheckboxItem
-                            key={partido}
-                            checked={selectedPartidos.includes(partido)}
-                            onCheckedChange={(checked) => setSelectedPartidos(current => checked ? [...current, partido] : current.filter(p => p !== partido))}
-                            onSelect={e => e.preventDefault()}
-                          >
-                            {partido}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="proyectista-edit" className="text-xs">Proyectista</Label>
-                    <Select value={proyectista} onValueChange={setProyectista}>
-                        <SelectTrigger id="proyectista-edit" className="bg-white h-7 text-xs"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
-                        <SelectContent>
-                            {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs">Financiamiento</Label>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal bg-white h-7 text-xs">
-                          <span>{selectedFinanciamiento.length > 0 ? `${selectedFinanciamiento.length} fuente(s) seleccionada(s)` : 'Seleccioná una o más fuentes'}</span>
-                          <ChevronDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                        <DropdownMenuLabel>Fuentes de Financiamiento</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {FINANCIAMIENTO.map(fuente => (
-                          <DropdownMenuCheckboxItem
-                            key={fuente}
-                            checked={selectedFinanciamiento.includes(fuente)}
-                            onCheckedChange={(checked) => setSelectedFinanciamiento(current => checked ? [...current, fuente] : current.filter(p => p !== fuente))}
-                            onSelect={e => e.preventDefault()}
-                          >
-                            {fuente}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <Label className="text-xs">Diagnóstico ambiental-socioeconómico</Label>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal bg-white h-7 text-xs">
-                          <span>{selectedEquipo.length > 0 ? `${selectedEquipo.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}</span>
-                          <ChevronDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                        <DropdownMenuLabel>Equipo del DEA</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {EQUIPO_DEA.map(persona => (
-                          <DropdownMenuCheckboxItem
-                            key={persona}
-                            checked={selectedEquipo.includes(persona)}
-                            onCheckedChange={(checked) => setSelectedEquipo(current => checked ? [...current, persona] : current.filter(p => p !== persona))}
-                            onSelect={e => e.preventDefault()}
-                          >
-                            {persona}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                   <div className="space-y-1">
-                    <Label className="text-xs">Información SIG-Imágenes</Label>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between font-normal bg-white h-7 text-xs">
-                          <span>{selectedSig.length > 0 ? `${selectedSig.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}</span>
-                          <ChevronDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                        <DropdownMenuLabel>Equipo SIG</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {EQUIPO_SIG.map(persona => (
-                          <DropdownMenuCheckboxItem
-                            key={persona}
-                            checked={selectedSig.includes(persona)}
-                            onCheckedChange={(checked) => setSelectedSig(current => checked ? [...current, persona] : current.filter(p => p !== persona))}
-                            onSelect={e => e.preventDefault()}
-                          >
-                            {persona}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </ScrollArea>
-              <DialogFooter className="pt-1 flex-shrink-0">
-                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                <Button type="submit">Guardar Cambios</Button>
-              </DialogFooter>
-          </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
+const createInitialState: ProjectState = { message: undefined, success: false };
 
 export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean) => void }) {
-  const [createState, createFormAction] = useActionState(createProject, createInitialState);
+  const { user } = useUser();
+  const [createState, createFormAction, isPending] = useActionState(createProject, createInitialState);
   const { toast } = useToast();
   const createFormRef = useRef<HTMLFormElement>(null);
   
@@ -318,363 +35,175 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<TrelloCard | null>(null);
-  const [isEditingLoading, setIsEditingLoading] = useState<string | null>(null);
 
-  const [selectedPartidosCreate, setSelectedPartidosCreate] = useState<string[]>([]);
-  const [selectedProyectistaCreate, setSelectedProyectistaCreate] = useState('');
-  const [selectedFinanciamientoCreate, setSelectedFinanciamientoCreate] = useState<string[]>([]);
-  const [selectedEquipoCreate, setSelectedEquipoCreate] = useState<string[]>([]);
-  const [selectedSigCreate, setSelectedSigCreate] = useState<string[]>([]);
+  const [selectedPartidos, setSelectedPartidos] = useState<string[]>([]);
+  const [selectedProyectista, setSelectedProyectista] = useState('');
+  const [selectedFinanciamiento, setSelectedFinanciamiento] = useState<string[]>([]);
+  const [selectedEquipo, setSelectedEquipo] = useState<string[]>([]);
+  const [selectedSig, setSelectedSig] = useState<string[]>([]);
+  const [selectedDron, setSelectedDron] = useState<string[]>([]);
 
   const fetchProjects = useCallback(async () => {
     setIsLoading(true);
     try {
       const allCards = await getAllCardsFromAllBoards();
-      const projectCards = allCards
-        .filter(card => getProjectInfo(card.name).code)
-        .sort((a, b) => {
-          const codeA = getProjectInfo(a.name).code || '';
-          const codeB = getProjectInfo(b.name).code || '';
-          return codeA.localeCompare(codeB);
-        });
+      const projectCards = allCards.filter(card => card.name.match(/\(([A-Z]{3}\d{3})\)$/));
       setProjects(projectCards);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error al cargar proyectos',
-        description: 'No se pudo obtener la lista de proyectos existentes.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+    } catch (e) { console.error(e); }
+    finally { setIsLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
-
-  useEffect(() => {
-    if (createState.message) {
-      if (createState.success) {
-        toast({
-          title: '¡Éxito!',
-          description: createState.message,
-          action: createState.cardUrl ? (
-            <Button variant="outline" size="sm" asChild>
-              <a href={createState.cardUrl} target="_blank" rel="noopener noreferrer">
-                Ver Tarjeta
-              </a>
-            </Button>
-          ) : undefined,
-        });
-        createFormRef.current?.reset();
-        setSelectedPartidosCreate([]);
-        setSelectedProyectistaCreate('');
-        setSelectedFinanciamientoCreate([]);
-        setSelectedEquipoCreate([]);
-        setSelectedSigCreate([]);
-        setCreateDialogOpen(false);
-        fetchProjects();
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Error al crear el proyecto',
-          description: createState.message,
-        });
-      }
+    if (createState.success && createState.message) {
+      toast({ title: '¡Éxito!', description: createState.message });
+      setCreateDialogOpen(false);
+      fetchProjects();
+      createFormRef.current?.reset();
+      setSelectedPartidos([]);
+      setSelectedProyectista('');
+      setSelectedFinanciamiento([]);
+      setSelectedEquipo([]);
+      setSelectedSig([]);
+      setSelectedDron([]);
+    } else if (!createState.success && createState.message) {
+      toast({ variant: 'destructive', title: 'Error', description: createState.message });
     }
   }, [createState, toast, fetchProjects]);
-  
-  const filteredProjects = useMemo(() => {
-      const normalizedQuery = searchQuery.toLowerCase();
-      const keywords = normalizedQuery.split(' ').filter(kw => kw.trim() !== '');
 
-      if (keywords.length === 0) {
-          return projects;
-      }
-
-      return projects.filter(project => {
-          const cardNameLower = project.name.toLowerCase();
-          const cardDescLower = project.desc ? project.desc.toLowerCase() : '';
-          const nameMatch = keywords.every(keyword => cardNameLower.includes(keyword));
-          const descMatch = keywords.every(keyword => cardDescLower.includes(keyword));
-          return nameMatch || descMatch;
-      });
-  }, [searchQuery, projects]);
-
-  const handleEditClick = async (project: TrelloCard) => {
-      setIsEditingLoading(project.id);
-      try {
-        const freshProject = await getCardById(project.id);
-        setEditingProject(freshProject);
-        setEditDialogOpen(true);
-      } catch (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Error al cargar proyecto',
-          description: error instanceof Error ? error.message : 'No se pudo obtener la información más reciente.'
-        });
-      } finally {
-        setIsEditingLoading(null);
-      }
-  }
-
-  const handleCreateClick = () => {
-    setCreateDialogOpen(true);
-  };
+  const userDataJson = useMemo(() => {
+    if (!user) return '';
+    return JSON.stringify({
+        id: user.uid,
+        name: user.displayName || 'Usuario',
+        email: user.email,
+        photo: user.photoURL,
+    });
+  }, [user]);
 
   return (
     <>
-      <Card className="w-full h-full flex flex-col rounded-lg border-0 shadow-none overflow-hidden">
+      <Card className="w-full h-full flex flex-col border-0 shadow-none overflow-hidden">
         <CardHeader className="p-4 border-b">
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-center">
               <div>
                   <CardTitle className="text-base font-medium">Gestión de Proyectos</CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">
-                      Consultá la lista de proyectos o creá uno nuevo.
-                  </CardDescription>
+                  <CardDescription className="text-xs">Consultá la lista o creá uno nuevo.</CardDescription>
               </div>
-              <Button size="icon" variant="default" className="bg-primary text-primary-foreground ml-auto" onClick={handleCreateClick}>
-                  <Plus />
-              </Button>
+              <Button size="icon" onClick={() => setCreateDialogOpen(true)} className="ml-auto"><Plus /></Button>
           </div>
           <div className="pt-4 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-[-4px] h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por código, nombre o descripción..."
+              placeholder="Buscar..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8 h-8 text-xs"
+              className="pl-9 h-8 text-xs"
             />
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-0.5 top-1/2 -translate-y-[-4px] h-7 w-7 text-muted-foreground"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
           </div>
         </CardHeader>
-        <CardContent className="flex-grow p-0 min-h-0">
-              <ScrollArea className="h-full">
-                {isLoading ? (
-                  <p className="p-4 text-sm text-muted-foreground">Cargando proyectos...</p>
-                ) : (
-                  <Table className="text-xs">
-                    <TableBody>
-                      {filteredProjects.length > 0 ? (
-                          filteredProjects.map((project, index) => {
-                          const { code, nameWithoutCode } = getProjectInfo(project.name);
-                          return (
-                              <TableRow key={project.id} className={cn('h-8', index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20', 'hover:bg-white')}>
-                              <TableCell className="font-mono py-0 px-2 w-[100px]">{code}</TableCell>
-                              <TableCell className="py-0 px-2">{nameWithoutCode}</TableCell>
-                              <TableCell className="p-0 px-2 text-right w-[80px]">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(project)} disabled={!!isEditingLoading}>
-                                    {isEditingLoading === project.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
-                                  <Trash2 className="h-4 w-4" />
-                                  </Button>
-                              </TableCell>
-                              </TableRow>
-                          );
-                          })
-                      ) : (
-                          <TableRow>
-                              <TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-4">
-                                  No se encontraron proyectos.
-                              </TableCell>
-                          </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                )}
-              </ScrollArea>
+        <CardContent className="flex-grow p-0">
+          <ScrollArea className="h-full">
+            {isLoading ? <p className="p-4 text-sm">Cargando...</p> : (
+              <Table className="text-xs">
+                <TableBody>
+                  {projects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((project, idx) => (
+                    <TableRow key={project.id} className={idx % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20'}>
+                      <TableCell className="font-mono">{project.name.match(/\(([^)]+)\)$/)?.[1]}</TableCell>
+                      <TableCell>{project.name.replace(/\([^)]+\)$/, '').trim()}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" disabled><Pencil className="h-4 w-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </ScrollArea>
         </CardContent>
       </Card>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="text-base font-medium">Crear Nuevo Proyecto</DialogTitle>
-                <DialogDescription className="text-xs">
-                  Complete el formulario para crear una nueva tarjeta de proyecto en Trello.
-                </DialogDescription>
-              </DialogHeader>
-              <form ref={createFormRef} action={createFormAction} className="flex flex-col h-full min-h-0">
-                  <ScrollArea className="flex-grow pr-6 -mr-6 max-h-[65vh]">
-                    <div className="space-y-2">
-                      <input type="hidden" name="partido" value={selectedPartidosCreate.join(', ')} />
-                      <input type="hidden" name="proyectista" value={selectedProyectistaCreate} />
-                      <input type="hidden" name="financiamiento" value={selectedFinanciamientoCreate.join(', ')} />
-                      <input type="hidden" name="diagnosticoEquipo" value={selectedEquipoCreate.join('; ')} />
-                      <input type="hidden" name="informacionSig" value={selectedSigCreate.join('; ')} />
-                      <div className="space-y-1">
-                        <Label htmlFor="nombre-create" className="text-xs">Nombre del Proyecto *</Label>
-                        <Input id="nombre-create" name="nombre" placeholder="Ej: Relevamiento ambiental de la obra X" required className="bg-white text-xs h-7" />
-                        {createState.errors?.nombre && <p className="text-xs font-medium text-destructive">{createState.errors.nombre[0]}</p>}
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="cuenca-create" className="text-xs">Cuenca *</Label>
-                        <Select name="cuenca" required>
-                          <SelectTrigger id="cuenca-create" className="bg-white text-xs h-7"><SelectValue placeholder="Seleccioná una cuenca" /></SelectTrigger>
-                          <SelectContent>
-                            {CUENCAS.map(cuenca => <SelectItem key={cuenca.id} value={cuenca.id}>{cuenca.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        {createState.errors?.cuenca && <p className="text-xs font-medium text-destructive">{createState.errors.cuenca[0]}</p>}
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Partido(s)</Label>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-7">
-                              <span>
-                                {selectedPartidosCreate.length > 0 ? `${selectedPartidosCreate.length} partido(s) seleccionado(s)` : 'Seleccioná uno o más partidos'}
-                              </span>
-                              <ChevronDown className="h-4 w-4 opacity-50" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                            <DropdownMenuLabel>Municipios</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {MUNICIPIOS.map(partido => (
-                              <DropdownMenuCheckboxItem
-                                key={partido}
-                                checked={selectedPartidosCreate.includes(partido)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedPartidosCreate(current => checked ? [...current, partido] : current.filter(p => p !== partido));
-                                }}
-                                onSelect={e => e.preventDefault()}
-                              >
-                                {partido}
-                              </DropdownMenuCheckboxItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor="proyectista-create" className="text-xs">Proyectista</Label>
-                        <Select value={selectedProyectistaCreate} onValueChange={setSelectedProyectistaCreate}>
-                          <SelectTrigger id="proyectista-create" className="bg-white text-xs h-7"><SelectValue placeholder="Seleccioná un proyectista" /></SelectTrigger>
-                          <SelectContent>
-                            {PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-xs">Financiamiento</Label>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-7">
-                              <span>
-                                {selectedFinanciamientoCreate.length > 0 ? `${selectedFinanciamientoCreate.length} fuente(s) seleccionada(s)` : 'Seleccioná una o más fuentes'}
-                              </span>
-                              <ChevronDown className="h-4 w-4 opacity-50" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                            <DropdownMenuLabel>Fuentes de Financiamiento</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {FINANCIAMIENTO.map(fuente => (
-                              <DropdownMenuCheckboxItem
-                                key={fuente}
-                                checked={selectedFinanciamientoCreate.includes(fuente)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedFinanciamientoCreate(current => checked ? [...current, fuente] : current.filter(p => p !== fuente));
-                                }}
-                                onSelect={e => e.preventDefault()}
-                              >
-                                {fuente}
-                              </DropdownMenuCheckboxItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-xs">Diagnóstico ambiental-socioeconómico</Label>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-7">
-                              <span>
-                                {selectedEquipoCreate.length > 0 ? `${selectedEquipoCreate.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
-                              </span>
-                              <ChevronDown className="h-4 w-4 opacity-50" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                            <DropdownMenuLabel>Equipo del DEA</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {EQUIPO_DEA.map(persona => (
-                              <DropdownMenuCheckboxItem
-                                key={persona}
-                                checked={selectedEquipoCreate.includes(persona)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedEquipoCreate(current => checked ? [...current, persona] : current.filter(p => p !== persona));
-                                }}
-                                onSelect={e => e.preventDefault()}
-                              >
-                                {persona}
-                              </DropdownMenuCheckboxItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Información SIG-Imágenes</Label>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between font-normal bg-white text-xs h-7">
-                              <span>
-                                {selectedSigCreate.length > 0 ? `${selectedSigCreate.length} persona(s) seleccionada(s)` : 'Seleccioná el equipo'}
-                              </span>
-                              <ChevronDown className="h-4 w-4 opacity-50" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-                            <DropdownMenuLabel>Equipo SIG</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {EQUIPO_SIG.map(persona => (
-                              <DropdownMenuCheckboxItem
-                                key={persona}
-                                checked={selectedSigCreate.includes(persona)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedSigCreate(current => checked ? [...current, persona] : current.filter(p => p !== persona));
-                                }}
-                                onSelect={e => e.preventDefault()}
-                              >
-                                {persona}
-                              </DropdownMenuCheckboxItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </ScrollArea>
-                  <DialogFooter className="pt-1 flex-shrink-0">
-                    <Button type="submit">Crear Proyecto</Button>
-                  </DialogFooter>
-              </form>
-          </DialogContent>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Crear Nuevo Proyecto</DialogTitle></DialogHeader>
+          <form ref={createFormRef} action={createFormAction}>
+            <input type="hidden" name="userData" value={userDataJson} />
+            <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
+            <input type="hidden" name="proyectista" value={selectedProyectista} />
+            <input type="hidden" name="financiamiento" value={selectedFinanciamiento.join(', ')} />
+            <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
+            <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
+            <input type="hidden" name="informacionDron" value={selectedDron.join('; ')} />
+            
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <div className="space-y-3 p-1">
+                <div className="space-y-1">
+                  <Label className="text-xs">Nombre *</Label>
+                  <Input name="nombre" required className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Cuenca *</Label>
+                  <Select name="cuenca" required>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
+                    <SelectContent>{CUENCAS.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Partido(s)</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between">Partidos <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent className="max-h-40 overflow-y-auto">
+                        {MUNICIPIOS.map(m => <DropdownMenuCheckboxItem key={m} checked={selectedPartidos.includes(m)} onCheckedChange={c => setSelectedPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Proyectista</Label>
+                    <Select onValueChange={setSelectedProyectista}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
+                      <SelectContent>{PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Diagnóstico (DEA)</Label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between">Personal <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent className="max-h-40 overflow-y-auto">
+                      {EQUIPO_DEA.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedEquipo.includes(p)} onCheckedChange={c => setSelectedEquipo(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">SIG</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between">SIG <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {EQUIPO_SIG.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedSig.includes(p)} onCheckedChange={c => setSelectedSig(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Dron</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between">Dron <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {EQUIPO_DRON.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedDron.includes(p)} onCheckedChange={c => setSelectedDron(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+            <DialogFooter className="mt-4">
+              <Button type="submit" disabled={isPending}>{isPending ? <Loader2 className="animate-spin h-4 w-4" /> : 'Crear Proyecto'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
       </Dialog>
-      
-      {editingProject && (
-        <EditProjectDialog
-            project={editingProject}
-            isOpen={isEditDialogOpen}
-            onOpenChange={setEditDialogOpen}
-            onSuccess={fetchProjects}
-        />
-      )}
     </>
   );
 }
