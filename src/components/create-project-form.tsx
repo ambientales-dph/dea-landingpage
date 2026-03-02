@@ -20,6 +20,9 @@ import { PROYECTISTAS } from '@/lib/proyectistas';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { WHITELIST } from '@/lib/auth-data';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const createInitialState: ProjectState = { message: undefined, success: false };
 
@@ -58,17 +61,31 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
     if (createState.success && createState.message) {
       toast({ title: '¡Éxito!', description: createState.message });
       
-      if (user) {
-        addDoc(collection(db, 'app_activities'), {
-            userId: user.uid,
-            userName: user.displayName || 'Usuario',
-            userEmail: user.email,
-            userPhoto: user.photoURL || '',
-            actionType: 'create_project',
-            projectName: createState.projectName || 'Proyecto nuevo',
-            cardId: createState.cardId,
-            timestamp: serverTimestamp(),
-        });
+      if (user && db) {
+        // Obtenemos el nombre real de la Whitelist si el perfil de Google no lo tiene
+        const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+        const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+        const activityData = {
+          userId: user.uid,
+          userName: realName,
+          userEmail: user.email,
+          userPhoto: user.photoURL || '',
+          actionType: 'create_project',
+          projectName: createState.projectName || 'Proyecto nuevo',
+          cardId: createState.cardId,
+          timestamp: serverTimestamp(),
+        };
+
+        addDoc(collection(db, 'app_activities'), activityData)
+          .catch(async (error) => {
+            const permissionError = new FirestorePermissionError({
+              path: 'app_activities',
+              operation: 'create',
+              requestResourceData: activityData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+          });
       }
 
       setCreateDialogOpen(false);
