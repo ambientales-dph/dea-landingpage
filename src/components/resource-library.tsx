@@ -26,6 +26,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 import { Badge } from './ui/badge';
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { WHITELIST } from '@/lib/auth-data';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface ResourceLibraryProps {
   isOpen: boolean;
@@ -81,6 +86,8 @@ const isScientificUrl = (url: string): boolean => {
 
 
 export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, onCardUpdate }: ResourceLibraryProps) {
+  const { user } = useUser();
+  const db = useFirestore();
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
   const [elsevierResults, setElsevierResults] = useState<ElsevierArticle[]>([]);
@@ -270,6 +277,33 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
       };
       onCardUpdate(updatedCard);
       
+      // Registrar actividad en el portal para que la notificación se atribuya al usuario
+      if (user && db) {
+        const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+        const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+        const activityData = {
+          userId: user.uid,
+          userName: realName,
+          userEmail: user.email,
+          userPhoto: user.photoURL || '',
+          actionType: 'attach_resource',
+          projectName: selectedCard.name,
+          cardId: selectedCard.id,
+          timestamp: serverTimestamp(),
+        };
+
+        addDoc(collection(db, 'app_activities'), activityData)
+          .catch(async (error) => {
+            const permissionError = new FirestorePermissionError({
+              path: 'app_activities',
+              operation: 'create',
+              requestResourceData: activityData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+          });
+      }
+
       toast({
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se adjuntó a la tarjeta.`,
@@ -722,7 +756,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                             </Collapsible>
 
                              <Collapsible defaultOpen={false}>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
                                     <div className="flex items-center gap-2">
                                         <Library className="h-4 w-4" />
                                         Resultados de DOAJ (Acceso Abierto)

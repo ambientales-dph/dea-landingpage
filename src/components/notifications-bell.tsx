@@ -83,6 +83,16 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
         const unsubscribePortal = onSnapshot(q, (snapshot) => {
             const portalActions: CombinedAction[] = snapshot.docs.map(doc => {
                 const data = doc.data();
+                let actionText = '';
+                
+                if (data.actionType === 'create_project') {
+                    actionText = `creó el proyecto "${data.projectName}" desde el portal`;
+                } else if (data.actionType === 'attach_resource') {
+                    actionText = `adjuntó un recurso en "${data.projectName}" desde el portal`;
+                } else {
+                    actionText = `actualizó el proyecto "${data.projectName}" desde el portal`;
+                }
+
                 return {
                     id: doc.id,
                     source: 'portal',
@@ -91,9 +101,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                     userName: data.userName,
                     userAvatar: data.userPhoto,
                     cardId: data.cardId,
-                    text: data.actionType === 'create_project' 
-                        ? `creó el proyecto "${data.projectName}" desde el portal`
-                        : `actualizó el proyecto "${data.projectName}" desde el portal`,
+                    text: actionText,
                 };
             });
             
