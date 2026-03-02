@@ -412,25 +412,27 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                   <CardDescriptionComponent>
                       Buscá en nuestros recursos o en publicaciones científicas externas.
                   </CardDescriptionComponent>
-                  <div className="pt-2 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar en la biblioteca, SNRD, Elsevier, Crossref, PLOS y DOAJ..."
-                      value={searchQuery}
-                      onChange={(e) => handleQueryChange(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      className="pl-9 pr-8"
-                    />
-                    {searchQuery && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleQueryChange('')}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+                  <div className="pt-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar en la biblioteca, SNRD, Elsevier, Crossref, PLOS y DOAJ..."
+                        value={searchQuery}
+                        onChange={(e) => handleQueryChange(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="pl-9 pr-8"
+                      />
+                      {searchQuery && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleQueryChange('')}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
               </CardHeader>
               <CardContent className="flex-grow min-h-0">

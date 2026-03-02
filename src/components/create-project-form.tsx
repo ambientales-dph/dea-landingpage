@@ -163,14 +163,16 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
               </div>
               <Button size="icon" onClick={() => { resetForm(); setIsFormOpen(true); }} className="ml-auto"><Plus /></Button>
           </div>
-          <div className="pt-4 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-8 text-xs bg-white"
-            />
+          <div className="pt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-8 text-xs bg-white"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="flex-grow p-0 overflow-hidden">
