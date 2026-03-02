@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useActionState, useEffect, useRef, useState, useCallback } from 'react';
@@ -27,7 +26,12 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 const createInitialState: ProjectState = { message: undefined, success: false };
 
-export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean) => void }) {
+interface CreateProjectFormProps {
+  setOpen: (open: boolean) => void;
+  onEditCard?: (card: TrelloCard) => void;
+}
+
+export default function CreateProjectForm({ setOpen, onEditCard }: CreateProjectFormProps) {
   const { user } = useUser();
   const db = useFirestore();
   const [createState, createFormAction, isPending] = useActionState(createProject, createInitialState);
@@ -63,7 +67,6 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
       toast({ title: '¡Éxito!', description: createState.message });
       
       if (user && db) {
-        // Obtenemos el nombre real de la whitelist para asegurar que la notificación sea correcta
         const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
         const realName = authorizedUser?.name || user.displayName || 'Usuario';
 
@@ -135,7 +138,19 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                       <TableCell className="font-mono py-1.5">{project.name.match(/\(([^)]+)\)$/)?.[1]}</TableCell>
                       <TableCell className="py-1.5">{project.name.replace(/\([^)]+\)$/, '').trim()}</TableCell>
                       <TableCell className="text-right py-1.5">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" disabled><Pencil className="h-4 w-4" /></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7"
+                          onClick={() => {
+                            if (onEditCard) {
+                              onEditCard(project);
+                              setOpen(false);
+                            }
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

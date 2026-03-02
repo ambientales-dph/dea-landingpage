@@ -510,7 +510,13 @@ export default function Home() {
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-0" showCloseButton={false}>
                   <DialogHeader className="sr-only"><DialogTitle>Gestión de Proyectos</DialogTitle></DialogHeader>
-                  <CreateProjectForm setOpen={setCreateProjectOpen} />
+                  <CreateProjectForm 
+                    setOpen={setCreateProjectOpen} 
+                    onEditCard={(card) => {
+                      handleCardSelect(card);
+                      setIsSummaryOpen(true);
+                    }}
+                  />
                 </DialogContent>
               </Dialog>
               <Button variant="outline" className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" onClick={() => setIsLibraryOpen(true)}>

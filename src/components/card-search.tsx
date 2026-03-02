@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -77,10 +76,9 @@ const trelloCoverColors = [
 ];
 
 const trelloColorToStyle = (color: string | null | undefined): React.CSSProperties => {
-    if (!color) return { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' };
+    if (!color) return { backgroundColor: 'white', color: '#172b4d' };
     const found = trelloCoverColors.find(c => c.name === color);
     const hex = found?.hex || '#ccc';
-    // Colores claros que necesitan texto negro
     const isLight = ['yellow', 'lime', 'sky'].includes(color);
     return { 
         backgroundColor: hex, 
@@ -327,7 +325,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             />
           </PopoverTrigger>
           <PopoverContent 
-            className="p-0 w-[--radix-popover-trigger-width] border-0 shadow-2xl" 
+            className="p-0 w-[--radix-popover-trigger-width] border-0 shadow-2xl bg-white" 
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
             <Command className="bg-white">
