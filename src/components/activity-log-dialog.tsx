@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,12 +19,13 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useFirestore } from '@/firebase';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, Search } from 'lucide-react';
 
 interface Activity {
   id: string;
@@ -44,18 +45,15 @@ interface ActivityLogDialogProps {
 export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogDialogProps) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const db = useFirestore();
 
-  // EFECTO CRÍTICO: Limpieza forzada de pointer-events al cerrar
   useEffect(() => {
     if (!isOpen) {
-      // Restauramos la interactividad de la página manualmente por si Radix falla
       const cleanup = () => {
         document.body.style.pointerEvents = '';
         document.body.style.overflow = '';
       };
-      
-      // Ejecutamos inmediatamente y después de un breve delay por las animaciones
       cleanup();
       const timer = setTimeout(cleanup, 300);
       return () => clearTimeout(timer);
@@ -84,6 +82,15 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
     return () => unsubscribe();
   }, [db, isOpen]);
 
+  const filteredActivities = useMemo(() => {
+    if (!searchTerm.trim()) return activities;
+    const term = searchTerm.toLowerCase();
+    return activities.filter(activity => 
+      activity.userName.toLowerCase().includes(term) || 
+      activity.projectName.toLowerCase().includes(term)
+    );
+  }, [activities, searchTerm]);
+
   const getActionLabel = (type: string) => {
     switch (type) {
       case 'create_project': return 'CREACIÓN';
@@ -106,24 +113,55 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
       <DialogContent 
         className="max-w-4xl h-[70vh] flex flex-col p-0 overflow-hidden border-0"
         showCloseButton={false}
-        onPointerDownOutside={(e) => {
-          // Aseguramos que el cierre por fuera también funcione bien
-          onOpenChange(false);
-        }}
+        onPointerDownOutside={() => onOpenChange(false)}
       >
         <DialogHeader className="p-4 bg-muted/30 border-b flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-sm font-bold flex items-center gap-2">
             Bitácora de Actividad del Portal
             {isLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </DialogTitle>
-          <DialogClose asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted/50 rounded-full">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Cerrar bitácora</span>
-            </Button>
-          </DialogClose>
+          <div className="flex items-center gap-4">
+            <div className="relative w-64 hidden sm:block">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por usuario o proyecto..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-8 pl-8 text-[11px] bg-white/50 border-muted focus-visible:ring-primary/30"
+              />
+              {searchTerm && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 hover:bg-transparent"
+                >
+                  <X className="h-3 w-3 text-muted-foreground" />
+                </Button>
+              )}
+            </div>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted/50 rounded-full">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Cerrar bitácora</span>
+              </Button>
+            </DialogClose>
+          </div>
         </DialogHeader>
         
+        {/* Mobile Search Bar */}
+        <div className="sm:hidden p-3 border-b bg-muted/10">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-8 pl-8 text-[11px] bg-white border-muted"
+            />
+          </div>
+        </div>
+
         <ScrollArea className="flex-grow">
           <div className="p-0">
             <Table className="border-collapse">
@@ -136,7 +174,7 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {activities.map((activity) => (
+                {filteredActivities.map((activity) => (
                   <TableRow key={activity.id} className="hover:bg-muted/30 border-b border-muted/20">
                     <TableCell className="text-[10px] font-mono whitespace-nowrap px-3 py-1.5 text-muted-foreground">
                       {activity.timestamp ? format(activity.timestamp.toDate(), 'dd/MM/yy HH:mm', { locale: es }) : '---'}
@@ -167,9 +205,9 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
                 ))}
               </TableBody>
             </Table>
-            {!isLoading && activities.length === 0 && (
+            {!isLoading && filteredActivities.length === 0 && (
               <div className="p-8 text-center text-[10px] text-muted-foreground italic">
-                No se registran actividades en el portal aún.
+                {searchTerm ? 'No se encontraron resultados para tu búsqueda.' : 'No se registran actividades en el portal aún.'}
               </div>
             )}
           </div>
