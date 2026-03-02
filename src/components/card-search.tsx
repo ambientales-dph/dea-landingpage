@@ -321,7 +321,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 else setIsOpen(false);
               }}
               placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'}
-              className="w-full min-h-20 bg-primary-foreground text-foreground pr-10 text-xs"
+              className="w-full min-h-20 bg-white text-foreground pr-10 text-xs border-2 focus-visible:ring-primary shadow-sm"
               autoComplete="off"
             />
           </PopoverTrigger>
@@ -330,19 +330,20 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
             <Command className="bg-transparent">
-              <CommandList className="max-h-[300px] bg-neutral-800 p-2">
-                {filteredCards.length === 0 && query.length > 0 && <CommandEmpty className="text-white py-4 text-center text-xs">No hay resultados.</CommandEmpty>}
+              <CommandList className="max-h-[300px] bg-white p-2">
+                {filteredCards.length === 0 && query.length > 0 && query !== selectedCard?.name && (
+                  <CommandEmpty className="text-muted-foreground py-4 text-center text-xs">No hay resultados.</CommandEmpty>
+                )}
                 <CommandGroup>
                   {filteredCards.map((card) => (
                     <CommandItem 
                       key={card.id} 
                       onSelect={() => handleSelect(card)} 
-                      className="cursor-pointer text-xs mb-1 p-2 rounded-md transition-all duration-200 border-l-4"
+                      className="cursor-pointer text-[11px] mb-1 p-2 rounded-md transition-all duration-200"
                       style={trelloColorToStyle(card.cover?.color)}
                     >
-                      <div className="flex flex-col gap-1">
-                        <span className="font-bold">{card.name}</span>
-                        <span className="opacity-80 text-[10px] uppercase font-mono tracking-wider">{card.boardName}</span>
+                      <div className="flex flex-col gap-0.5 overflow-hidden">
+                        <span className="truncate font-medium">{card.name}</span>
                       </div>
                     </CommandItem>
                   ))}
