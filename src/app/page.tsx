@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useCallback } from 'react';
@@ -23,6 +22,7 @@ import {
   User as UserIcon,
   Loader2,
   ShieldAlert,
+  History,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/dialog';
 import CreateProjectForm from '@/components/create-project-form';
 import ResourceLibrary from '@/components/resource-library';
+import ActivityLogDialog from '@/components/activity-log-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -76,6 +77,7 @@ export default function Home() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   
   const authorized = user ? isUserAuthorized(user.email) : false;
 
@@ -375,6 +377,8 @@ export default function Home() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={handleDownloadPdf} disabled={isDownloading}><Download className="mr-2 h-4 w-4" /><span>Descargar listado</span></DropdownMenuItem>
                       <DropdownMenuItem onSelect={handleDownloadDuplicatesPdf} disabled={isDownloading}><AlertTriangle className="mr-2 h-4 w-4" /><span>Detectar duplicados</span></DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setIsActivityLogOpen(true)}><History className="mr-2 h-4 w-4" /><span>Ver Bitácora de Actividad</span></DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               <Button variant="ghost" size="icon" onClick={() => setIsHelpPanelOpen(true)} className="text-primary-foreground hover:bg-primary/80"><HelpCircle className="h-6 w-6" /></Button>
@@ -456,6 +460,7 @@ export default function Home() {
           </SheetContent>
         </Sheet>
         <ResourceLibrary isOpen={isLibraryOpen} onOpenChange={setIsLibraryOpen} selectedCard={selectedCard} onCardUpdate={handleCardSelect} />
+        <ActivityLogDialog isOpen={isActivityLogOpen} onOpenChange={setIsActivityLogOpen} />
       </div>
     </div>
   );
