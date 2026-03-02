@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { CUENCAS, DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
 import { createTrelloCard, getNextProjectCode, updateTrelloCard, addAttachmentToTrelloCard, addCommentToCard, getListsOnBoard } from '@/services/trello';
 import { createProjectFolder, shareFolderWithEmails } from '@/services/google-drive';
-import { WHITELIST } from '@/services/auth-service';
+import { WHITELIST } from '@/lib/auth-data';
 
 const PROYECTOS_BOARD_ID = 'CgG4b3B0';
 
@@ -49,9 +49,10 @@ function updateDescriptionField(description: string, field: string, value: strin
 
 function getEmailsFromSelection(selection: string): string[] {
     if (!selection) return [];
+    // Dividimos por ; o ; seguido de espacio
     const names = selection.split(';').map(n => n.trim()).filter(Boolean);
     return names.map(name => {
-        const person = WHITELIST.find(p => p.name.toLowerCase() === name.toLowerCase());
+        const person = WHITELIST.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
         return person?.email;
     }).filter((email): email is string => !!email);
 }
@@ -124,7 +125,7 @@ export async function createProject(
       // 4. Compartir Carpeta automáticamente con el equipo
       const emailsToShare = new Set<string>();
       
-      // Añadir al creador (Luis Bree)
+      // Añadir al creador
       if (userEmail && userEmail.includes('@')) {
         emailsToShare.add(userEmail.trim().toLowerCase());
       }
@@ -144,7 +145,7 @@ export async function createProject(
       // Si falla algo de Drive, dejamos un comentario detallado en la tarjeta
       await addCommentToCard({ 
         cardId: card.id, 
-        text: `ATENCIÓN: Gestión de Drive incompleta. Detalle: ${e.message || 'Error desconocido'}` 
+        text: `ATENCIÓN: No se pudo gestionar Drive automáticamente. Detalle: ${e.message || 'Error desconocido'}` 
       });
     }
 
