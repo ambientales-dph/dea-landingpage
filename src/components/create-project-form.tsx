@@ -173,7 +173,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
             />
           </div>
         </CardHeader>
-        <CardContent className="flex-grow p-0">
+        <CardContent className="flex-grow p-0 overflow-hidden">
           <ScrollArea className="h-full">
             {isLoading ? <p className="p-4 text-sm">Cargando...</p> : (
               <Table className="text-xs">
@@ -202,14 +202,14 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
       </Card>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-lg p-0 border-0 overflow-hidden flex flex-col max-h-[90vh]">
+        <DialogContent className="sm:max-w-lg p-0 border-0 overflow-hidden flex flex-col h-[90vh] max-h-[90vh]">
           <DialogHeader className="p-4 border-b bg-muted/30 shrink-0">
             <DialogTitle className="text-sm font-bold flex items-center gap-2">
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsFormOpen(false)}><ArrowLeft className="h-4 w-4" /></Button>
                 {editingCard ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}
             </DialogTitle>
           </DialogHeader>
-          <form action={editingCard ? updateAction : createAction} className="flex flex-col flex-grow min-h-0">
+          <form action={editingCard ? updateAction : createAction} className="flex flex-col flex-grow min-h-0 overflow-hidden">
             <input type="hidden" name="userEmail" value={user?.email || ''} />
             <input type="hidden" name="cardId" value={editingCard?.id || ''} />
             <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
@@ -219,26 +219,26 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
             <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
             <input type="hidden" name="informacionDron" value={selectedDron.join('; ')} />
             
-            <ScrollArea className="flex-grow px-4 py-2">
-              <div className="space-y-4 pb-4">
+            <ScrollArea className="flex-grow px-4">
+              <div className="space-y-4 py-4">
                 <div className="space-y-1">
-                  <Label className="text-xs uppercase font-bold text-muted-foreground">Nombre del Proyecto *</Label>
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Nombre del Proyecto *</Label>
                   <Input name="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="h-8 text-xs" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs uppercase font-bold text-muted-foreground">Cuenca *</Label>
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Cuenca *</Label>
                   <Select name="cuenca" value={selectedCuenca} onValueChange={setSelectedCuenca} required>
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccioná cuenca" /></SelectTrigger>
                     <SelectContent>{CUENCAS.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                   </Select>
-                  {editingCard && <p className="text-[10px] text-amber-600 font-medium">Nota: Si cambiás la cuenca, se generará un nuevo código de proyecto.</p>}
+                  {editingCard && <p className="text-[10px] text-amber-600 font-medium pt-1">Nota: Si cambiás la cuenca, se generará un nuevo código de proyecto.</p>}
                 </div>
                 
                 <Separator className="my-2" />
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-xs uppercase font-bold text-muted-foreground">Partido(s)</Label>
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Partido(s)</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal">{selectedPartidos.length > 0 ? `${selectedPartidos.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent className="max-h-48 overflow-y-auto">
@@ -247,7 +247,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                     </DropdownMenu>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs uppercase font-bold text-muted-foreground">Proyectista</Label>
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Proyectista</Label>
                     <Select name="proyectista_ui" value={selectedProyectista} onValueChange={setSelectedProyectista}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
                       <SelectContent>{PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
@@ -256,7 +256,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs uppercase font-bold text-muted-foreground">Financiamiento</Label>
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Financiamiento</Label>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal">{selectedFinanciamiento.length > 0 ? `${selectedFinanciamiento.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-48 overflow-y-auto">

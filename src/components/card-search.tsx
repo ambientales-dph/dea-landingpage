@@ -313,10 +313,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             <Textarea
               ref={inputRef}
               value={query}
-              onFocus={() => { fetchAllCards(); if (query && query !== selectedCard?.name) setIsOpen(true); }}
+              onFocus={() => { fetchAllCards(); if (query && (!selectedCard || query !== selectedCard.name)) setIsOpen(true); }}
               onChange={(e) => { 
                 setQuery(e.target.value); 
-                if (e.target.value.length > 0 && e.target.value !== selectedCard?.name) setIsOpen(true);
+                if (e.target.value.length > 0 && (!selectedCard || e.target.value !== selectedCard.name)) setIsOpen(true);
                 else setIsOpen(false);
               }}
               placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'}
@@ -330,7 +330,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
           >
             <Command className="bg-white">
               <CommandList className="max-h-[300px] bg-white p-2">
-                {filteredCards.length === 0 && query.length > 0 && query !== selectedCard?.name && (
+                {filteredCards.length === 0 && query.length > 0 && (!selectedCard || query !== selectedCard.name) && (
                   <CommandEmpty className="text-muted-foreground py-4 text-center text-xs">No hay resultados.</CommandEmpty>
                 )}
                 <CommandGroup>
