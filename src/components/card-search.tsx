@@ -24,11 +24,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, GripVertical, Settings } from 'lucide-react';
-import jsPDF from 'jspdf';
+import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, GripVertical, Settings, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,8 +35,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -46,19 +42,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription,
 } from "@/components/ui/dialog"
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import React from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -72,6 +63,19 @@ const removeAccents = (str: string): string => {
   if (!str) return '';
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
+
+const trelloCoverColors = [
+    { name: 'green', hex: 'rgb(75,206,151)', label: 'Verde' },
+    { name: 'yellow', hex: 'rgb(238,209,43)', label: 'Amarillo' },
+    { name: 'red', hex: 'rgb(248,113,104)', label: 'Rojo' },
+    { name: 'orange', hex: '#F97316', label: 'Naranja' },
+    { name: 'purple', hex: '#8B5CF6', label: 'Púrpura' },
+    { name: 'blue', hex: 'rgb(102,157,241)', label: 'Azul' },
+    { name: 'sky', hex: '#38BDF8', label: 'Cielo' },
+    { name: 'lime', hex: '#A3E635', label: 'Lima' },
+    { name: 'pink', hex: '#EC4899', label: 'Rosa' },
+    { name: 'black', hex: '#374151', label: 'Negro' },
+];
 
 const renderDescription = (desc: string) => {
     const parts: (string | JSX.Element)[] = [];
@@ -99,19 +103,6 @@ const renderDescription = (desc: string) => {
     return parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>);
 };
 
-const trelloCoverColors = [
-    { name: 'green', hex: 'rgb(75,206,151)', label: 'Verde' },
-    { name: 'yellow', hex: 'rgb(238,209,43)', label: 'Amarillo' },
-    { name: 'red', hex: 'rgb(248,113,104)', label: 'Rojo' },
-    { name: 'orange', hex: '#F97316', label: 'Naranja' },
-    { name: 'purple', hex: '#8B5CF6', label: 'Púrpura' },
-    { name: 'blue', hex: 'rgb(102,157,241)', label: 'Azul' },
-    { name: 'sky', hex: '#38BDF8', label: 'Cielo' },
-    { name: 'lime', hex: '#A3E635', label: 'Lima' },
-    { name: 'pink', hex: '#EC4899', label: 'Rosa' },
-    { name: 'black', hex: '#374151', label: 'Negro' },
-];
-
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
   const [query, setQuery] = useState('');
@@ -138,7 +129,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const prevIsSummaryOpen = useRef(isSummaryOpen);
 
   const fetchCardData = useCallback(async () => {
     if (!selectedCard) return;
@@ -164,10 +154,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   }, [selectedCard?.id, onCardSelect]);
 
   useEffect(() => {
-    if (isSummaryOpen && !prevIsSummaryOpen.current && selectedCard) {
+    if (isSummaryOpen && selectedCard) {
         fetchCardData();
     }
-    prevIsSummaryOpen.current = isSummaryOpen;
   }, [isSummaryOpen, selectedCard?.id, fetchCardData]);
 
   useEffect(() => {
@@ -197,7 +186,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const filteredCards = useMemo(() => {
     if (!query || (selectedCard && query === selectedCard.name)) return [];
     const normalizedQuery = removeAccents(query.toLowerCase());
-    return allCards.filter(card => removeAccents(card.name.toLowerCase()).includes(normalizedQuery) || removeAccents(card.desc || '').toLowerCase().includes(normalizedQuery)).slice(0, 10);
+    return allCards.filter(card => 
+      removeAccents(card.name.toLowerCase()).includes(normalizedQuery) || 
+      removeAccents(card.desc || '').toLowerCase().includes(normalizedQuery)
+    ).slice(0, 10);
   }, [query, allCards, selectedCard?.id]);
   
   const handleSelect = (card: TrelloCard) => {
@@ -241,21 +233,50 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       };
       fetchLists();
     }
-  }, [isEditing, editedBoardId, editedListId]);
+  }, [isEditing, editedBoardId]);
 
   const handleSaveEdit = async () => {
     if (!selectedCard) return;
     setIsSaving(true);
     try {
-        await updateTrelloCard({ cardId: selectedCard.id, name: editedName, desc: editedDesc, idBoard: editedBoardId, idList: editedListId });
+        await updateTrelloCard({ 
+          cardId: selectedCard.id, 
+          name: editedName, 
+          desc: editedDesc, 
+          idBoard: editedBoardId, 
+          idList: editedListId 
+        });
         toast({ title: '¡Éxito!', description: 'Tarjeta actualizada correctamente.' });
         setIsEditing(false);
-        const refreshedCard = await getCardById(selectedCard.id);
-        onCardSelect(refreshedCard);
+        fetchCardData();
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error al actualizar' });
     } finally {
         setIsSaving(false);
+    }
+  };
+
+  const handleColorChange = async (color: string | null) => {
+    if (!selectedCard) return;
+    try {
+      await updateTrelloCard({ cardId: selectedCard.id, cover: { color } });
+      fetchCardData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error al cambiar color' });
+    }
+  };
+
+  const handleToggleLabel = async (labelId: string, isCurrentlyOn: boolean) => {
+    if (!selectedCard) return;
+    try {
+      if (isCurrentlyOn) {
+        await removeLabelFromCard({ cardId: selectedCard.id, labelId });
+      } else {
+        await addLabelToCard({ cardId: selectedCard.id, labelId });
+      }
+      fetchCardData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error con etiquetas' });
     }
   };
 
@@ -272,6 +293,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       setIsCommenting(false);
     }
   };
+
+  const sortedAttachments = useMemo(() => {
+    if (!selectedCard?.attachments) return [];
+    return [...selectedCard.attachments].sort((a, b) => {
+      if (attachmentSort === 'name') return a.name.localeCompare(b.name);
+      const extA = a.url.split('.').pop() || '';
+      const extB = b.url.split('.').pop() || '';
+      return extA.localeCompare(extB);
+    });
+  }, [selectedCard?.attachments, attachmentSort]);
 
   return (
     <div className="flex h-full w-full flex-col justify-end">
@@ -303,9 +334,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         </Popover>
         {query && <Button variant="ghost" size="icon" onClick={onClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"><X className="h-5 w-5" /></Button>}
       </div>
+
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl overflow-hidden">
+            <DialogContent className="p-0 max-w-2xl overflow-hidden border-0">
                 <DialogHeader style={trelloColorToStyle(selectedCard.cover?.color)} className="p-6 relative rounded-t-lg">
                     {isEditing ? (
                         <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} className="text-base font-semibold bg-transparent text-inherit border-white/30 h-auto p-1 mr-28" />
@@ -315,33 +347,73 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100"><LinkIcon className="h-4 w-4" /></a>
                       </DialogTitle>
                     )}
+                    
                     <div className="flex flex-wrap gap-2 pt-2">
                         {selectedCard.labels.map(label => (
-                            <Badge key={label.id} className="text-[10px]" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>{label.name}</Badge>
+                            <Badge key={label.id} className="text-[10px] group cursor-default" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
+                              {label.name}
+                              {isEditing && <X className="ml-1 h-2 w-2 cursor-pointer hover:text-red-200" onClick={() => handleToggleLabel(label.id, true)} />}
+                            </Badge>
                         ))}
+                        {isEditing && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-white/20"><Plus className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                              {boardLabels.map(l => (
+                                <DropdownMenuCheckboxItem key={l.id} checked={selectedCard.labels.some(sl => sl.id === l.id)} onCheckedChange={() => handleToggleLabel(l.id, selectedCard.labels.some(sl => sl.id === l.id))}>
+                                  <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: trelloCoverColors.find(c => c.name === l.color)?.hex || '#ccc' }} />{l.name}</div>
+                                </DropdownMenuCheckboxItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                     </div>
-                    {!isEditing && (
-                        <div className="absolute top-4 right-12 flex gap-1">
+
+                    <div className="absolute top-4 right-12 flex gap-1">
+                        {!isEditing && (
+                          <>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20"><Palette className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="grid grid-cols-5 gap-1 p-2">
+                                {trelloCoverColors.map(c => (
+                                  <Button key={c.name} variant="ghost" className="h-6 w-6 rounded-full p-0" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(c.name)} />
+                                ))}
+                                <Button variant="ghost" className="h-6 w-6 rounded-full border p-0" onClick={() => handleColorChange(null)}><X className="h-3 w-3" /></Button>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleEditClick}><Edit className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={fetchCardData} disabled={isRefreshing}><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
-                        </div>
-                    )}
+                          </>
+                        )}
+                    </div>
                 </DialogHeader>
-                <ScrollArea className="max-h-[60vh]">
+
+                <ScrollArea className="max-h-[70vh]">
                     <div className="p-6">
                         <h3 className="font-semibold text-sm mb-2">Descripción</h3>
                         {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderDescription(selectedCard.desc)}</div>}
                     </div>
+
                     {selectedCard.attachments?.length > 0 && !isEditing && (
                       <div className="p-6 pt-0">
-                        <h3 className="font-semibold text-sm mb-2">Adjuntos</h3>
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-semibold text-sm">Adjuntos ({selectedCard.attachments.length})</h3>
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
+                            <ArrowDownUp className="h-3 w-3" />
+                            {attachmentSort === 'name' ? 'Nombre' : 'Tipo'}
+                          </Button>
+                        </div>
                         <div className="space-y-1">
-                          {selectedCard.attachments.map(att => (
-                            <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs"><LinkIcon className="h-3 w-3" />{att.name}</a>
+                          {sortedAttachments.map(att => (
+                            <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group">
+                              {att.url.split('.').pop() === 'pdf' ? <FileText className="h-3 w-3 text-red-500" /> : <LinkIcon className="h-3 w-3 text-blue-500" />}
+                              <span className="flex-1 truncate">{att.name}</span>
+                            </a>
                           ))}
                         </div>
                       </div>
                     )}
+
                     {!isEditing && (
                         <div className="p-6 pt-0">
                             <div className="flex gap-2 mb-4">
@@ -349,14 +421,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon"><Send className="h-4 w-4" /></Button>
                             </div>
                             <Collapsible>
-                                <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
+                                <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
                                 <CollapsibleContent className="mt-4 space-y-4">
                                     {activity.map(action => (
                                         <div key={action.id} className="flex gap-3 text-xs">
-                                            <Avatar className="h-6 w-6"><AvatarFallback>{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
+                                            <Avatar className="h-6 w-6"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2"><span className="font-semibold">{action.memberCreator.fullName}</span><span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span></div>
-                                                <p className="mt-1 bg-muted p-2 rounded-md border">{action.data.text}</p>
+                                                <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap">{action.data.text}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -365,8 +437,34 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         </div>
                     )}
                 </ScrollArea>
+
                 {isEditing && (
-                    <DialogFooter className="border-t p-4"><Button variant="ghost" onClick={() => setIsEditing(false)}>Cancelar</Button><Button onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</Button></DialogFooter>
+                    <DialogFooter className="border-t p-4 gap-2">
+                        <div className="flex-1 flex gap-2">
+                          <div className="flex flex-col gap-1 flex-1">
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground">Tablero</label>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between">{allBoards.find(b => b.id === editedBoardId)?.name || 'Cargando...'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                                {allBoards.map(b => <DropdownMenuItem key={b.id} onSelect={() => setEditedBoardId(b.id)}>{b.name}</DropdownMenuItem>)}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          <div className="flex flex-col gap-1 flex-1">
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground">Lista</label>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between" disabled={isListsLoading}>{isListsLoading ? 'Cargando...' : (boardLists.find(l => l.id === editedListId)?.name || 'Seleccioná')} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                                {boardLists.map(l => <DropdownMenuItem key={l.id} onSelect={() => setEditedListId(l.id)}>{l.name}</DropdownMenuItem>)}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancelar</Button>
+                          <Button size="sm" onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</Button>
+                        </div>
+                    </DialogFooter>
                 )}
             </DialogContent>
         </Dialog>
