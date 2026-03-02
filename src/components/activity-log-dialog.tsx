@@ -87,15 +87,19 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[70vh] flex flex-col p-0 overflow-hidden border-0">
+      <DialogContent 
+        className="max-w-4xl h-[70vh] flex flex-col p-0 overflow-hidden border-0"
+        showCloseButton={false}
+      >
         <DialogHeader className="p-4 bg-muted/30 border-b flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-sm font-bold flex items-center gap-2">
             Bitácora de Actividad del Portal
             {isLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </DialogTitle>
           <DialogClose asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted/50 rounded-full">
               <X className="h-4 w-4" />
+              <span className="sr-only">Cerrar bitácora</span>
             </Button>
           </DialogClose>
         </DialogHeader>

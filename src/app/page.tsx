@@ -378,7 +378,14 @@ export default function Home() {
                       <DropdownMenuItem onSelect={handleDownloadPdf} disabled={isDownloading}><Download className="mr-2 h-4 w-4" /><span>Descargar listado</span></DropdownMenuItem>
                       <DropdownMenuItem onSelect={handleDownloadDuplicatesPdf} disabled={isDownloading}><AlertTriangle className="mr-2 h-4 w-4" /><span>Detectar duplicados</span></DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={() => setIsActivityLogOpen(true)}><History className="mr-2 h-4 w-4" /><span>Ver Bitácora de Actividad</span></DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e) => {
+                          e.preventDefault();
+                          // Un pequeño retraso asegura que el menú se cierre y libere el scroll antes de abrir el diálogo
+                          setTimeout(() => setIsActivityLogOpen(true), 100);
+                      }}>
+                          <History className="mr-2 h-4 w-4" />
+                          <span>Ver Bitácora de Actividad</span>
+                      </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               <Button variant="ghost" size="icon" onClick={() => setIsHelpPanelOpen(true)} className="text-primary-foreground hover:bg-primary/80"><HelpCircle className="h-6 w-6" /></Button>
