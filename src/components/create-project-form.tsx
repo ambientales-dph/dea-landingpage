@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useRef, useState, useCallback } from 'react';
+import { useActionState, useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { CUENCAS } from '@/lib/cuencas';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import { Separator } from './ui/separator';
 import { getAllCardsFromAllBoards, TrelloCard } from '@/services/trello';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -79,7 +80,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
 
   const extractListFromDesc = (desc: string, field: string): string[] => {
     const val = extractFieldFromDesc(desc, field);
-    if (!val || val === '****') return [];
+    if (!val || val === '****' || val === '') return [];
     return val.split(/[,;]/).map(s => s.trim()).filter(Boolean);
   };
 

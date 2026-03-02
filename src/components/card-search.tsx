@@ -76,7 +76,7 @@ const trelloCoverColors = [
 ];
 
 const trelloColorToStyle = (color: string | null | undefined): React.CSSProperties => {
-    if (!color) return { backgroundColor: 'white', color: '#172b4d' };
+    if (!color) return { backgroundColor: '#fff', color: '#172b4d' };
     const found = trelloCoverColors.find(c => c.name === color);
     const hex = found?.hex || '#ccc';
     const isLight = ['yellow', 'lime', 'sky'].includes(color);
@@ -313,10 +313,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             <Textarea
               ref={inputRef}
               value={query}
-              onFocus={() => { fetchAllCards(); if (query) setIsOpen(true); }}
+              onFocus={() => { fetchAllCards(); if (query && query !== selectedCard?.name) setIsOpen(true); }}
               onChange={(e) => { 
                 setQuery(e.target.value); 
-                if (e.target.value.length > 0) setIsOpen(true);
+                if (e.target.value.length > 0 && e.target.value !== selectedCard?.name) setIsOpen(true);
                 else setIsOpen(false);
               }}
               placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'}
