@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, AppWindow } from 'lucide-react';
+import { Bell, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -18,7 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Skeleton } from './ui/skeleton';
 import { useFirestore } from '@/firebase';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
@@ -44,10 +42,12 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
     const db = useFirestore();
     const { toast } = useToast();
 
+    const [allActions, setAllActions] = useState<{trello: CombinedAction[], portal: CombinedAction[]}>({ trello: [], portal: [] });
+
     useEffect(() => {
         setIsLoading(true);
         
-        // 1. Listen to Portal Activities (Firestore)
+        // 1. Escuchar Actividades del Portal (Firestore)
         const q = query(collection(db, 'app_activities'), orderBy('timestamp', 'desc'), limit(20));
         const unsubscribePortal = onSnapshot(q, (snapshot) => {
             const portalActions: CombinedAction[] = snapshot.docs.map(doc => {
@@ -65,24 +65,44 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                 };
             });
             
-            updateNotifications(portalActions, 'portal');
+            setAllActions(prev => {
+                const updated = { ...prev, portal: portalActions };
+                const combined = [...updated.trello, ...updated.portal]
+                    .sort((a, b) => b.date.getTime() - a.date.getTime())
+                    .slice(0, 30);
+                setNotifications(combined);
+                return updated;
+            });
         });
 
-        // 2. Fetch Trello Actions (Periodic)
+        // 2. Cargar Acciones de Trello (Periódico)
         const fetchTrello = async () => {
-            const trelloRaw = await getAllRecentActions(24); // Last 24 hours
-            const trelloActions: CombinedAction[] = trelloRaw.map(a => ({
-                id: a.id,
-                source: 'trello',
-                type: a.type,
-                date: new Date(a.date),
-                userName: a.memberCreator.fullName,
-                userAvatar: a.memberCreator.avatarUrl ? `${a.memberCreator.avatarUrl}/50.png` : undefined,
-                cardId: a.data.card?.id,
-                text: formatTrelloAction(a),
-            }));
-            updateNotifications(trelloActions, 'trello');
-            setIsLoading(false);
+            try {
+                const trelloRaw = await getAllRecentActions(24);
+                const trelloActions: CombinedAction[] = trelloRaw.map(a => ({
+                    id: a.id,
+                    source: 'trello',
+                    type: a.type,
+                    date: new Date(a.date),
+                    userName: a.memberCreator.fullName,
+                    userAvatar: a.memberCreator.avatarUrl ? `${a.memberCreator.avatarUrl}/50.png` : undefined,
+                    cardId: a.data.card?.id,
+                    text: formatTrelloAction(a),
+                }));
+                
+                setAllActions(prev => {
+                    const updated = { ...prev, trello: trelloActions };
+                    const combined = [...updated.trello, ...updated.portal]
+                        .sort((a, b) => b.date.getTime() - a.date.getTime())
+                        .slice(0, 30);
+                    setNotifications(combined);
+                    return updated;
+                });
+            } catch (e) {
+                console.error("Error fetching Trello actions:", e);
+            } finally {
+                setIsLoading(false);
+            }
         };
 
         fetchTrello();
@@ -93,19 +113,6 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
             clearInterval(interval);
         };
     }, [db]);
-
-    const [allActions, setAllActions] = useState<{trello: CombinedAction[], portal: CombinedAction[]}>({ trello: [], portal: [] });
-
-    const updateNotifications = (newActions: CombinedAction[], source: 'trello' | 'portal') => {
-        setAllActions(prev => {
-            const updated = { ...prev, [source]: newActions };
-            const combined = [...updated.trello, ...updated.portal]
-                .sort((a, b) => b.date.getTime() - a.date.getTime())
-                .slice(0, 30);
-            setNotifications(combined);
-            return updated;
-        });
-    };
 
     const formatTrelloAction = (a: TrelloBoardAction): string => {
         const cardName = a.data.card ? `"${a.data.card.name}"` : 'una tarjeta';

@@ -1,9 +1,8 @@
-
 'use server';
 
 import { z } from 'zod';
 import { CUENCAS, DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
-import { createTrelloCard, getCardById, getListsOnBoard, getNextProjectCode, updateTrelloCard, addAttachmentToTrelloCard, addCommentToCard } from '@/services/trello';
+import { createTrelloCard, getNextProjectCode, updateTrelloCard, addAttachmentToTrelloCard, addCommentToCard, getListsOnBoard } from '@/services/trello';
 import { createProjectFolder, shareFolderWithEmails } from '@/services/google-drive';
 import { initializeFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -54,9 +53,6 @@ function updateDescriptionField(description: string, field: string, value: strin
     return description;
 }
 
-/**
- * Obtiene los emails de las personas mencionadas en un campo (separadas por ;) basándose en la whitelist.
- */
 function getEmailsFromSelection(selection: string): string[] {
     if (!selection) return [];
     const names = selection.split(';').map(n => n.trim()).filter(Boolean);
@@ -132,7 +128,7 @@ export async function createProject(
       driveFolderUrl = await createProjectFolder(folderName, cuencaId);
       await addAttachmentToTrelloCard({ cardId: card.id, url: driveFolderUrl, name: folderName });
       
-      // 4. Compartir Carpeta (Asíncrono, no bloqueante)
+      // 4. Compartir Carpeta (Opcional, no bloqueante)
       if (driveFolderUrl) {
           const emailsToShare = new Set<string>();
           if (user?.email) emailsToShare.add(user.email);
@@ -175,7 +171,5 @@ export async function createProject(
 }
 
 export async function updateProject(prevState: ProjectState, formData: FormData): Promise<ProjectState> {
-    // Similar a createProject pero para actualización
-    // (Por brevedad, mantenemos la lógica actual pero podemos extenderla luego)
     return { success: true, message: "Proyecto actualizado" };
 }
