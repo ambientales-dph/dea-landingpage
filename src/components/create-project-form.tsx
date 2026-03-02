@@ -9,8 +9,8 @@ import { createProject, updateProject, type ProjectState } from '@/app/actions/p
 import { CUENCAS } from '@/lib/cuencas';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from './ui/scroll-area';
-import { Separator } from './ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { getAllCardsFromAllBoards, TrelloCard } from '@/services/trello';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -202,14 +202,14 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
       </Card>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-lg p-0 border-0 overflow-hidden">
-          <DialogHeader className="p-4 border-b bg-muted/30">
+        <DialogContent className="sm:max-w-lg p-0 border-0 overflow-hidden flex flex-col max-h-[90vh]">
+          <DialogHeader className="p-4 border-b bg-muted/30 shrink-0">
             <DialogTitle className="text-sm font-bold flex items-center gap-2">
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsFormOpen(false)}><ArrowLeft className="h-4 w-4" /></Button>
                 {editingCard ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}
             </DialogTitle>
           </DialogHeader>
-          <form action={editingCard ? updateAction : createAction} className="p-4">
+          <form action={editingCard ? updateAction : createAction} className="flex flex-col flex-grow min-h-0">
             <input type="hidden" name="userEmail" value={user?.email || ''} />
             <input type="hidden" name="cardId" value={editingCard?.id || ''} />
             <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
@@ -219,8 +219,8 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
             <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
             <input type="hidden" name="informacionDron" value={selectedDron.join('; ')} />
             
-            <ScrollArea className="max-h-[60vh] pr-4">
-              <div className="space-y-3 p-1">
+            <ScrollArea className="flex-grow px-4 py-2">
+              <div className="space-y-4 pb-4">
                 <div className="space-y-1">
                   <Label className="text-xs uppercase font-bold text-muted-foreground">Nombre del Proyecto *</Label>
                   <Input name="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="h-8 text-xs" />
@@ -234,7 +234,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                   {editingCard && <p className="text-[10px] text-amber-600 font-medium">Nota: Si cambiás la cuenca, se generará un nuevo código de proyecto.</p>}
                 </div>
                 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
@@ -265,7 +265,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                   </DropdownMenu>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator className="my-2" />
                 <p className="text-[10px] font-bold uppercase text-muted-foreground">Nominados del Equipo</p>
 
                 <div className="space-y-1">
@@ -283,7 +283,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                     <Label className="text-[11px] font-medium">Equipo SIG</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal">{selectedSig.length > 0 ? `${selectedSig.length} sel.` : 'Personal SIG'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent>
+                      <DropdownMenuContent className="max-h-48 overflow-y-auto">
                         {EQUIPO_SIG.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedSig.includes(p)} onCheckedChange={c => setSelectedSig(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -292,7 +292,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                     <Label className="text-[11px] font-medium">Equipo Dron</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal">{selectedDron.length > 0 ? `${selectedDron.length} sel.` : 'Personal Dron'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent>
+                      <DropdownMenuContent className="max-h-48 overflow-y-auto">
                         {EQUIPO_DRON.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedDron.includes(p)} onCheckedChange={c => setSelectedDron(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -300,9 +300,9 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                 </div>
               </div>
             </ScrollArea>
-            <DialogFooter className="mt-6 border-t pt-4">
-              <Button variant="ghost" type="button" onClick={() => setIsFormOpen(false)} disabled={isPending}>Cancelar</Button>
-              <Button type="submit" disabled={isPending} className="min-w-[140px]">
+            <DialogFooter className="p-4 border-t bg-muted/30 shrink-0">
+              <Button variant="ghost" type="button" onClick={() => setIsFormOpen(false)} disabled={isPending} className="h-9 text-xs">Cancelar</Button>
+              <Button type="submit" disabled={isPending} className="min-w-[140px] h-9 text-xs">
                 {isPending ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                 {editingCard ? 'Guardar Cambios' : 'Crear Proyecto'}
               </Button>
