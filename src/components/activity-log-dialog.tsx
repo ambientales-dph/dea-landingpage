@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from '@/components/ui/dialog';
 import {
   Table,
@@ -17,12 +18,13 @@ import {
 } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 
 interface Activity {
   id: string;
@@ -86,11 +88,16 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[70vh] flex flex-col p-0 overflow-hidden border-0">
-        <DialogHeader className="p-4 bg-muted/30 border-b">
+        <DialogHeader className="p-4 bg-muted/30 border-b flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-sm font-bold flex items-center gap-2">
             Bitácora de Actividad del Portal
             {isLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </DialogTitle>
+          <DialogClose asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogClose>
         </DialogHeader>
         
         <ScrollArea className="flex-grow">
