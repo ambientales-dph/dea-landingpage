@@ -119,14 +119,18 @@ export async function createProject(
       driveFolderUrl = await createProjectFolder(folderName, cuencaId);
       await addAttachmentToTrelloCard({ cardId: card.id, url: driveFolderUrl, name: folderName });
       
-      // 4. Compartir Carpeta (Opcional, no bloqueante)
+      // 4. Compartir Carpeta automáticamente con el equipo
       if (driveFolderUrl) {
           const emailsToShare = new Set<string>();
+          // Incluir al creador
           if (userEmail) emailsToShare.add(userEmail);
+          
+          // Incluir al equipo seleccionado
           getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e));
           getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e));
           getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e));
           
+          // Compartir de forma asíncrona (no bloqueante)
           shareFolderWithEmails(driveFolderUrl, Array.from(emailsToShare));
       }
     } catch (e) {
