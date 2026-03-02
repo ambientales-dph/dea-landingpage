@@ -115,24 +115,37 @@ export async function createProject(
 
     // 3. Gestión de Drive
     try {
+      // 3.1 Crear carpeta
       const folderData = await createProjectFolder(folderName, cuencaId);
+      
+      // 3.2 Adjuntar a Trello
       await addAttachmentToTrelloCard({ cardId: card.id, url: folderData.url, name: folderName });
       
       // 4. Compartir Carpeta automáticamente con el equipo
       const emailsToShare = new Set<string>();
-      if (userEmail) emailsToShare.add(userEmail.toLowerCase());
       
+      // Añadir al creador (Luis Bree)
+      if (userEmail && userEmail.includes('@')) {
+        emailsToShare.add(userEmail.trim().toLowerCase());
+      }
+      
+      // Añadir a los integrantes seleccionados
       getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
       getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
       getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
       
       const emailList = Array.from(emailsToShare);
       if (emailList.length > 0) {
+          // Esperamos a que termine el proceso de compartir
           await shareFolderWithEmails(folderData.id, emailList);
       }
     } catch (e: any) {
       console.error('Error en gestión de Drive:', e);
-      await addCommentToCard({ cardId: card.id, text: `ATENCIÓN: No se pudo gestionar Drive automáticamente. Detalle: ${e.message || 'Error desconocido'}` });
+      // Si falla algo de Drive, dejamos un comentario detallado en la tarjeta
+      await addCommentToCard({ 
+        cardId: card.id, 
+        text: `ATENCIÓN: Gestión de Drive incompleta. Detalle: ${e.message || 'Error desconocido'}` 
+      });
     }
 
     return {

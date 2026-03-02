@@ -51,7 +51,7 @@ export async function createProjectFolder(projectName: string, cuencaId: string)
 
     } catch (error: any) {
         console.error('Error creating Google Drive folder:', error);
-        throw new Error(`No se pudo crear la carpeta en Google Drive: ${error.message || 'Error desconocido'}`);
+        throw new Error(`Error en Drive.create: ${error.message || 'Error desconocido'}`);
     }
 }
 
@@ -62,36 +62,30 @@ export async function shareFolderWithEmails(folderId: string, emails: string[]):
     const validEmails = [...new Set(emails.filter(e => e && e.includes('@')).map(e => e.trim().toLowerCase()))];
     
     if (!validEmails.length) {
-        console.log('No hay correos válidos para compartir.');
         return;
     }
 
-    console.log(`Iniciando proceso para compartir carpeta ${folderId} con:`, validEmails);
+    const errors: string[] = [];
 
-    try {
-        // Creamos los permisos uno por uno
-        const sharePromises = validEmails.map(async (email) => {
-            try {
-                await drive.permissions.create({
-                    fileId: folderId,
-                    requestBody: {
-                        role: 'writer',
-                        type: 'user',
-                        emailAddress: email,
-                    },
-                    sendNotificationEmail: true,
-                });
-                console.log(`Compartido con éxito con: ${email}`);
-            } catch (err: any) {
-                console.warn(`Error al compartir con ${email}:`, err.message);
-                // No relanzamos aquí para permitir que otros correos se procesen
-            }
-        });
+    // Procesamos de forma secuencial para tener mejor control de errores
+    for (const email of validEmails) {
+        try {
+            await drive.permissions.create({
+                fileId: folderId,
+                requestBody: {
+                    role: 'writer',
+                    type: 'user',
+                    emailAddress: email,
+                },
+                sendNotificationEmail: true,
+            });
+        } catch (err: any) {
+            console.error(`Error sharing with ${email}:`, err.message);
+            errors.push(`${email}: ${err.message}`);
+        }
+    }
 
-        await Promise.all(sharePromises);
-        console.log('Proceso de compartir finalizado.');
-    } catch (error: any) {
-        console.error('Error general en shareFolderWithEmails:', error.message);
-        throw error; // Relanzamos para que el action principal capture el fallo
+    if (errors.length > 0) {
+        throw new Error(`No se pudo compartir con: ${errors.join('; ')}`);
     }
 }
