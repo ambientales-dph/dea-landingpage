@@ -44,6 +44,43 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
 
     const [allActions, setAllActions] = useState<{trello: CombinedAction[], portal: CombinedAction[]}>({ trello: [], portal: [] });
 
+    const formatTrelloAction = (a: TrelloBoardAction): string => {
+        const cardName = a.data.card ? `"${a.data.card.name}"` : 'una tarjeta';
+        if (a.type === 'commentCard') return `comentó en ${cardName}`;
+        if (a.type === 'updateCard' && a.data.listAfter) return `movió ${cardName} a ${a.data.listAfter.name}`;
+        if (a.type === 'addAttachmentToCard') return `adjuntó un archivo en ${cardName}`;
+        if (a.type === 'createCard') return `creó la tarjeta ${cardName}`;
+        if (a.type === 'updateCard' && a.data.old && 'cover' in a.data.old) return `cambió la portada de ${cardName}`;
+        return `realizó una acción en ${cardName}`;
+    };
+
+    const filterDuplicateActions = (actions: CombinedAction[]): CombinedAction[] => {
+        return actions.filter((action, index, self) => {
+            if (action.source === 'trello') {
+                // Extraer el nombre del proyecto/tarjeta entre comillas
+                const cardNameMatch = action.text.match(/"([^"]+)"/);
+                const cardName = cardNameMatch ? cardNameMatch[1] : null;
+
+                if (cardName) {
+                    // Tipos de acciones de Trello que suelen ser automáticas durante la creación
+                    const isAutomated = ['createCard', 'addAttachmentToCard', 'updateCard'].includes(action.type);
+                    
+                    if (isAutomated) {
+                        // Buscar si hay una acción del Portal para el mismo proyecto en un margen de 2 minutos
+                        const hasPortalEquivalent = self.some(other => 
+                            other.source === 'portal' && 
+                            other.text.includes(`"${cardName}"`) &&
+                            Math.abs(other.date.getTime() - action.date.getTime()) < 120000 // 2 minutos
+                        );
+                        // Si existe una equivalente del portal, filtramos esta de Trello
+                        if (hasPortalEquivalent) return false;
+                    }
+                }
+            }
+            return true;
+        });
+    };
+
     useEffect(() => {
         setIsLoading(true);
         
@@ -68,9 +105,10 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
             setAllActions(prev => {
                 const updated = { ...prev, portal: portalActions };
                 const combined = [...updated.trello, ...updated.portal]
-                    .sort((a, b) => b.date.getTime() - a.date.getTime())
-                    .slice(0, 30);
-                setNotifications(combined);
+                    .sort((a, b) => b.date.getTime() - a.date.getTime());
+                
+                const filtered = filterDuplicateActions(combined).slice(0, 30);
+                setNotifications(filtered);
                 return updated;
             });
         });
@@ -93,9 +131,10 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                 setAllActions(prev => {
                     const updated = { ...prev, trello: trelloActions };
                     const combined = [...updated.trello, ...updated.portal]
-                        .sort((a, b) => b.date.getTime() - a.date.getTime())
-                        .slice(0, 30);
-                    setNotifications(combined);
+                        .sort((a, b) => b.date.getTime() - a.date.getTime());
+                    
+                    const filtered = filterDuplicateActions(combined).slice(0, 30);
+                    setNotifications(filtered);
                     return updated;
                 });
             } catch (e) {
@@ -113,13 +152,6 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
             clearInterval(interval);
         };
     }, [db]);
-
-    const formatTrelloAction = (a: TrelloBoardAction): string => {
-        const cardName = a.data.card ? `"${a.data.card.name}"` : 'una tarjeta';
-        if (a.type === 'commentCard') return `comentó en ${cardName}`;
-        if (a.type === 'updateCard' && a.data.listAfter) return `movió ${cardName} a ${a.data.listAfter.name}`;
-        return `realizó una acción en ${cardName}`;
-    };
 
     const handleSelect = async (action: CombinedAction) => {
         setIsOpen(false);
