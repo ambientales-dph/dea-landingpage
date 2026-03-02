@@ -19,12 +19,11 @@ import {
     TrelloBoard,
     addCommentToCard
 } from '@/services/trello';
-import type { TrelloAttachment } from '@/services/trello';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Download, X, AlertTriangle, FileText, Edit, Save, ChevronDown, Send, File as FileIcon, Image as ImageIcon, Cloud, Link as LinkIcon, Plus, RefreshCw, Palette, Folder, ArrowDownUp, GripVertical, Settings, Trash2 } from 'lucide-react';
+import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -65,17 +64,30 @@ const removeAccents = (str: string): string => {
 }
 
 const trelloCoverColors = [
-    { name: 'green', hex: 'rgb(75,206,151)', label: 'Verde' },
-    { name: 'yellow', hex: 'rgb(238,209,43)', label: 'Amarillo' },
-    { name: 'red', hex: 'rgb(248,113,104)', label: 'Rojo' },
-    { name: 'orange', hex: '#F97316', label: 'Naranja' },
-    { name: 'purple', hex: '#8B5CF6', label: 'Púrpura' },
-    { name: 'blue', hex: 'rgb(102,157,241)', label: 'Azul' },
-    { name: 'sky', hex: '#38BDF8', label: 'Cielo' },
-    { name: 'lime', hex: '#A3E635', label: 'Lima' },
-    { name: 'pink', hex: '#EC4899', label: 'Rosa' },
-    { name: 'black', hex: '#374151', label: 'Negro' },
+    { name: 'green', hex: '#4bce97', label: 'Verde' },
+    { name: 'yellow', hex: '#eed12b', label: 'Amarillo' },
+    { name: 'red', hex: '#f87168', label: 'Rojo' },
+    { name: 'orange', hex: '#ff9f1a', label: 'Naranja' },
+    { name: 'purple', hex: '#9f8fef', label: 'Púrpura' },
+    { name: 'blue', hex: '#579dff', label: 'Azul' },
+    { name: 'sky', hex: '#6cc3e0', label: 'Cielo' },
+    { name: 'lime', hex: '#94c748', label: 'Lima' },
+    { name: 'pink', hex: '#e774bb', label: 'Rosa' },
+    { name: 'black', hex: '#44546f', label: 'Negro' },
 ];
+
+const trelloColorToStyle = (color: string | null | undefined): React.CSSProperties => {
+    if (!color) return { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' };
+    const found = trelloCoverColors.find(c => c.name === color);
+    const hex = found?.hex || '#ccc';
+    // Colores claros que necesitan texto negro
+    const isLight = ['yellow', 'lime', 'sky'].includes(color);
+    return { 
+        backgroundColor: hex, 
+        color: isLight ? '#172b4d' : 'white',
+        borderColor: 'transparent'
+    };
+};
 
 const renderDescription = (desc: string) => {
     const parts: (string | JSX.Element)[] = [];
@@ -90,12 +102,11 @@ const renderDescription = (desc: string) => {
             const urlMatch = linkUrlRaw.trim().match(/^\S+/);
             if (!urlMatch) continue;
             const linkUrl = urlMatch[0];
-            let IconComponent = linkUrl.includes('drive.google.com') ? Cloud : LinkIcon;
-            parts.push(<a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/80"><IconComponent className="h-3.5 w-3.5" /><span>{linkText || 'Abrir'}</span></a>);
+            parts.push(<a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/80"><LinkIcon className="h-3.5 w-3.5" /><span>{linkText || 'Abrir'}</span></a>);
         } else if (boldText !== undefined) {
             parts.push(<strong key={match.index}>{boldText}</strong>);
         } else if (standaloneUrl !== undefined) {
-             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80"><FileIcon className="h-3.5 w-3.5" /><span>{standaloneUrl.split('/').pop()}</span></a>);
+             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80"><span>{standaloneUrl.split('/').pop()}</span></a>);
         }
         lastIndex = regex.lastIndex;
     }
@@ -115,7 +126,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [activity, setActivity] = useState<TrelloAction[]>([]);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
   const [boardLabels, setBoardLabels] = useState<TrelloLabel[]>([]);
-  const [isLabelsLoading, setIsLabelsLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -134,7 +144,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     if (!selectedCard) return;
     setIsRefreshing(true);
     setIsActivityLoading(true);
-    setIsLabelsLoading(true);
     try {
         const [refreshedCard, cardActivity, labels] = await Promise.all([
             getCardById(selectedCard.id),
@@ -149,7 +158,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     } finally {
         setIsRefreshing(false);
         setIsActivityLoading(false);
-        setIsLabelsLoading(false);
     }
   }, [selectedCard?.id, onCardSelect]);
 
@@ -176,12 +184,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       setIsLoading(false);
     }
   }, [isLoading]);
-
-  const trelloColorToStyle = (color: string | null | undefined): React.CSSProperties => {
-    if (!color) return { backgroundColor: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' };
-    const found = trelloCoverColors.find(c => c.name === color);
-    return found ? { backgroundColor: found.hex, color: ['yellow', 'lime', 'sky'].includes(color) ? 'black' : 'white' } : { backgroundColor: 'hsl(var(--primary))', color: 'white' };
-  };
 
   const filteredCards = useMemo(() => {
     if (!query || (selectedCard && query === selectedCard.name)) return [];
@@ -313,19 +315,36 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
               ref={inputRef}
               value={query}
               onFocus={() => { fetchAllCards(); if (query) setIsOpen(true); }}
-              onChange={(e) => { setQuery(e.target.value); setIsOpen(true); }}
+              onChange={(e) => { 
+                setQuery(e.target.value); 
+                if (e.target.value.length > 0) setIsOpen(true);
+                else setIsOpen(false);
+              }}
               placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'}
               className="w-full min-h-20 bg-primary-foreground text-foreground pr-10 text-xs"
               autoComplete="off"
             />
           </PopoverTrigger>
-          <PopoverContent className="p-0 w-[--radix-popover-trigger-width]">
-            <Command>
-              <CommandList>
-                {filteredCards.length === 0 && query.length > 0 && <CommandEmpty>No hay resultados.</CommandEmpty>}
+          <PopoverContent 
+            className="p-0 w-[--radix-popover-trigger-width] border-0 shadow-2xl" 
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <Command className="bg-transparent">
+              <CommandList className="max-h-[300px] bg-neutral-800 p-2">
+                {filteredCards.length === 0 && query.length > 0 && <CommandEmpty className="text-white py-4 text-center text-xs">No hay resultados.</CommandEmpty>}
                 <CommandGroup>
                   {filteredCards.map((card) => (
-                    <CommandItem key={card.id} onSelect={() => handleSelect(card)} className="cursor-pointer text-xs">{card.name}</CommandItem>
+                    <CommandItem 
+                      key={card.id} 
+                      onSelect={() => handleSelect(card)} 
+                      className="cursor-pointer text-xs mb-1 p-2 rounded-md transition-all duration-200 border-l-4"
+                      style={trelloColorToStyle(card.cover?.color)}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="font-bold">{card.name}</span>
+                        <span className="opacity-80 text-[10px] uppercase font-mono tracking-wider">{card.boardName}</span>
+                      </div>
+                    </CommandItem>
                   ))}
                 </CommandGroup>
               </CommandList>
@@ -338,7 +357,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
             <DialogContent className="p-0 max-w-2xl overflow-hidden border-0">
-                <DialogHeader style={trelloColorToStyle(selectedCard.cover?.color)} className="p-6 relative rounded-t-lg">
+                <DialogHeader 
+                    style={{
+                        backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
+                        color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white'
+                    }} 
+                    className="p-6 relative rounded-t-lg"
+                >
                     {isEditing ? (
                         <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} className="text-base font-semibold bg-transparent text-inherit border-white/30 h-auto p-1 mr-28" />
                     ) : (
@@ -406,7 +431,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <div className="space-y-1">
                           {sortedAttachments.map(att => (
                             <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group">
-                              {att.url.split('.').pop() === 'pdf' ? <FileText className="h-3 w-3 text-red-500" /> : <LinkIcon className="h-3 w-3 text-blue-500" />}
+                              <FileText className="h-3 w-3 text-muted-foreground" />
                               <span className="flex-1 truncate">{att.name}</span>
                             </a>
                           ))}

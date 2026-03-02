@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState, useEffect, useRef, useState, useCallback } from 'react';
@@ -62,6 +63,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
       toast({ title: '¡Éxito!', description: createState.message });
       
       if (user && db) {
+        // Obtenemos el nombre real de la whitelist para asegurar que la notificación sea correcta
         const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
         const realName = authorizedUser?.name || user.displayName || 'Usuario';
 
@@ -78,6 +80,7 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
 
         addDoc(collection(db, 'app_activities'), activityData)
           .catch(async (error) => {
+            console.error('Error recording activity:', error);
             const permissionError = new FirestorePermissionError({
               path: 'app_activities',
               operation: 'create',
