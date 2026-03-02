@@ -66,7 +66,11 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
       const allCards = await getAllCardsFromAllBoards();
       const projectCards = allCards
         .filter(card => card.name.match(/\(([A-Z]{3}\d{3})\)$/))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => {
+          const codeA = a.name.match(/\(([^)]+)\)$/)?.[1] || "";
+          const codeB = b.name.match(/\(([^)]+)\)$/)?.[1] || "";
+          return codeA.localeCompare(codeB);
+        });
       setProjects(projectCards);
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
@@ -170,7 +174,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar..."
+                placeholder="Buscar por nombre o código..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-8 text-xs bg-white"
@@ -195,9 +199,9 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                         setOpen(false);
                       }}
                     >
-                      <TableCell className="font-mono py-1.5">{project.name.match(/\(([^)]+)\)$/)?.[1]}</TableCell>
+                      <TableCell className="font-mono py-1.5 w-[100px] border-r border-muted/30">{project.name.match(/\(([^)]+)\)$/)?.[1]}</TableCell>
                       <TableCell className="py-1.5">{project.name.replace(/\([^)]+\)$/, '').trim()}</TableCell>
-                      <TableCell className="text-right py-1.5">
+                      <TableCell className="text-right py-1.5 w-[50px]">
                         <Button 
                           variant="ghost" 
                           size="icon" 
