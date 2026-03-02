@@ -85,7 +85,8 @@ const trelloColorToStyle = (color: string | null | undefined): React.CSSProperti
     return { 
         backgroundColor: hex, 
         color: isLight ? '#172b4d' : 'white',
-        borderColor: 'transparent'
+        borderColor: 'transparent',
+        fontWeight: 'normal'
     };
 };
 
@@ -329,7 +330,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             className="p-0 w-[--radix-popover-trigger-width] border-0 shadow-2xl" 
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
-            <Command className="bg-transparent">
+            <Command className="bg-white">
               <CommandList className="max-h-[300px] bg-white p-2">
                 {filteredCards.length === 0 && query.length > 0 && query !== selectedCard?.name && (
                   <CommandEmpty className="text-muted-foreground py-4 text-center text-xs">No hay resultados.</CommandEmpty>
@@ -343,7 +344,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                       style={trelloColorToStyle(card.cover?.color)}
                     >
                       <div className="flex flex-col gap-0.5 overflow-hidden">
-                        <span className="truncate font-medium">{card.name}</span>
+                        <span className="whitespace-normal leading-tight font-normal">{card.name}</span>
                       </div>
                     </CommandItem>
                   ))}
