@@ -25,6 +25,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { WHITELIST } from '@/lib/auth-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { cn } from '@/lib/utils';
 
 const initialState: ProjectState = { message: undefined, success: false };
 
@@ -63,7 +64,9 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
     setIsLoading(true);
     try {
       const allCards = await getAllCardsFromAllBoards();
-      const projectCards = allCards.filter(card => card.name.match(/\(([A-Z]{3}\d{3})\)$/));
+      const projectCards = allCards
+        .filter(card => card.name.match(/\(([A-Z]{3}\d{3})\)$/))
+        .sort((a, b) => a.name.localeCompare(b.name));
       setProjects(projectCards);
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
@@ -181,7 +184,17 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
               <Table className="text-xs">
                 <TableBody>
                   {projects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((project, idx) => (
-                    <TableRow key={project.id} className={idx % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20'}>
+                    <TableRow 
+                      key={project.id} 
+                      className={cn(
+                        "cursor-pointer hover:bg-muted/40 transition-colors",
+                        idx % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20'
+                      )}
+                      onClick={() => {
+                        onEditCard?.(project);
+                        setOpen(false);
+                      }}
+                    >
                       <TableCell className="font-mono py-1.5">{project.name.match(/\(([^)]+)\)$/)?.[1]}</TableCell>
                       <TableCell className="py-1.5">{project.name.replace(/\([^)]+\)$/, '').trim()}</TableCell>
                       <TableCell className="text-right py-1.5">
@@ -189,7 +202,10 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                           variant="ghost" 
                           size="icon" 
                           className="h-7 w-7"
-                          onClick={() => handleEditClick(project)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditClick(project);
+                          }}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
