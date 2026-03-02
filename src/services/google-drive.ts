@@ -1,4 +1,3 @@
-
 'use server';
 
 import { google } from 'googleapis';
@@ -54,30 +53,38 @@ export async function createProjectFolder(projectName: string, cuencaId: string)
  * Comparte una carpeta con una lista de correos con permisos de editor.
  */
 export async function shareFolderWithEmails(folderUrl: string, emails: string[]): Promise<void> {
-    if (!emails.length) return;
+    const validEmails = emails.filter(e => e && e.includes('@'));
+    if (!validEmails.length) return;
 
     try {
-        // Extraemos el ID de la URL: .../folders/ID?usp=sharing o similar
-        const folderIdMatch = folderUrl.match(/folders\/([^/?]+)/);
-        if (!folderIdMatch) return;
-        const folderId = folderIdMatch[1];
+        // Extracción robusta del ID de la carpeta desde la URL
+        let folderId = '';
+        const match = folderUrl.match(/[-\w]{25,}/); 
+        if (match) {
+            folderId = match[0];
+        } else {
+            console.error('No se pudo extraer el ID de la carpeta desde la URL:', folderUrl);
+            return;
+        }
+
+        console.log(`Compartiendo carpeta ${folderId} con:`, validEmails);
 
         // Google Drive API permite crear permisos uno por uno
-        const sharePromises = emails.map(email => 
+        const sharePromises = validEmails.map(email => 
             drive.permissions.create({
                 fileId: folderId,
                 requestBody: {
                     role: 'writer',
                     type: 'user',
-                    emailAddress: email,
+                    emailAddress: email.trim().toLowerCase(),
                 },
-                sendNotificationEmail: true, // Avisarles por mail
+                sendNotificationEmail: true, 
             }).catch(err => {
                 console.warn(`No se pudo compartir con ${email}:`, err.message);
             })
         );
 
-        await Promise.allSettled(sharePromises);
+        await Promise.all(sharePromises);
     } catch (error) {
         console.error('Error sharing folder:', error);
     }

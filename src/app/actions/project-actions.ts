@@ -51,7 +51,7 @@ function getEmailsFromSelection(selection: string): string[] {
     if (!selection) return [];
     const names = selection.split(';').map(n => n.trim()).filter(Boolean);
     return names.map(name => {
-        const person = WHITELIST.find(p => p.name === name);
+        const person = WHITELIST.find(p => p.name.toLowerCase() === name.toLowerCase());
         return person?.email;
     }).filter((email): email is string => !!email);
 }
@@ -123,15 +123,15 @@ export async function createProject(
       if (driveFolderUrl) {
           const emailsToShare = new Set<string>();
           // Incluir al creador
-          if (userEmail) emailsToShare.add(userEmail);
+          if (userEmail) emailsToShare.add(userEmail.toLowerCase());
           
           // Incluir al equipo seleccionado
-          getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e));
-          getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e));
-          getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e));
+          getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+          getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+          getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
           
-          // Compartir de forma asíncrona (no bloqueante)
-          shareFolderWithEmails(driveFolderUrl, Array.from(emailsToShare));
+          // Esperamos a que se completen los permisos antes de terminar el action
+          await shareFolderWithEmails(driveFolderUrl, Array.from(emailsToShare));
       }
     } catch (e) {
       console.error('Error en Drive:', e);
