@@ -17,7 +17,10 @@ const drive = google.drive({
   auth: oauth2Client,
 });
 
-export async function createProjectFolder(projectName: string, cuencaId: string): Promise<string> {
+/**
+ * Crea una carpeta para el proyecto y devuelve tanto el ID como el enlace web.
+ */
+export async function createProjectFolder(projectName: string, cuencaId: string): Promise<{ id: string; url: string }> {
     const cuenca = CUENCAS.find(c => c.id === cuencaId);
     if (!cuenca || !cuenca.driveFolderId) {
         throw new Error(`La carpeta de la cuenca "${cuenca?.name || cuencaId}" no está configurada.`);
@@ -38,10 +41,13 @@ export async function createProjectFolder(projectName: string, cuencaId: string)
         });
         
         if (!folder.data.id || !folder.data.webViewLink) {
-            throw new Error('No se pudo obtener el enlace de la carpeta.');
+            throw new Error('No se pudo obtener la información de la carpeta creada.');
         }
 
-        return folder.data.webViewLink;
+        return {
+            id: folder.data.id,
+            url: folder.data.webViewLink
+        };
 
     } catch (error: any) {
         console.error('Error creating Google Drive folder:', error);
@@ -50,42 +56,42 @@ export async function createProjectFolder(projectName: string, cuencaId: string)
 }
 
 /**
- * Comparte una carpeta con una lista de correos con permisos de editor.
+ * Comparte una carpeta con una lista de correos con permisos de editor usando el ID de la carpeta.
  */
-export async function shareFolderWithEmails(folderUrl: string, emails: string[]): Promise<void> {
-    const validEmails = emails.filter(e => e && e.includes('@'));
-    if (!validEmails.length) return;
+export async function shareFolderWithEmails(folderId: string, emails: string[]): Promise<void> {
+    const validEmails = [...new Set(emails.filter(e => e && e.includes('@')).map(e => e.trim().toLowerCase()))];
+    
+    if (!validEmails.length) {
+        console.log('No hay correos válidos para compartir.');
+        return;
+    }
+
+    console.log(`Iniciando proceso para compartir carpeta ${folderId} con:`, validEmails);
 
     try {
-        // Extracción robusta del ID de la carpeta desde la URL
-        let folderId = '';
-        const match = folderUrl.match(/[-\w]{25,}/); 
-        if (match) {
-            folderId = match[0];
-        } else {
-            console.error('No se pudo extraer el ID de la carpeta desde la URL:', folderUrl);
-            return;
-        }
-
-        console.log(`Compartiendo carpeta ${folderId} con:`, validEmails);
-
-        // Google Drive API permite crear permisos uno por uno
-        const sharePromises = validEmails.map(email => 
-            drive.permissions.create({
-                fileId: folderId,
-                requestBody: {
-                    role: 'writer',
-                    type: 'user',
-                    emailAddress: email.trim().toLowerCase(),
-                },
-                sendNotificationEmail: true, 
-            }).catch(err => {
-                console.warn(`No se pudo compartir con ${email}:`, err.message);
-            })
-        );
+        // Creamos los permisos uno por uno
+        const sharePromises = validEmails.map(async (email) => {
+            try {
+                await drive.permissions.create({
+                    fileId: folderId,
+                    requestBody: {
+                        role: 'writer',
+                        type: 'user',
+                        emailAddress: email,
+                    },
+                    sendNotificationEmail: true,
+                });
+                console.log(`Compartido con éxito con: ${email}`);
+            } catch (err: any) {
+                console.warn(`Error al compartir con ${email}:`, err.message);
+                // No relanzamos aquí para permitir que otros correos se procesen
+            }
+        });
 
         await Promise.all(sharePromises);
-    } catch (error) {
-        console.error('Error sharing folder:', error);
+        console.log('Proceso de compartir finalizado.');
+    } catch (error: any) {
+        console.error('Error general en shareFolderWithEmails:', error.message);
+        throw error; // Relanzamos para que el action principal capture el fallo
     }
 }

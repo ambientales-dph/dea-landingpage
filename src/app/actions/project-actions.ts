@@ -113,29 +113,26 @@ export async function createProject(
     // 2. Portada Roja
     await updateTrelloCard({ cardId: card.id, cover: { color: 'red' } });
 
-    // 3. Crear Carpeta Drive
-    let driveFolderUrl: string | null = null;
+    // 3. Gestión de Drive
     try {
-      driveFolderUrl = await createProjectFolder(folderName, cuencaId);
-      await addAttachmentToTrelloCard({ cardId: card.id, url: driveFolderUrl, name: folderName });
+      const folderData = await createProjectFolder(folderName, cuencaId);
+      await addAttachmentToTrelloCard({ cardId: card.id, url: folderData.url, name: folderName });
       
       // 4. Compartir Carpeta automáticamente con el equipo
-      if (driveFolderUrl) {
-          const emailsToShare = new Set<string>();
-          // Incluir al creador
-          if (userEmail) emailsToShare.add(userEmail.toLowerCase());
-          
-          // Incluir al equipo seleccionado
-          getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-          getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-          getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-          
-          // Esperamos a que se completen los permisos antes de terminar el action
-          await shareFolderWithEmails(driveFolderUrl, Array.from(emailsToShare));
+      const emailsToShare = new Set<string>();
+      if (userEmail) emailsToShare.add(userEmail.toLowerCase());
+      
+      getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+      getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+      getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+      
+      const emailList = Array.from(emailsToShare);
+      if (emailList.length > 0) {
+          await shareFolderWithEmails(folderData.id, emailList);
       }
-    } catch (e) {
-      console.error('Error en Drive:', e);
-      await addCommentToCard({ cardId: card.id, text: `ATENCIÓN: No se pudo gestionar Drive automáticamente.` });
+    } catch (e: any) {
+      console.error('Error en gestión de Drive:', e);
+      await addCommentToCard({ cardId: card.id, text: `ATENCIÓN: No se pudo gestionar Drive automáticamente. Detalle: ${e.message || 'Error desconocido'}` });
     }
 
     return {
