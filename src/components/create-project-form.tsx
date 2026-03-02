@@ -62,7 +62,6 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
       toast({ title: '¡Éxito!', description: createState.message });
       
       if (user && db) {
-        // Obtenemos el nombre real de la Whitelist si el perfil de Google no lo tiene
         const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
         const realName = authorizedUser?.name || user.displayName || 'Usuario';
 
@@ -130,9 +129,9 @@ export default function CreateProjectForm({ setOpen }: { setOpen: (open: boolean
                 <TableBody>
                   {projects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((project, idx) => (
                     <TableRow key={project.id} className={idx % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20'}>
-                      <TableCell className="font-mono">{project.name.match(/\(([^)]+)\)$/)?.[1]}</TableCell>
-                      <TableCell>{project.name.replace(/\([^)]+\)$/, '').trim()}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="font-mono py-1.5">{project.name.match(/\(([^)]+)\)$/)?.[1]}</TableCell>
+                      <TableCell className="py-1.5">{project.name.replace(/\([^)]+\)$/, '').trim()}</TableCell>
+                      <TableCell className="text-right py-1.5">
                         <Button variant="ghost" size="icon" className="h-7 w-7" disabled><Pencil className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
