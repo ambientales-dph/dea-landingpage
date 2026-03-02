@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp } from 'lucide-react';
+import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -305,6 +305,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     });
   }, [selectedCard?.attachments, attachmentSort]);
 
+  const isDriveFolder = (url: string) => {
+    return url.includes('drive.google.com') && url.includes('/folders/');
+  };
+
   return (
     <div className="flex h-full w-full flex-col justify-end">
       <div className="relative w-full">
@@ -431,7 +435,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <div className="space-y-1">
                           {sortedAttachments.map(att => (
                             <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group">
-                              <FileText className="h-3 w-3 text-muted-foreground" />
+                              {isDriveFolder(att.url) ? (
+                                <Folder className="h-3 w-3 text-muted-foreground" />
+                              ) : (
+                                <FileText className="h-3 w-3 text-muted-foreground" />
+                              )}
                               <span className="flex-1 truncate">{att.name}</span>
                             </a>
                           ))}
