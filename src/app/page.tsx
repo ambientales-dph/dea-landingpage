@@ -262,11 +262,20 @@ export default function Home() {
         let y = 20;
 
         const extractField = (desc: string, field: string): string => {
-            if (!desc) return '****';
-            const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`^${escapedField}:\\s*\\*\\*(.*?)\\*\\*`, 'm');
-            const match = desc.match(regex);
-            return (match && match[1] && !/^\*+$/.test(match[1])) ? match[1].trim() : '****';
+            if (!desc) return '';
+            const lines = desc.split('\n');
+            for (const line of lines) {
+                if (line.includes(field)) {
+                    const parts = line.split(':');
+                    if (parts.length > 1) {
+                        let val = parts.slice(1).join(':').trim();
+                        val = val.replace(/\*\*/g, '').trim();
+                        if (val === '****' || val === '') return '';
+                        return val;
+                    }
+                }
+            }
+            return '';
         };
 
         const allCardsFromTrello = await getAllCardsFromAllBoards();
@@ -279,11 +288,12 @@ export default function Home() {
         }, {} as Record<string, TrelloCard[]>);
 
         const cols = {
-            code: { x: margin, w: 20, label: 'Código' },
-            name: { x: margin + 20, w: 90, label: 'Nombre del Proyecto' },
-            proyectista: { x: margin + 110, w: 45, label: 'Proyectista' },
-            financiamiento: { x: margin + 155, w: 45, label: 'Financiamiento' },
-            equipo: { x: margin + 200, w: 77, label: 'Equipo (DEA)' },
+            code: { x: margin, w: 15, label: 'Cód.' },
+            name: { x: margin + 15, w: 75, label: 'Proyecto' },
+            partido: { x: margin + 90, w: 35, label: 'Partido' },
+            proyectista: { x: margin + 125, w: 35, label: 'Proyectista' },
+            financiamiento: { x: margin + 160, w: 35, label: 'Financiamiento' },
+            equipo: { x: margin + 195, w: 82, label: 'Equipo (DEA / SIG / Dron)' },
         };
 
         doc.setFontSize(12);
@@ -292,27 +302,73 @@ export default function Home() {
         
         for (const boardName of Object.keys(groupedByBoard).sort()) {
             if (y > pageHeight - 40) { doc.addPage(); y = 20; }
-            doc.setFontSize(10);
-            doc.setFillColor(70, 70, 70);
+            
+            // Título del Tablero
+            doc.setFontSize(9);
+            doc.setFillColor(240, 240, 240);
             doc.rect(margin, y - 5, pageWidth - (2 * margin), 7, 'F');
-            doc.setTextColor(255, 255, 255);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('Helvetica', 'bold');
             doc.text(boardName, margin + 2, y);
-            y += 10;
+            y += 8;
+
+            // Encabezado de Tabla
+            doc.setFontSize(7);
+            doc.setFillColor(70, 70, 70);
+            doc.rect(margin, y - 4, pageWidth - (2 * margin), 6, 'F');
+            doc.setTextColor(255, 255, 255);
+            Object.values(cols).forEach(col => {
+                doc.text(col.label, col.x + 1, y);
+            });
+            y += 8;
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('Helvetica', 'normal');
 
             for (const card of groupedByBoard[boardName].sort((a,b) => a.name.localeCompare(b.name))) {
                 const { code, nameWithoutCode } = getProjectInfo(card.name);
-                const rowHeight = 8;
-                if (y > pageHeight - margin) { doc.addPage(); y = 20; }
-                doc.setTextColor(0, 0, 0);
-                doc.setFontSize(7);
+                
+                const partido = extractField(card.desc, 'PARTIDO');
+                const proyectista = extractField(card.desc, 'PROYECTISTA');
+                const financiamiento = extractField(card.desc, 'FINANCIAMIENTO');
+                const dea = extractField(card.desc, '- Diagnóstico ambiental-socioeconómico');
+                const sig = extractField(card.desc, '- Información SIG-imágenes');
+                const dron = extractField(card.desc, '- Información LIDAR/vuelos Dron');
+                
+                const equipoParts = [];
+                if (dea) equipoParts.push(`DEA: ${dea}`);
+                if (sig) equipoParts.push(`SIG: ${sig}`);
+                if (dron) equipoParts.push(`DRON: ${dron}`);
+                const equipoText = equipoParts.join(' | ');
+
+                const nameLines = doc.splitTextToSize(nameWithoutCode, cols.name.w - 2);
+                const equipoLines = doc.splitTextToSize(equipoText, cols.equipo.w - 2);
+                const maxLines = Math.max(nameLines.length, equipoLines.length);
+                const rowHeight = Math.max(5, maxLines * 3.5 + 2);
+
+                if (y + rowHeight > pageHeight - margin) { 
+                    doc.addPage(); 
+                    y = 20; 
+                }
+
+                doc.setFontSize(6);
                 doc.text(code || '', cols.code.x + 1, y);
-                doc.text(doc.splitTextToSize(nameWithoutCode, cols.name.w - 2), cols.name.x + 1, y);
+                doc.text(nameLines, cols.name.x + 1, y);
+                doc.text(doc.splitTextToSize(partido, cols.partido.w - 2), cols.partido.x + 1, y);
+                doc.text(doc.splitTextToSize(proyectista, cols.proyectista.w - 2), cols.proyectista.x + 1, y);
+                doc.text(doc.splitTextToSize(financiamiento, cols.financiamiento.w - 2), cols.financiamiento.x + 1, y);
+                doc.text(equipoLines, cols.equipo.x + 1, y);
+                
+                doc.setDrawColor(220, 220, 220);
+                doc.line(margin, y + rowHeight - 2, pageWidth - margin, y + rowHeight - 2);
+                
                 y += rowHeight;
             }
-            y += 5;
+            y += 10;
         }
         doc.save('DEA-Listado-Proyectos.pdf');
     } catch (error) {
+        console.error('PDF generation error:', error);
         toast({ variant: 'destructive', title: 'Error al generar el PDF' });
     } finally {
         setIsDownloading(false);
