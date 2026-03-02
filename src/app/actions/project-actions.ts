@@ -2,7 +2,15 @@
 
 import { z } from 'zod';
 import { CUENCAS, DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
-import { createTrelloCard, getNextProjectCode, updateTrelloCard, addAttachmentToTrelloCard, addCommentToCard, getListsOnBoard } from '@/services/trello';
+import { 
+    createTrelloCard, 
+    getNextProjectCode, 
+    updateTrelloCard, 
+    addAttachmentToTrelloCard, 
+    addCommentToCard, 
+    getListsOnBoard,
+    getCardById
+} from '@/services/trello';
 import { createProjectFolder, shareFolderWithEmails } from '@/services/google-drive';
 import { WHITELIST } from '@/lib/auth-data';
 
@@ -18,6 +26,7 @@ const ProjectSchema = z.object({
   informacionSig: z.string().optional(),
   informacionDron: z.string().optional(),
   userEmail: z.string().optional(),
+  cardId: z.string().optional(),
 });
 
 export type ProjectState = {
@@ -152,5 +161,82 @@ export async function createProject(
 }
 
 export async function updateProject(prevState: ProjectState, formData: FormData): Promise<ProjectState> {
-    return { success: true, message: "Proyecto actualizado" };
+    const validatedFields = ProjectSchema.safeParse({
+        nombre: formData.get('nombre'),
+        cuenca: formData.get('cuenca'),
+        partido: formData.get('partido'),
+        proyectista: formData.get('proyectista'),
+        financiamiento: formData.get('financiamiento'),
+        diagnosticoEquipo: formData.get('diagnosticoEquipo'),
+        informacionSig: formData.get('informacionSig'),
+        informacionDron: formData.get('informacionDron'),
+        cardId: formData.get('cardId'),
+    });
+
+    if (!validatedFields.success) {
+        return {
+            errors: validatedFields.error.flatten().fieldErrors,
+            message: 'Faltan campos obligatorios.',
+            success: false,
+        };
+    }
+
+    const { nombre, cuenca: cuencaId, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, cardId } = validatedFields.data;
+    if (!cardId) return { success: false, message: 'ID de tarjeta no encontrado.' };
+
+    try {
+        const currentCard = await getCardById(cardId);
+        const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
+        if (!selectedCuenca) throw new Error('Cuenca no válida.');
+
+        let cardName = currentCard.name;
+        let idList = currentCard.idList;
+        let finalDescription = currentCard.desc || DESCRIPCION_PLANTILLA;
+
+        // Extraer código actual
+        const codeRegex = /\(([A-Z]{3}\d{3})\)$/;
+        const codeMatch = currentCard.name.match(codeRegex);
+        const currentCode = codeMatch ? codeMatch[1] : null;
+
+        // Si cambió la cuenca, generar nuevo código y mover de lista
+        if (currentCode && !currentCode.startsWith(selectedCuenca.code)) {
+            const newCode = await getNextProjectCode(selectedCuenca.code);
+            cardName = `${nombre} (${newCode})`;
+            
+            const lists = await getListsOnBoard(PROYECTOS_BOARD_ID);
+            const targetList = lists.find(list => list.name.toLowerCase() === selectedCuenca.trelloListName.toLowerCase());
+            if (targetList) idList = targetList.id;
+        } else {
+            // Solo actualizar nombre, manteniendo código actual
+            cardName = `${nombre} (${currentCode || 'XXX000'})`;
+        }
+
+        // Actualizar campos en la descripción
+        if (partido !== undefined) finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
+        if (proyectista !== undefined) finalDescription = updateDescriptionField(finalDescription, 'PROYECTISTA', proyectista);
+        if (financiamiento !== undefined) finalDescription = updateDescriptionField(finalDescription, 'FINANCIAMIENTO', financiamiento);
+        if (diagnosticoEquipo !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
+        if (informacionSig !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Información SIG-imágenes', informacionSig);
+        if (informacionDron !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Información LIDAR/vuelos Dron', informacionDron);
+
+        await updateTrelloCard({
+            cardId,
+            name: cardName,
+            desc: finalDescription,
+            idList
+        });
+
+        return {
+            success: true,
+            message: 'Proyecto actualizado con éxito.',
+            cardId: cardId,
+            projectName: cardName
+        };
+
+    } catch (error) {
+        return {
+            success: false,
+            message: `Error al actualizar: ${error instanceof Error ? error.message : 'Error desconocido'}`
+        };
+    }
 }
