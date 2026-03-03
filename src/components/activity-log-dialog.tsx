@@ -97,6 +97,10 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
       case 'create_project': return 'CREACIÓN';
       case 'attach_resource': return 'RECURSO';
       case 'update_project': return 'EDICIÓN';
+      case 'update_cover': return 'PORTADA';
+      case 'update_labels': return 'ETIQUETAS';
+      case 'add_comment': return 'COMENTARIO';
+      case 'remove_attachment': return 'ADJUNTO';
       default: return type.toUpperCase();
     }
   };
@@ -105,6 +109,11 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
     switch (type) {
       case 'create_project': return 'bg-green-500/10 text-green-600 border-green-500/20';
       case 'attach_resource': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+      case 'update_project': return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+      case 'update_cover': return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
+      case 'update_labels': return 'bg-pink-500/10 text-pink-600 border-pink-500/20';
+      case 'add_comment': return 'bg-slate-500/10 text-slate-600 border-slate-500/20';
+      case 'remove_attachment': return 'bg-red-500/10 text-red-600 border-red-500/20';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
     }
   };

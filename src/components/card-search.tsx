@@ -48,6 +48,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import React from 'react';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { WHITELIST } from '@/lib/auth-data';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -114,6 +119,8 @@ const renderDescription = (desc: string) => {
 };
 
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
+  const { user } = useUser();
+  const db = useFirestore();
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -138,6 +145,35 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const logPortalActivity = useCallback(async (actionType: string, detail: string) => {
+    if (user && db && selectedCard) {
+      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+      const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+      const activityData = {
+        userId: user.uid,
+        userName: realName,
+        userEmail: user.email,
+        userPhoto: user.photoURL || '',
+        actionType: actionType,
+        projectName: detail,
+        cardId: selectedCard.id,
+        timestamp: serverTimestamp(),
+      };
+
+      try {
+        await addDoc(collection(db, 'app_activities'), activityData);
+      } catch (error) {
+         const permissionError = new FirestorePermissionError({
+            path: 'app_activities',
+            operation: 'create',
+            requestResourceData: activityData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+      }
+    }
+  }, [user, db, selectedCard]);
 
   const fetchCardData = useCallback(async () => {
     if (!selectedCard) return;
@@ -247,6 +283,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
           idBoard: editedBoardId, 
           idList: editedListId 
         });
+        await logPortalActivity('update_project', `Editó título/descripción de "${editedName}"`);
         toast({ title: '¡Éxito!', description: 'Tarjeta actualizada correctamente.' });
         setIsEditing(false);
         fetchCardData();
@@ -261,6 +298,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     if (!selectedCard) return;
     try {
       await updateTrelloCard({ cardId: selectedCard.id, cover: { color } });
+      await logPortalActivity('update_cover', `Cambió el color de portada a ${color || 'ninguno'} en "${selectedCard.name}"`);
       fetchCardData();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error al cambiar color' });
@@ -270,10 +308,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const handleToggleLabel = async (labelId: string, isCurrentlyOn: boolean) => {
     if (!selectedCard) return;
     try {
+      const labelName = boardLabels.find(l => l.id === labelId)?.name || 'Etiqueta';
       if (isCurrentlyOn) {
         await removeLabelFromCard({ cardId: selectedCard.id, labelId });
+        await logPortalActivity('update_labels', `Quitó la etiqueta "${labelName}" de "${selectedCard.name}"`);
       } else {
         await addLabelToCard({ cardId: selectedCard.id, labelId });
+        await logPortalActivity('update_labels', `Añadió la etiqueta "${labelName}" a "${selectedCard.name}"`);
       }
       fetchCardData();
     } catch (error) {
@@ -286,6 +327,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setIsCommenting(true);
     try {
       await addCommentToCard({ cardId: selectedCard.id, text: newComment });
+      await logPortalActivity('add_comment', `Comentó en "${selectedCard.name}": ${newComment.substring(0, 30)}${newComment.length > 30 ? '...' : ''}`);
       setNewComment('');
       fetchCardData();
     } catch (error) {

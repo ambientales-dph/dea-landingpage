@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -174,6 +174,35 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
       removeAccents(resource.title.toLowerCase()).includes(normalizedQuery)
     );
   }, [searchQuery]);
+
+  const logActivity = useCallback(async (actionType: string, detail: string) => {
+    if (user && db && selectedCard) {
+      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+      const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+      const activityData = {
+        userId: user.uid,
+        userName: realName,
+        userEmail: user.email,
+        userPhoto: user.photoURL || '',
+        actionType: actionType,
+        projectName: detail,
+        cardId: selectedCard.id,
+        timestamp: serverTimestamp(),
+      };
+
+      try {
+        await addDoc(collection(db, 'app_activities'), activityData);
+      } catch (error) {
+         const permissionError = new FirestorePermissionError({
+            path: 'app_activities',
+            operation: 'create',
+            requestResourceData: activityData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+      }
+    }
+  }, [user, db, selectedCard]);
   
   const handleExternalSearch = async () => {
     if (searchQuery.length < 3) {
@@ -277,32 +306,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
       };
       onCardUpdate(updatedCard);
       
-      // Registrar actividad en el portal para que la notificación se atribuya al usuario
-      if (user && db) {
-        const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
-        const realName = authorizedUser?.name || user.displayName || 'Usuario';
-
-        const activityData = {
-          userId: user.uid,
-          userName: realName,
-          userEmail: user.email,
-          userPhoto: user.photoURL || '',
-          actionType: 'attach_resource',
-          projectName: selectedCard.name,
-          cardId: selectedCard.id,
-          timestamp: serverTimestamp(),
-        };
-
-        addDoc(collection(db, 'app_activities'), activityData)
-          .catch(async (error) => {
-            const permissionError = new FirestorePermissionError({
-              path: 'app_activities',
-              operation: 'create',
-              requestResourceData: activityData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-          });
-      }
+      await logActivity('attach_resource', `Adjuntó el recurso "${resource.title}" en "${selectedCard.name}"`);
 
       toast({
         title: '¡Éxito!',
@@ -338,6 +342,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
           attachments: selectedCard.attachments.filter(att => att.id !== resource.attachmentId),
       };
       onCardUpdate(updatedCard);
+
+      await logActivity('remove_attachment', `Quitó el recurso "${resource.title}" de "${selectedCard.name}"`);
 
       toast({
         title: '¡Éxito!',
