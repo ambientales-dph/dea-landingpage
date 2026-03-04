@@ -21,22 +21,22 @@ export const CUENCAS = [
 
 export const DESCRIPCION_PLANTILLA = `ESTADO: 
 PARTIDO: 
-EXTENSIÓN (Ha o Km): 
-POBLACIÓN BENEFICIADA: 
-PRESUPUESTO: 
+EXTENSIÓN (Ha o Km):
+POBLACIÓN BENEFICIADA:
+PRESUPUESTO:
 FINANCIAMIENTO: 
 
 - Diagnóstico ambiental-socioeconómico: 
 - Información SIG-imágenes: 
 - Información LIDAR/vuelos Dron: 
-- Proyectista: 
+- Proyectista:
 
 EXPEDIENTE: 
 PROVIDENCIA: 
 RESOLUCIÓN: 
 FECHA DIA: 
 
-Drive de trabajo: 
-Drive del proyectista: 
+Drive de trabajo:
+Drive del proyectista:
 
 #`;
