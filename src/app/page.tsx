@@ -98,9 +98,34 @@ export default function Home() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const [userProjects, setUserProjects] = useState<TrelloCard[]>([]);
+  const [recentProjects, setRecentProjects] = useState<TrelloCard[]>([]);
   const [isUserProjectsLoading, setIsUserProjectsLoading] = useState(false);
   
   const authorized = user ? isUserAuthorized(user.email) : false;
+
+  // Cargar proyectos recientes desde localStorage
+  useEffect(() => {
+    if (user?.uid) {
+      const stored = localStorage.getItem(`recent_projects_${user.uid}`);
+      if (stored) {
+        try {
+          setRecentProjects(JSON.parse(stored));
+        } catch (e) {
+          console.error("Error parsing recent projects", e);
+        }
+      }
+    }
+  }, [user?.uid]);
+
+  const updateRecentProjects = useCallback((card: TrelloCard) => {
+    if (!user?.uid) return;
+    setRecentProjects(prev => {
+      const filtered = prev.filter(p => p.id !== card.id);
+      const updated = [card, ...filtered].slice(0, 10);
+      localStorage.setItem(`recent_projects_${user.uid}`, JSON.stringify(updated));
+      return updated;
+    });
+  }, [user?.uid]);
 
   const fetchUserProjects = useCallback(async () => {
     if (!user?.email) return;
@@ -175,21 +200,28 @@ export default function Home() {
   const handleCardSelect = useCallback(async (card: TrelloCard | null) => {
     setSelectedCard(card);
 
-    if (card && card.desc) {
-      const match = card.desc.match(/^\s*\\?#\s*(.*)$/m);
-      const query = match && match[1] ? match[1].trim() : null;
-      
-      if (query) {
-        try {
-          const location = await searchLocation(query);
-          if (location) {
-            setViewState({
-              center: fromLonLat([parseFloat(location.lon), parseFloat(location.lat)]),
-              zoom: 14,
-            });
+    if (card) {
+      // Actualizar lista de recientes
+      updateRecentProjects(card);
+
+      if (card.desc) {
+        const match = card.desc.match(/^\s*\\?#\s*(.*)$/m);
+        const query = match && match[1] ? match[1].trim() : null;
+        
+        if (query) {
+          try {
+            const location = await searchLocation(query);
+            if (location) {
+              setViewState({
+                center: fromLonLat([parseFloat(location.lon), parseFloat(location.lat)]),
+                zoom: 14,
+              });
+            }
+          } catch (error) {
+            console.error('Error geocoding card description:', error);
+            setViewState(INITIAL_VIEW_STATE);
           }
-        } catch (error) {
-          console.error('Error geocoding card description:', error);
+        } else {
           setViewState(INITIAL_VIEW_STATE);
         }
       } else {
@@ -198,7 +230,7 @@ export default function Home() {
     } else {
       setViewState(INITIAL_VIEW_STATE);
     }
-  }, []);
+  }, [updateRecentProjects]);
 
   const handleNotificationClick = useCallback((card: TrelloCard) => {
     handleCardSelect(card);
@@ -562,6 +594,37 @@ export default function Home() {
                           ) : (
                             <div className="p-4 text-center text-[10px] text-muted-foreground italic">
                               No tenés proyectos asignados.
+                            </div>
+                          )}
+                        </ScrollArea>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <History className="mr-2 h-4 w-4" />
+                      <span>Recientes...</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="w-64 max-h-[300px] p-0 overflow-hidden flex flex-col">
+                        <DropdownMenuLabel className="bg-muted/50 p-2 text-[10px] uppercase font-bold text-muted-foreground">Últimos proyectos visitados</DropdownMenuLabel>
+                        <DropdownMenuSeparator className="m-0" />
+                        <ScrollArea className="flex-1">
+                          {recentProjects.length > 0 ? (
+                            recentProjects.map(project => (
+                              <DropdownMenuItem 
+                                key={project.id} 
+                                onSelect={() => handleMyProjectClick(project)}
+                                className="text-[11px] py-2 px-3 cursor-pointer"
+                              >
+                                <span className="font-mono font-bold mr-2 text-primary">{project.name.match(/\(([^)]+)\)$/)?.[1] || '---'}</span>
+                                <span className="truncate">{project.name.replace(/\([^)]+\)$/, '').trim()}</span>
+                              </DropdownMenuItem>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-[10px] text-muted-foreground italic">
+                              No tenés historial de búsqueda.
                             </div>
                           )}
                         </ScrollArea>
