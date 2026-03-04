@@ -62,7 +62,7 @@ function getTrelloColorForStatus(status: string): string | null {
 function updateDescriptionField(description: string, field: string, value: string): string {
     const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`^(${escapedField}:\\s*).*$`, 'm');
-    const boldedValue = value ? `**${value}**` : '****';
+    const boldedValue = value && value.trim() !== '' ? `**${value}**` : '****';
     const replacement = `${field}: ${boldedValue}`;
 
     if (regex.test(description)) {
@@ -82,9 +82,9 @@ function updateDescriptionField(description: string, field: string, value: strin
             return `ESTADO: ${boldedValue}\n${description}`;
         }
         
-        if (field === '- Información SIG-imágenes:') {
+        if (field === '- Información SIG-imágenes') {
             return description.replace(/^(- Diagnóstico ambiental-socioeconómico:.*)$/m, `$1\n- Información SIG-imágenes: ${boldedValue}`);
-        } else if (field === '- Información LIDAR/vuelos Dron:') {
+        } else if (field === '- Información LIDAR/vuelos Dron') {
             return description.replace(/^(- Información SIG-imágenes:.*)$/m, `$1\n- Información LIDAR/vuelos Dron: ${boldedValue}`);
         }
     }
@@ -232,9 +232,16 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         let finalDescription = currentCard.desc || DESCRIPCION_PLANTILLA;
 
         // Extraer estado anterior de la descripción
-        const estadoRegex = /^ESTADO:\s*(?:\*\*)?(.*?)(?:\*\*)?$/m;
-        const estadoMatch = finalDescription.match(estadoRegex);
-        const oldStatus = estadoMatch ? estadoMatch[1].trim() : null;
+        const lines = finalDescription.split('\n');
+        let oldStatus = null;
+        for (const line of lines) {
+            if (line.toLowerCase().startsWith('estado:')) {
+                oldStatus = line.split(':')[1].trim().replace(/\*\*/g, '');
+                if (oldStatus === '****') oldStatus = null;
+                break;
+            }
+        }
+        
         const isStatusChange = estado !== undefined && estado !== oldStatus;
 
         // Extraer código actual

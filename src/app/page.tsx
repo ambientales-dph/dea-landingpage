@@ -342,15 +342,14 @@ export default function Home() {
         const extractField = (desc: string, field: string): string => {
             if (!desc) return '';
             const lines = desc.split('\n');
+            const fieldLower = field.toLowerCase().trim();
             for (const line of lines) {
-                if (line.includes(field)) {
-                    const parts = line.split(':');
-                    if (parts.length > 1) {
-                        let val = parts.slice(1).join(':').trim();
-                        val = val.replace(/\*\*/g, '').trim();
-                        if (val === '****' || val === '') return '';
-                        return val;
-                    }
+                const trimmedLine = line.trim();
+                if (trimmedLine.toLowerCase().startsWith(fieldLower + ':')) {
+                    let val = trimmedLine.substring(fieldLower.length + 1).trim();
+                    val = val.replace(/\*\*/g, '').trim();
+                    if (val === '****' || val === '') return '';
+                    return val;
                 }
             }
             return '';

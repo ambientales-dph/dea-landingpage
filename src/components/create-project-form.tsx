@@ -91,13 +91,18 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
 
   const extractFieldFromDesc = (desc: string, field: string): string => {
     if (!desc) return '';
-    // Buscamos Campo: **Valor** o Campo: Valor (flexible con asteriscos)
-    const regex = new RegExp(`${field}:\\s*(?:\\*\\*)?(.+?)(?:\\*\\*)?(?:\\r?\\n|$)`, 'i');
-    const match = desc.match(regex);
-    if (match) {
-        const val = match[1].trim();
-        if (val === '****' || val === '') return '';
-        return val;
+    const lines = desc.split('\n');
+    const fieldLower = field.toLowerCase().trim();
+    
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.toLowerCase().startsWith(fieldLower + ':')) {
+            let val = trimmedLine.substring(fieldLower.length + 1).trim();
+            // Limpiar asteriscos de negrita si existen
+            val = val.replace(/^\*\*|\*\*$/g, '').trim();
+            if (val === '****' || val === '') return '';
+            return val;
+        }
     }
     return '';
   };
@@ -203,6 +208,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nombre o código..."
+                inputMode="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-8 text-xs bg-white"
