@@ -9,14 +9,10 @@ export interface SNRDArticle {
 }
 
 export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
-  const keywords = [
-    '"ciencias ambientales"', 'geología', 'geomorfología', 'hidráulica',
-    'hidrología', 'cuencas', '"manejo del agua"', '"química ambiental"',
-    '"ingeniería ambiental"', 'antropología', 'biología', 'botánica',
-    'zoología', 'ecología', 'clima', 'ciencias agronómicas', 'ciencias forestales'
-  ];
-  const keywordFilter = keywords.join(' OR ');
-  const finalQuery = `((${query}) AND ("buenos aires" OR "provincia de buenos aires")) AND (${keywordFilter})`;
+  // Simplificamos la consulta para no ser excesivamente restrictivos.
+  // Anteriormente, se forzaba una intersección con "Buenos Aires" y categorías técnicas fijas,
+  // lo que eliminaba una gran cantidad de bibliografía relevante que no contenía esos términos exactos en sus metadatos.
+  const finalQuery = query;
 
   const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(finalQuery)}&type=AllFields&field[]=id&field[]=title&field[]=authors&field[]=publicationDates&limit=150`;
 
@@ -24,14 +20,14 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'Firebase-Studio-App-Prototype/1.0',
+        'User-Agent': 'DEA-App/1.0 (mailto:ambientales.dph@gmail.com)',
       },
-      next: { revalidate: 3600 } // Cache for 1 hour
+      next: { revalidate: 3600 } // Cache por 1 hora
     });
 
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error(`Error from SNRD API: ${response.status}`, errorBody);
+      console.error(`Error de la API de SNRD: ${response.status}`, errorBody);
       return [];
     }
 
@@ -42,9 +38,9 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
         return [];
     }
 
-    return records.map((record: any): SNRDArticle => {
+    return records.map((record: any): SNRDArticle | null => {
       const handle = record.id;
-      if (!handle) return null; // Skip records without an ID/handle
+      if (!handle) return null;
 
       const resourceUrl = `https://repositoriosdigitales.mincyt.gob.ar/vufind/Record/${handle}`;
       
@@ -69,10 +65,10 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
         publication: record.publicationDates?.[0] || 'Publicación desconocida',
         handle: handle,
       };
-    }).filter((article): article is SNRDArticle => article !== null);
+    }).filter((article: any): article is SNRDArticle => article !== null);
 
   } catch (error) {
-    console.error('Failed to fetch from SNRD API:', error);
+    console.error('Error al obtener datos de SNRD:', error);
     return [];
   }
 }
