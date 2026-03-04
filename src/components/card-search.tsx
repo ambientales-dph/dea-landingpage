@@ -146,6 +146,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    if (!isSummaryOpen) {
+      const cleanup = () => {
+        document.body.style.pointerEvents = '';
+        document.body.style.overflow = '';
+      };
+      cleanup();
+      const timer = setTimeout(cleanup, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isSummaryOpen]);
+
   const logPortalActivity = useCallback(async (actionType: string, detail: string) => {
     if (user && db && selectedCard) {
       const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());

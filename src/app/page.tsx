@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
@@ -203,7 +202,10 @@ export default function Home() {
 
   const handleNotificationClick = useCallback((card: TrelloCard) => {
     handleCardSelect(card);
-    setIsSummaryOpen(true);
+    // Give time for UI transitions to complete
+    setTimeout(() => {
+      setIsSummaryOpen(true);
+    }, 150);
   }, [handleCardSelect]);
 
   const handleCardOrBoardButtonClick = () => {
@@ -426,9 +428,12 @@ export default function Home() {
     }
   };
 
-  const handleMyProjectClick = async (card: TrelloCard) => {
+  const handleMyProjectClick = (card: TrelloCard) => {
     handleCardSelect(card);
-    setIsSummaryOpen(true);
+    // Add small delay to let dropdown menu close properly
+    setTimeout(() => {
+      setIsSummaryOpen(true);
+    }, 150);
   };
 
   if (loading) {
@@ -615,7 +620,7 @@ export default function Home() {
                     setOpen={setCreateProjectOpen} 
                     onEditCard={(card) => {
                       handleCardSelect(card);
-                      setIsSummaryOpen(true);
+                      setTimeout(() => setIsSummaryOpen(true), 150);
                     }}
                   />
                 </DialogContent>
