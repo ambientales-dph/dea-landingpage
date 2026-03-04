@@ -61,34 +61,22 @@ function getTrelloColorForStatus(status: string): string | null {
 
 function updateDescriptionField(description: string, field: string, value: string): string {
     const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Regex que busca una línea que empieza exactamente con el nombre del campo (con o sin guion inicial) seguido de :
     const regex = new RegExp(`^(${escapedField}:\\s*).*$`, 'm');
-    const boldedValue = value && value.trim() !== '' ? `**${value}**` : '****';
+    
+    const boldedValue = value && value.trim() !== '' ? `**${value}**` : '';
     const replacement = `${field}: ${boldedValue}`;
 
     if (regex.test(description)) {
+        // Si el campo existe, lo reemplazamos prolijamente
         return description.replace(regex, replacement);
     } else {
-        // Si el campo no existe, lo insertamos en lugares estratégicos
-        if (field === 'PROYECTISTA') {
-            if (description.includes('EXPEDIENTE:')) {
-                return description.replace(/^(EXPEDIENTE:.*)$/m, `${field}: ${boldedValue}\n$1`);
-            } else if (description.includes('#')) {
-                return description.replace(/^(\s*#.*)$/m, `${field}: ${boldedValue}\n\n$1`);
-            }
-            return `${description}\n${field}: ${boldedValue}`;
+        // Si no existe, lo insertamos estratégicamente antes del marcador de ubicación #
+        if (description.includes('#')) {
+            return description.replace(/^(\s*#.*)$/m, `${replacement}\n$1`);
         }
-        
-        if (field === 'ESTADO' && !description.includes('ESTADO:')) {
-            return `ESTADO: ${boldedValue}\n${description}`;
-        }
-        
-        if (field === '- Información SIG-imágenes') {
-            return description.replace(/^(- Diagnóstico ambiental-socioeconómico:.*)$/m, `$1\n- Información SIG-imágenes: ${boldedValue}`);
-        } else if (field === '- Información LIDAR/vuelos Dron') {
-            return description.replace(/^(- Información SIG-imágenes:.*)$/m, `$1\n- Información LIDAR/vuelos Dron: ${boldedValue}`);
-        }
+        return `${description}\n${replacement}`;
     }
-    return description;
 }
 
 function getEmailsFromSelection(selection: string): string[] {
@@ -143,7 +131,7 @@ export async function createProject(
     let finalDescription = DESCRIPCION_PLANTILLA;
     finalDescription = updateDescriptionField(finalDescription, 'ESTADO', estado || 'Sin iniciar');
     if (partido) finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
-    if (proyectista) finalDescription = updateDescriptionField(finalDescription, 'PROYECTISTA', proyectista);
+    if (proyectista) finalDescription = updateDescriptionField(finalDescription, '- Proyectista', proyectista);
     if (financiamiento) finalDescription = updateDescriptionField(finalDescription, 'FINANCIAMIENTO', financiamiento);
     if (diagnosticoEquipo) finalDescription = updateDescriptionField(finalDescription, '- Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
     if (informacionSig) finalDescription = updateDescriptionField(finalDescription, '- Información SIG-imágenes', informacionSig);
@@ -235,9 +223,9 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         const lines = finalDescription.split('\n');
         let oldStatus = null;
         for (const line of lines) {
-            if (line.toLowerCase().startsWith('estado:')) {
+            if (line.toLowerCase().trim().startsWith('estado:')) {
                 oldStatus = line.split(':')[1].trim().replace(/\*\*/g, '');
-                if (oldStatus === '****') oldStatus = null;
+                if (oldStatus === '' || oldStatus === '****') oldStatus = null;
                 break;
             }
         }
@@ -262,10 +250,10 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             cardName = `${nombre} (${currentCode || 'XXX000'})`;
         }
 
-        // Actualizar campos en la descripción
+        // Actualizar campos preservando el formato solicitado
         if (estado !== undefined) finalDescription = updateDescriptionField(finalDescription, 'ESTADO', estado);
         if (partido !== undefined) finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
-        if (proyectista !== undefined) finalDescription = updateDescriptionField(finalDescription, 'PROYECTISTA', proyectista);
+        if (proyectista !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Proyectista', proyectista);
         if (financiamiento !== undefined) finalDescription = updateDescriptionField(finalDescription, 'FINANCIAMIENTO', financiamiento);
         if (diagnosticoEquipo !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
         if (informacionSig !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Información SIG-imágenes', informacionSig);

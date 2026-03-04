@@ -407,7 +407,7 @@ export default function Home() {
                 const { code, nameWithoutCode } = getProjectInfo(card.name);
                 
                 const partido = extractField(card.desc, 'PARTIDO');
-                const proyectista = extractField(card.desc, 'PROYECTISTA');
+                const proyectista = extractField(card.desc, '- Proyectista');
                 const financiamiento = extractField(card.desc, 'FINANCIAMIENTO');
                 const dea = extractField(card.desc, '- Diagnóstico ambiental-socioeconómico');
                 const sig = extractField(card.desc, '- Información SIG-imágenes');

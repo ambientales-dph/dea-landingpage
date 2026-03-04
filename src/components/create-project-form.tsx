@@ -123,7 +123,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
 
     setEstado(extractFieldFromDesc(card.desc, 'ESTADO') || 'Sin iniciar');
     setSelectedPartidos(extractListFromDesc(card.desc, 'PARTIDO'));
-    setSelectedProyectistas(extractListFromDesc(card.desc, 'PROYECTISTA'));
+    setSelectedProyectistas(extractListFromDesc(card.desc, '- Proyectista'));
     setSelectedFinanciamiento(extractListFromDesc(card.desc, 'FINANCIAMIENTO'));
     setSelectedEquipo(extractListFromDesc(card.desc, '- Diagnóstico ambiental-socioeconómico'));
     setSelectedSig(extractListFromDesc(card.desc, '- Información SIG-imágenes'));

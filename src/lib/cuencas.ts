@@ -1,4 +1,3 @@
-
 // El `trelloListName` debe coincidir EXACTAMENTE con el nombre de la lista en tu tablero de Trello "Proyectos".
 export const CUENCAS = [
   { id: 'mar', name: 'Cuenca Matanza-Riachuelo', code: 'MAR', trelloListName: 'Cuenca Matanza-Riachuelo', driveFolderId: '1-OKZ-1xwM_bLRlwQfg00Z9-do2Q1YTSt' },
@@ -20,24 +19,24 @@ export const CUENCAS = [
   { id: 'rpi', name: 'Vertiente Río de La Plata Inferior', code: 'RPI', trelloListName: 'Vertiente Río de La Plata Inferior', driveFolderId: '1fIWEAnNgzwcgKSeLO6P7bmjzgbse-f1E' },
 ];
 
-export const DESCRIPCION_PLANTILLA = `ESTADO: ****
-PARTIDO: ****
-EXTENSIÓN (Ha o Km): ****
-POBLACIÓN BENEFICIADA: ****
-PRESUPUESTO: ****
-FINANCIAMIENTO: ****
+export const DESCRIPCION_PLANTILLA = `ESTADO: 
+PARTIDO: 
+EXTENSIÓN (Ha o Km): 
+POBLACIÓN BENEFICIADA: 
+PRESUPUESTO: 
+FINANCIAMIENTO: 
 
-EQUIPO DE TRABAJO EIAS
+- Diagnóstico ambiental-socioeconómico: 
+- Información SIG-imágenes: 
+- Información LIDAR/vuelos Dron: 
+- Proyectista: 
 
-- Diagnóstico ambiental-socioeconómico: ****
-- Información SIG-imágenes: ****
-- Información LIDAR/vuelos Dron: ****
+EXPEDIENTE: 
+PROVIDENCIA: 
+RESOLUCIÓN: 
+FECHA DIA: 
 
-PROYECTISTA: ****
-EXPEDIENTE: ****
-PROVIDENCIA: ****
-FECHA: ****
-Otro drive de trabajo: 
+Drive de trabajo: 
 Drive del proyectista: 
 
 #`;
