@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -35,6 +36,7 @@ interface Activity {
   userPhoto: string;
   actionType: string;
   projectName: string;
+  detail?: string;
   timestamp: any;
 }
 
@@ -88,7 +90,8 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
     const term = searchTerm.toLowerCase();
     return activities.filter(activity => 
       activity.userName.toLowerCase().includes(term) || 
-      activity.projectName.toLowerCase().includes(term)
+      activity.projectName.toLowerCase().includes(term) ||
+      (activity.detail && activity.detail.toLowerCase().includes(term))
     );
   }, [activities, searchTerm]);
 
@@ -101,6 +104,7 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
       case 'update_labels': return 'ETIQUETAS';
       case 'add_comment': return 'COMENTARIO';
       case 'remove_attachment': return 'ADJUNTO';
+      case 'status_change': return 'HITO/ESTADO';
       default: return type.toUpperCase();
     }
   };
@@ -114,6 +118,7 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
       case 'update_labels': return 'bg-pink-500/10 text-pink-600 border-pink-500/20';
       case 'add_comment': return 'bg-slate-500/10 text-slate-600 border-slate-500/20';
       case 'remove_attachment': return 'bg-red-500/10 text-red-600 border-red-500/20';
+      case 'status_change': return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
     }
   };
@@ -214,7 +219,10 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
                       </Badge>
                     </TableCell>
                     <TableCell className="text-[10px] px-3 py-1.5 truncate max-w-[300px]">
-                      {activity.projectName}
+                      <div className="flex flex-col">
+                        <span className="font-semibold">{activity.projectName}</span>
+                        {activity.detail && <span className="text-[9px] text-muted-foreground italic">{activity.detail}</span>}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState, useEffect, useState, useCallback } from 'react';
@@ -29,6 +30,16 @@ import { cn } from '@/lib/utils';
 
 const initialState: ProjectState = { message: undefined, success: false };
 
+const ESTADOS_PROYECTO = [
+    "Sin iniciar",
+    "Iniciado",
+    "Neutralizado",
+    "Terminado",
+    "Con DIA",
+    "Rescindido",
+    "En seguimiento"
+];
+
 interface CreateProjectFormProps {
   setOpen: (open: boolean) => void;
   onEditCard?: (card: TrelloCard) => void;
@@ -53,6 +64,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
 
   const [nombre, setNombre] = useState('');
   const [selectedCuenca, setSelectedCuenca] = useState('');
+  const [estado, setEstado] = useState('Sin iniciar');
   const [selectedPartidos, setSelectedPartidos] = useState<string[]>([]);
   const [selectedProyectista, setSelectedProyectista] = useState('');
   const [selectedFinanciamiento, setSelectedFinanciamiento] = useState<string[]>([]);
@@ -99,6 +111,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
     const cuenca = CUENCAS.find(c => c.code === cuencaCode);
     setSelectedCuenca(cuenca?.id || '');
 
+    setEstado(extractFieldFromDesc(card.desc, 'ESTADO') || 'Sin iniciar');
     setSelectedPartidos(extractListFromDesc(card.desc, 'PARTIDO'));
     setSelectedProyectista(extractFieldFromDesc(card.desc, 'PROYECTISTA'));
     setSelectedFinanciamiento(extractListFromDesc(card.desc, 'FINANCIAMIENTO'));
@@ -113,6 +126,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
     setEditingCard(null);
     setNombre('');
     setSelectedCuenca('');
+    setEstado('Sin iniciar');
     setSelectedPartidos([]);
     setSelectedProyectista('');
     setSelectedFinanciamiento([]);
@@ -129,15 +143,22 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
         const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
         const realName = authorizedUser?.name || user.displayName || 'Usuario';
 
+        // Determinar el tipo de acción para la bitácora
+        let actionType = editingCard ? 'update_project' : 'create_project';
+        if (currentStatus.isStatusChange) {
+            actionType = 'status_change'; // Acción especial para la línea de tiempo
+        }
+
         const activityData = {
           userId: user.uid,
           userName: realName,
           userEmail: user.email,
           userPhoto: user.photoURL || '',
-          actionType: editingCard ? 'update_project' : 'create_project',
+          actionType: actionType,
           projectName: currentStatus.projectName || 'Proyecto',
           cardId: currentStatus.cardId,
           timestamp: serverTimestamp(),
+          detail: currentStatus.isStatusChange ? `Cambió estado a "${currentStatus.newStatus}"` : undefined
         };
 
         addDoc(collection(db, 'app_activities'), activityData)
@@ -247,14 +268,24 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                   <Label className="text-[10px] uppercase font-bold text-muted-foreground">Nombre del Proyecto *</Label>
                   <Input name="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="h-8 text-xs bg-white" />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Cuenca *</Label>
-                  <Select name="cuenca" value={selectedCuenca} onValueChange={setSelectedCuenca} required>
-                    <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Seleccioná cuenca" /></SelectTrigger>
-                    <SelectContent>{CUENCAS.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                  {editingCard && <p className="text-[10px] text-amber-600 font-medium pt-0.5">Nota: Si cambiás la cuenca, se generará un nuevo código.</p>}
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Cuenca *</Label>
+                      <Select name="cuenca" value={selectedCuenca} onValueChange={setSelectedCuenca} required>
+                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Seleccioná cuenca" /></SelectTrigger>
+                        <SelectContent>{CUENCAS.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Estado Actual</Label>
+                      <Select name="estado" value={estado} onValueChange={setEstado}>
+                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Seleccioná estado" /></SelectTrigger>
+                        <SelectContent>{ESTADOS_PROYECTO.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                 </div>
+                {editingCard && <p className="text-[10px] text-amber-600 font-medium pt-0.5">Nota: Si cambiás la cuenca, se generará un nuevo código. Si cambiás el estado, se registrará un hito.</p>}
                 
                 <Separator className="my-1" />
                 

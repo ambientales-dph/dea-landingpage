@@ -20,7 +20,8 @@ export const CUENCAS = [
   { id: 'rpi', name: 'Vertiente Río de La Plata Inferior', code: 'RPI', trelloListName: 'Vertiente Río de La Plata Inferior', driveFolderId: '1fIWEAnNgzwcgKSeLO6P7bmjzgbse-f1E' },
 ];
 
-export const DESCRIPCION_PLANTILLA = `PARTIDO: ****
+export const DESCRIPCION_PLANTILLA = `ESTADO: ****
+PARTIDO: ****
 EXTENSIÓN (Ha o Km): ****
 POBLACIÓN BENEFICIADA: ****
 PRESUPUESTO: ****

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -19,6 +20,7 @@ const PROYECTOS_BOARD_ID = 'CgG4b3B0';
 const ProjectSchema = z.object({
   nombre: z.string().min(1, { message: 'El nombre del proyecto es obligatorio.' }),
   cuenca: z.string().min(1, { message: 'Debe seleccionar una cuenca.' }),
+  estado: z.string().optional(),
   partido: z.string().optional(),
   proyectista: z.string().optional(),
   financiamiento: z.string().optional(),
@@ -39,7 +41,24 @@ export type ProjectState = {
   cardUrl?: string;
   cardId?: string;
   projectName?: string;
+  isStatusChange?: boolean;
+  newStatus?: string;
 };
+
+// Mapeo de estados a colores de Trello
+const STATUS_COLORS: Record<string, string | null> = {
+    'Sin iniciar': 'red',
+    'Iniciado': 'orange',
+    'Neutralizado': 'pink',
+    'Terminado': 'yellow',
+    'Con DIA': 'green',
+    'Rescindido': 'black',
+    'En seguimiento': 'sky',
+};
+
+function getTrelloColorForStatus(status: string): string | null {
+    return STATUS_COLORS[status] || 'red';
+}
 
 function updateDescriptionField(description: string, field: string, value: string): string {
     const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -49,10 +68,16 @@ function updateDescriptionField(description: string, field: string, value: strin
 
     if (regex.test(description)) {
         return description.replace(regex, replacement);
-    } else if (field === '- Información SIG-imágenes:') {
-        return description.replace(/^(- Diagnóstico ambiental-socioeconómico:.*)$/m, `$1\n- Información SIG-imágenes: ${boldedValue}`);
-    } else if (field === '- Información LIDAR/vuelos Dron:') {
-        return description.replace(/^(- Información SIG-imágenes:.*)$/m, `$1\n- Información LIDAR/vuelos Dron: ${boldedValue}`);
+    } else {
+        // Fallback for fields that might not be in the exact format
+        if (field === 'ESTADO' && !description.includes('ESTADO:')) {
+            return `ESTADO: ${boldedValue}\n${description}`;
+        }
+        if (field === '- Información SIG-imágenes:') {
+            return description.replace(/^(- Diagnóstico ambiental-socioeconómico:.*)$/m, `$1\n- Información SIG-imágenes: ${boldedValue}`);
+        } else if (field === '- Información LIDAR/vuelos Dron:') {
+            return description.replace(/^(- Información SIG-imágenes:.*)$/m, `$1\n- Información LIDAR/vuelos Dron: ${boldedValue}`);
+        }
     }
     return description;
 }
@@ -73,6 +98,7 @@ export async function createProject(
   const validatedFields = ProjectSchema.safeParse({
     nombre: formData.get('nombre'),
     cuenca: formData.get('cuenca'),
+    estado: formData.get('estado') || 'Sin iniciar',
     partido: formData.get('partido'),
     proyectista: formData.get('proyectista'),
     financiamiento: formData.get('financiamiento'),
@@ -90,7 +116,7 @@ export async function createProject(
     };
   }
 
-  const { nombre, cuenca: cuencaId, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, userEmail } = validatedFields.data;
+  const { nombre, cuenca: cuencaId, estado, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, userEmail } = validatedFields.data;
 
   try {
     const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
@@ -106,6 +132,7 @@ export async function createProject(
     const folderName = `${projectCode} - ${nombre}`;
     
     let finalDescription = DESCRIPCION_PLANTILLA;
+    finalDescription = updateDescriptionField(finalDescription, 'ESTADO', estado || 'Sin iniciar');
     if (partido) finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
     if (proyectista) finalDescription = updateDescriptionField(finalDescription, 'PROYECTISTA', proyectista);
     if (financiamiento) finalDescription = updateDescriptionField(finalDescription, 'FINANCIAMIENTO', financiamiento);
@@ -119,7 +146,8 @@ export async function createProject(
       desc: finalDescription,
     });
 
-    await updateTrelloCard({ cardId: card.id, cover: { color: 'red' } });
+    const initialColor = getTrelloColorForStatus(estado || 'Sin iniciar');
+    await updateTrelloCard({ cardId: card.id, cover: { color: initialColor } });
 
     try {
       const folderData = await createProjectFolder(folderName, cuencaId);
@@ -164,6 +192,7 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
     const validatedFields = ProjectSchema.safeParse({
         nombre: formData.get('nombre'),
         cuenca: formData.get('cuenca'),
+        estado: formData.get('estado'),
         partido: formData.get('partido'),
         proyectista: formData.get('proyectista'),
         financiamiento: formData.get('financiamiento'),
@@ -181,7 +210,7 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         };
     }
 
-    const { nombre, cuenca: cuencaId, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, cardId } = validatedFields.data;
+    const { nombre, cuenca: cuencaId, estado, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, cardId } = validatedFields.data;
     if (!cardId) return { success: false, message: 'ID de tarjeta no encontrado.' };
 
     try {
@@ -192,6 +221,12 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         let cardName = currentCard.name;
         let idList = currentCard.idList;
         let finalDescription = currentCard.desc || DESCRIPCION_PLANTILLA;
+
+        // Extraer estado anterior de la descripción
+        const estadoRegex = /^ESTADO:\s*\*\*(.*?)\*\*/m;
+        const estadoMatch = finalDescription.match(estadoRegex);
+        const oldStatus = estadoMatch ? estadoMatch[1] : null;
+        const isStatusChange = estado !== undefined && estado !== oldStatus;
 
         // Extraer código actual
         const codeRegex = /\(([A-Z]{3}\d{3})\)$/;
@@ -212,6 +247,7 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         }
 
         // Actualizar campos en la descripción
+        if (estado !== undefined) finalDescription = updateDescriptionField(finalDescription, 'ESTADO', estado);
         if (partido !== undefined) finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
         if (proyectista !== undefined) finalDescription = updateDescriptionField(finalDescription, 'PROYECTISTA', proyectista);
         if (financiamiento !== undefined) finalDescription = updateDescriptionField(finalDescription, 'FINANCIAMIENTO', financiamiento);
@@ -219,18 +255,34 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         if (informacionSig !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Información SIG-imágenes', informacionSig);
         if (informacionDron !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Información LIDAR/vuelos Dron', informacionDron);
 
-        await updateTrelloCard({
+        const updatePayload: any = {
             cardId,
             name: cardName,
             desc: finalDescription,
             idList
-        });
+        };
+
+        // Si cambió el estado, actualizar el color de la portada
+        if (isStatusChange && estado) {
+            updatePayload.cover = { color: getTrelloColorForStatus(estado) };
+            
+            // Publicar hito en Trello
+            const timestamp = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+            await addCommentToCard({
+                cardId,
+                text: `📍 HITO DE PROYECTO: El estado ha cambiado de "${oldStatus || '---'}" a "${estado}". Fecha: ${timestamp}.`
+            });
+        }
+
+        await updateTrelloCard(updatePayload);
 
         return {
             success: true,
             message: 'Proyecto actualizado con éxito.',
             cardId: cardId,
-            projectName: cardName
+            projectName: cardName,
+            isStatusChange: isStatusChange,
+            newStatus: estado
         };
 
     } catch (error) {
