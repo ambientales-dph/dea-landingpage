@@ -29,7 +29,7 @@ FINANCIAMIENTO:
 - Diagnóstico ambiental-socioeconómico: 
 - Información SIG-imágenes: 
 - Información LIDAR/vuelos Dron: 
-- Proyectista:
+- Proyectista: 
 
 EXPEDIENTE: 
 PROVIDENCIA: 

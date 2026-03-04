@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createProject, updateProject, type ProjectState } from '@/app/actions/project-actions';
-import { CUENCAS } from '@/lib/cuencas';
+import { CUENCAS, DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
