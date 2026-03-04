@@ -18,7 +18,7 @@ export const WHITELIST: AuthorizedUser[] = [
   { name: 'Canela Castro', email: 'canelamdq@gmail.com', phone: '+549 221 643-7878' },
   { name: 'Cintia Di Grazia', email: 'cintiadigrazia@gmail.com', phone: '+549 221 614-2863' },
   { name: 'Mariano Mediavilla', email: 'marianomediavilla.pba@gmail.com', phone: '+549 11 6210-8377' },
-  { name: 'Marina Raggio', email: 'marinaandrearaggio@gmail.com', phone: '+549 221 418-4274' },
+  { name: 'Marina Raggio', email: 'marinaraggioambientales@gmail.com', phone: '+549 221 418-4274' },
   { name: 'Luciana Lugones', email: 'lucianalugones@gsuite.fcnym.unlp.edu.ar', phone: '+549 221 543-5150' },
   { name: 'Pablo Giner', email: 'pabloginer@yahoo.com.ar', phone: '+549 221 418-7203' },
   { name: 'Vanina Kapeika', email: 'vaninakapeika@gmail.com', phone: '+549 221 507-3851' },

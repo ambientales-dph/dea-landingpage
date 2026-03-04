@@ -149,7 +149,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
             actionType = 'status_change'; // Acción especial para la línea de tiempo
         }
 
-        const activityData = {
+        const activityData: any = {
           userId: user.uid,
           userName: realName,
           userEmail: user.email,
@@ -158,8 +158,12 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
           projectName: currentStatus.projectName || 'Proyecto',
           cardId: currentStatus.cardId,
           timestamp: serverTimestamp(),
-          detail: currentStatus.isStatusChange ? `Cambió estado a "${currentStatus.newStatus}"` : undefined
         };
+
+        // Solo incluimos el detalle si existe y es relevante (evita el error de undefined en Firestore)
+        if (currentStatus.isStatusChange && currentStatus.newStatus) {
+            activityData.detail = `Cambió estado a "${currentStatus.newStatus}"`;
+        }
 
         addDoc(collection(db, 'app_activities'), activityData)
           .catch(async (error) => {
