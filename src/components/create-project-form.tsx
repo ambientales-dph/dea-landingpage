@@ -91,14 +91,20 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
 
   const extractFieldFromDesc = (desc: string, field: string): string => {
     if (!desc) return '';
-    const regex = new RegExp(`${field}:\\s*\\*\\*(.*?)\\*\\*`, 'i');
+    // Buscamos Campo: **Valor** o Campo: Valor (flexible con asteriscos)
+    const regex = new RegExp(`${field}:\\s*(?:\\*\\*)?(.+?)(?:\\*\\*)?(?:\\r?\\n|$)`, 'i');
     const match = desc.match(regex);
-    return match ? match[1].trim() : '';
+    if (match) {
+        const val = match[1].trim();
+        if (val === '****' || val === '') return '';
+        return val;
+    }
+    return '';
   };
 
   const extractListFromDesc = (desc: string, field: string): string[] => {
     const val = extractFieldFromDesc(desc, field);
-    if (!val || val === '****' || val === '') return [];
+    if (!val) return [];
     return val.split(/[,;]/).map(s => s.trim()).filter(Boolean);
   };
 

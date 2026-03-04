@@ -1,4 +1,3 @@
-
 'use server';
 
 import { z } from 'zod';
@@ -64,15 +63,25 @@ function updateDescriptionField(description: string, field: string, value: strin
     const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`^(${escapedField}:\\s*).*$`, 'm');
     const boldedValue = value ? `**${value}**` : '****';
-    const replacement = `$1${boldedValue}`;
+    const replacement = `${field}: ${boldedValue}`;
 
     if (regex.test(description)) {
         return description.replace(regex, replacement);
     } else {
-        // Fallback for fields that might not be in the exact format
+        // Si el campo no existe, lo insertamos en lugares estratégicos
+        if (field === 'PROYECTISTA') {
+            if (description.includes('EXPEDIENTE:')) {
+                return description.replace(/^(EXPEDIENTE:.*)$/m, `${field}: ${boldedValue}\n$1`);
+            } else if (description.includes('#')) {
+                return description.replace(/^(\s*#.*)$/m, `${field}: ${boldedValue}\n\n$1`);
+            }
+            return `${description}\n${field}: ${boldedValue}`;
+        }
+        
         if (field === 'ESTADO' && !description.includes('ESTADO:')) {
             return `ESTADO: ${boldedValue}\n${description}`;
         }
+        
         if (field === '- Información SIG-imágenes:') {
             return description.replace(/^(- Diagnóstico ambiental-socioeconómico:.*)$/m, `$1\n- Información SIG-imágenes: ${boldedValue}`);
         } else if (field === '- Información LIDAR/vuelos Dron:') {
@@ -223,9 +232,9 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         let finalDescription = currentCard.desc || DESCRIPCION_PLANTILLA;
 
         // Extraer estado anterior de la descripción
-        const estadoRegex = /^ESTADO:\s*\*\*(.*?)\*\*/m;
+        const estadoRegex = /^ESTADO:\s*(?:\*\*)?(.*?)(?:\*\*)?$/m;
         const estadoMatch = finalDescription.match(estadoRegex);
-        const oldStatus = estadoMatch ? estadoMatch[1] : null;
+        const oldStatus = estadoMatch ? estadoMatch[1].trim() : null;
         const isStatusChange = estado !== undefined && estado !== oldStatus;
 
         // Extraer código actual
