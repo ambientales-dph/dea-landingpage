@@ -44,7 +44,6 @@ export type ProjectState = {
   newStatus?: string;
 };
 
-// Mapeo de estados a colores de Trello
 const STATUS_COLORS: Record<string, string | null> = {
     'Sin iniciar': 'red',
     'Iniciado': 'orange',
@@ -59,24 +58,85 @@ function getTrelloColorForStatus(status: string): string | null {
     return STATUS_COLORS[status] || 'red';
 }
 
-function updateDescriptionField(description: string, field: string, value: string): string {
-    const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Regex que busca una línea que empieza exactamente con el nombre del campo (con o sin guion inicial) seguido de :
-    const regex = new RegExp(`^(${escapedField}:\\s*).*$`, 'm');
+/**
+ * Reconcilia la descripción actual de una tarjeta con la plantilla maestra,
+ * asegurando que se respete el orden de los campos y se preserven los datos existentes.
+ */
+function reconcileDescription(currentDesc: string, updates: Record<string, string>): string {
+    const template = DESCRIPCION_PLANTILLA;
+    const templateLines = template.split('\n');
+    const currentLines = (currentDesc || '').split('\n');
     
-    const boldedValue = value && value.trim() !== '' ? `**${value}**` : '';
-    const replacement = `${field}: ${boldedValue}`;
+    // Almacén de valores finales para cada campo identificado en la plantilla
+    const fieldValues: Record<string, string> = {};
 
-    if (regex.test(description)) {
-        // Si el campo existe, lo reemplazamos prolijamente
-        return description.replace(regex, replacement);
-    } else {
-        // Si no existe, lo insertamos estratégicamente antes del marcador de ubicación #
-        if (description.includes('#')) {
-            return description.replace(/^(\s*#.*)$/m, `${replacement}\n$1`);
+    // 1. Identificar todos los campos en la plantilla y extraer sus valores actuales si existen
+    templateLines.forEach(tLine => {
+        const fieldMatch = tLine.match(/^([- ]?.*?:)/);
+        if (fieldMatch) {
+            const fieldKey = fieldMatch[1]; // ej: "ESTADO:" o "- Proyectista:"
+            const cleanKey = fieldKey.replace(/:\s*$/, '').trim();
+            
+            // Buscar este campo en la descripción actual (ignorando espacios iniciales)
+            const existingLine = currentLines.find(cl => cl.trim().startsWith(fieldKey));
+            if (existingLine) {
+                const val = existingLine.substring(existingLine.indexOf(':') + 1).trim().replace(/\*\*/g, '');
+                fieldValues[cleanKey] = val;
+            }
         }
-        return `${description}\n${replacement}`;
+    });
+
+    // 2. Sobrescribir con las nuevas actualizaciones del formulario
+    Object.keys(updates).forEach(key => {
+        if (updates[key] !== undefined) {
+            fieldValues[key] = updates[key];
+        }
+    });
+
+    // 3. Reconstruir la descripción usando la plantilla como esqueleto
+    const resultLines: string[] = [];
+    templateLines.forEach(tLine => {
+        const fieldMatch = tLine.match(/^([- ]?.*?:)/);
+        if (fieldMatch) {
+            const fieldKey = fieldMatch[1];
+            const cleanKey = fieldKey.replace(/:\s*$/, '').trim();
+            const val = fieldValues[cleanKey];
+            // Aseguramos el formato: "CAMPO: **VALOR**" o "CAMPO: " si está vacío
+            resultLines.push(`${fieldKey}${val ? ` **${val}**` : ''}`);
+        } else {
+            // Es una línea en blanco, un encabezado, info de Drive o el marcador #
+            resultLines.push(tLine);
+        }
+    });
+
+    // 4. Preservar líneas de la descripción actual que NO son campos de la plantilla
+    // Esto evita perder información manual (ej. comentarios extras, links manuales)
+    const extraLines = currentLines.filter(cl => {
+        const trimmed = cl.trim();
+        if (!trimmed) return false;
+        if (trimmed === '#') return false;
+        if (trimmed.startsWith('Drive ')) return false;
+        
+        // ¿Es un campo de la plantilla?
+        const isTemplateField = templateLines.some(tl => {
+            const fm = tl.match(/^([- ]?.*?:)/);
+            return fm && trimmed.startsWith(fm[1]);
+        });
+        
+        return !isTemplateField;
+    });
+
+    // Insertar líneas extra antes del hashtag si es posible, para mantener el orden visual
+    if (extraLines.length > 0) {
+        const hashtagIndex = resultLines.findIndex(rl => rl.trim() === '#');
+        if (hashtagIndex !== -1) {
+            resultLines.splice(hashtagIndex, 0, ...extraLines, '');
+        } else {
+            resultLines.push('', ...extraLines);
+        }
     }
+
+    return resultLines.join('\n').trim();
 }
 
 function getEmailsFromSelection(selection: string): string[] {
@@ -128,14 +188,17 @@ export async function createProject(
     const cardName = `${nombre} (${projectCode})`;
     const folderName = `${projectCode} - ${nombre}`;
     
-    let finalDescription = DESCRIPCION_PLANTILLA;
-    finalDescription = updateDescriptionField(finalDescription, 'ESTADO', estado || 'Sin iniciar');
-    if (partido) finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
-    if (proyectista) finalDescription = updateDescriptionField(finalDescription, '- Proyectista', proyectista);
-    if (financiamiento) finalDescription = updateDescriptionField(finalDescription, 'FINANCIAMIENTO', financiamiento);
-    if (diagnosticoEquipo) finalDescription = updateDescriptionField(finalDescription, '- Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
-    if (informacionSig) finalDescription = updateDescriptionField(finalDescription, '- Información SIG-imágenes', informacionSig);
-    if (informacionDron) finalDescription = updateDescriptionField(finalDescription, '- Información LIDAR/vuelos Dron', informacionDron);
+    // Usar la nueva lógica de reconciliación para generar la descripción inicial
+    const updates = {
+        'ESTADO': estado || 'Sin iniciar',
+        'PARTIDO': partido || '',
+        '- Proyectista': proyectista || '',
+        'FINANCIAMIENTO': financiamiento || '',
+        '- Diagnóstico ambiental-socioeconómico': diagnosticoEquipo || '',
+        '- Información SIG-imágenes': informacionSig || '',
+        '- Información LIDAR/vuelos Dron': informacionDron || ''
+    };
+    const finalDescription = reconcileDescription('', updates);
     
     const card = await createTrelloCard({
       name: cardName,
@@ -217,15 +280,14 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
 
         let cardName = currentCard.name;
         let idList = currentCard.idList;
-        let finalDescription = currentCard.desc || DESCRIPCION_PLANTILLA;
 
-        // Extraer estado anterior de la descripción
-        const lines = finalDescription.split('\n');
+        // Extraer estado anterior de la descripción usando la lógica por línea
+        const lines = (currentCard.desc || '').split('\n');
         let oldStatus = null;
         for (const line of lines) {
-            if (line.toLowerCase().trim().startsWith('estado:')) {
+            if (line.trim().startsWith('ESTADO:')) {
                 oldStatus = line.split(':')[1].trim().replace(/\*\*/g, '');
-                if (oldStatus === '' || oldStatus === '****') oldStatus = null;
+                if (oldStatus === '') oldStatus = null;
                 break;
             }
         }
@@ -246,18 +308,20 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             const targetList = lists.find(list => list.name.toLowerCase() === selectedCuenca.trelloListName.toLowerCase());
             if (targetList) idList = targetList.id;
         } else {
-            // Solo actualizar nombre, manteniendo código actual
             cardName = `${nombre} (${currentCode || 'XXX000'})`;
         }
 
-        // Actualizar campos preservando el formato solicitado
-        if (estado !== undefined) finalDescription = updateDescriptionField(finalDescription, 'ESTADO', estado);
-        if (partido !== undefined) finalDescription = updateDescriptionField(finalDescription, 'PARTIDO', partido);
-        if (proyectista !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Proyectista', proyectista);
-        if (financiamiento !== undefined) finalDescription = updateDescriptionField(finalDescription, 'FINANCIAMIENTO', financiamiento);
-        if (diagnosticoEquipo !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Diagnóstico ambiental-socioeconómico', diagnosticoEquipo);
-        if (informacionSig !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Información SIG-imágenes', informacionSig);
-        if (informacionDron !== undefined) finalDescription = updateDescriptionField(finalDescription, '- Información LIDAR/vuelos Dron', informacionDron);
+        // Aplicar la lógica de reconciliación para mantener el orden estricto de la plantilla
+        const updates: Record<string, string> = {};
+        if (estado !== undefined) updates['ESTADO'] = estado;
+        if (partido !== undefined) updates['PARTIDO'] = partido;
+        if (proyectista !== undefined) updates['- Proyectista'] = proyectista;
+        if (financiamiento !== undefined) updates['FINANCIAMIENTO'] = financiamiento;
+        if (diagnosticoEquipo !== undefined) updates['- Diagnóstico ambiental-socioeconómico'] = diagnosticoEquipo;
+        if (informacionSig !== undefined) updates['- Información SIG-imágenes'] = informacionSig;
+        if (informacionDron !== undefined) updates['- Información LIDAR/vuelos Dron'] = informacionDron;
+
+        const finalDescription = reconcileDescription(currentCard.desc || '', updates);
 
         const updatePayload: any = {
             cardId,
@@ -266,11 +330,8 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             idList
         };
 
-        // Si cambió el estado, actualizar el color de la portada
         if (isStatusChange && estado) {
             updatePayload.cover = { color: getTrelloColorForStatus(estado) };
-            
-            // Publicar hito en Trello
             const timestamp = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
             await addCommentToCard({
                 cardId,
