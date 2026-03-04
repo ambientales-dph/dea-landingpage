@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useActionState, useEffect, useState, useCallback } from 'react';
@@ -66,7 +65,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
   const [selectedCuenca, setSelectedCuenca] = useState('');
   const [estado, setEstado] = useState('Sin iniciar');
   const [selectedPartidos, setSelectedPartidos] = useState<string[]>([]);
-  const [selectedProyectista, setSelectedProyectista] = useState('');
+  const [selectedProyectistas, setSelectedProyectistas] = useState<string[]>([]);
   const [selectedFinanciamiento, setSelectedFinanciamiento] = useState<string[]>([]);
   const [selectedEquipo, setSelectedEquipo] = useState<string[]>([]);
   const [selectedSig, setSelectedSig] = useState<string[]>([]);
@@ -113,7 +112,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
 
     setEstado(extractFieldFromDesc(card.desc, 'ESTADO') || 'Sin iniciar');
     setSelectedPartidos(extractListFromDesc(card.desc, 'PARTIDO'));
-    setSelectedProyectista(extractFieldFromDesc(card.desc, 'PROYECTISTA'));
+    setSelectedProyectistas(extractListFromDesc(card.desc, 'PROYECTISTA'));
     setSelectedFinanciamiento(extractListFromDesc(card.desc, 'FINANCIAMIENTO'));
     setSelectedEquipo(extractListFromDesc(card.desc, '- Diagnóstico ambiental-socioeconómico'));
     setSelectedSig(extractListFromDesc(card.desc, '- Información SIG-imágenes'));
@@ -128,7 +127,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
     setSelectedCuenca('');
     setEstado('Sin iniciar');
     setSelectedPartidos([]);
-    setSelectedProyectista('');
+    setSelectedProyectistas([]);
     setSelectedFinanciamiento([]);
     setSelectedEquipo([]);
     setSelectedSig([]);
@@ -143,10 +142,9 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
         const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
         const realName = authorizedUser?.name || user.displayName || 'Usuario';
 
-        // Determinar el tipo de acción para la bitácora
         let actionType = editingCard ? 'update_project' : 'create_project';
         if (currentStatus.isStatusChange) {
-            actionType = 'status_change'; // Acción especial para la línea de tiempo
+            actionType = 'status_change';
         }
 
         const activityData: any = {
@@ -160,7 +158,6 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
           timestamp: serverTimestamp(),
         };
 
-        // Solo incluimos el detalle si existe y es relevante (evita el error de undefined en Firestore)
         if (currentStatus.isStatusChange && currentStatus.newStatus) {
             activityData.detail = `Cambió estado a "${currentStatus.newStatus}"`;
         }
@@ -260,7 +257,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
             <input type="hidden" name="userEmail" value={user?.email || ''} />
             <input type="hidden" name="cardId" value={editingCard?.id || ''} />
             <input type="hidden" name="partido" value={selectedPartidos.join(', ')} />
-            <input type="hidden" name="proyectista" value={selectedProyectista} />
+            <input type="hidden" name="proyectista" value={selectedProyectistas.join(', ')} />
             <input type="hidden" name="financiamiento" value={selectedFinanciamiento.join(', ')} />
             <input type="hidden" name="diagnosticoEquipo" value={selectedEquipo.join('; ')} />
             <input type="hidden" name="informacionSig" value={selectedSig.join('; ')} />
@@ -304,11 +301,27 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                     </DropdownMenu>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Proyectista</Label>
-                    <Select name="proyectista_ui" value={selectedProyectista} onValueChange={setSelectedProyectista}>
-                      <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
-                      <SelectContent>{PROYECTISTAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Proyectista/s</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">
+                          {selectedProyectistas.length > 0 ? `${selectedProyectistas.length} sel.` : 'Seleccioná'} 
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                        {PROYECTISTAS.map(p => (
+                          <DropdownMenuCheckboxItem 
+                            key={p} 
+                            checked={selectedProyectistas.includes(p)} 
+                            onCheckedChange={c => setSelectedProyectistas(curr => c ? [...curr, p] : curr.filter(x => x !== p))} 
+                            onSelect={e => e.preventDefault()}
+                          >
+                            {p}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
