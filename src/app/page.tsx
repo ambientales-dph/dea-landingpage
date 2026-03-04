@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   FolderKanban,
@@ -25,11 +26,12 @@ import {
   History,
   Info,
   Map as MapIcon,
+  ChevronRight,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
 import CardSearch from '@/components/card-search';
-import type { TrelloCard } from '@/services/trello';
+import { type TrelloCard, getAllCardsFromAllBoards, getCardById } from '@/services/trello';
 import { searchLocation } from '@/services/nominatim';
 import { fromLonLat } from 'ol/proj';
 import { useToast } from '@/hooks/use-toast';
@@ -59,12 +61,22 @@ import ResourceLibrary from '@/components/resource-library';
 import ActivityLogDialog from '@/components/activity-log-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { getAllCardsFromAllBoards } from '@/services/trello';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal
+} from '@/components/ui/dropdown-menu';
 import jsPDF from 'jspdf';
 import NotificationsBell from '@/components/notifications-bell';
 import { useAuth, useUser } from '@/firebase';
-import { loginConGoogle, cerrarSesion, isUserAuthorized } from '@/services/auth-service';
+import { loginConGoogle, cerrarSesion, isUserAuthorized, WHITELIST } from '@/services/auth-service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 const INITIAL_VIEW_STATE = {
@@ -86,8 +98,40 @@ export default function Home() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
+  const [userProjects, setUserProjects] = useState<TrelloCard[]>([]);
+  const [isUserProjectsLoading, setIsUserProjectsLoading] = useState(false);
   
   const authorized = user ? isUserAuthorized(user.email) : false;
+
+  const fetchUserProjects = useCallback(async () => {
+    if (!user?.email) return;
+    setIsUserProjectsLoading(true);
+    try {
+      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+      if (!authorizedUser?.name) return;
+      
+      const allCards = await getAllCardsFromAllBoards();
+      const myName = authorizedUser.name.toLowerCase();
+      
+      const filtered = allCards.filter(card => {
+        const hasCode = card.name.match(/\(([A-Z]{3}\d{3})\)$/);
+        const isMine = card.desc?.toLowerCase().includes(myName);
+        return hasCode && isMine;
+      }).sort((a, b) => a.name.localeCompare(b.name));
+      
+      setUserProjects(filtered);
+    } catch (error) {
+      console.error("Error fetching user projects:", error);
+    } finally {
+      setIsUserProjectsLoading(false);
+    }
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (user && authorized) {
+      fetchUserProjects();
+    }
+  }, [user, authorized, fetchUserProjects]);
 
   const handleLogin = async () => {
     if (isLoggingIn) return;
@@ -382,8 +426,9 @@ export default function Home() {
     }
   };
 
-  const handleDownloadDuplicatesPdfNew = async () => {
-    // Legacy function placeholder
+  const handleMyProjectClick = async (card: TrelloCard) => {
+    handleCardSelect(card);
+    setIsSummaryOpen(true);
   };
 
   if (loading) {
@@ -475,10 +520,55 @@ export default function Home() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel><div className="flex flex-col space-y-1"><p className="text-sm font-medium">{user?.displayName}</p><p className="text-xs text-muted-foreground">{user?.email}</p></div></DropdownMenuLabel>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium">{user?.displayName}</p>
+                      <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive"><LogOut className="mr-2 h-4 w-4" /><span>Cerrar Sesión</span></DropdownMenuItem>
+                  
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <FolderKanban className="mr-2 h-4 w-4" />
+                      <span>Mis Proyectos</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="w-64 max-h-[300px] p-0 overflow-hidden flex flex-col">
+                        <DropdownMenuLabel className="bg-muted/50 p-2 text-[10px] uppercase font-bold text-muted-foreground">Proyectos asignados</DropdownMenuLabel>
+                        <DropdownMenuSeparator className="m-0" />
+                        <ScrollArea className="flex-1">
+                          {isUserProjectsLoading ? (
+                            <div className="p-4 flex items-center justify-center">
+                              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            </div>
+                          ) : userProjects.length > 0 ? (
+                            userProjects.map(project => (
+                              <DropdownMenuItem 
+                                key={project.id} 
+                                onSelect={() => handleMyProjectClick(project)}
+                                className="text-[11px] py-2 px-3 cursor-pointer"
+                              >
+                                <span className="font-mono font-bold mr-2 text-primary">{project.name.match(/\(([^)]+)\)$/)?.[1]}</span>
+                                <span className="truncate">{project.name.replace(/\([^)]+\)$/, '').trim()}</span>
+                              </DropdownMenuItem>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-[10px] text-muted-foreground italic">
+                              No tenés proyectos asignados.
+                            </div>
+                          )}
+                        </ScrollArea>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Cerrar Sesión</span>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

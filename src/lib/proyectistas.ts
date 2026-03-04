@@ -9,4 +9,6 @@ export const PROYECTISTAS = [
   'Laura Agabios',
   'Joaquín Bonoldi',
   'Iván Brielfritsch',
+  'Yuliano Donantueno',
+  'José Luis Donantueno',
 ].sort((a, b) => a.localeCompare(b));

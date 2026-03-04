@@ -22,6 +22,10 @@ export const EQUIPO_DEA = [
   'Andrea D´Emilio',
   'Carolina Silva',
   'Joaquín Montorsi',
+  'Inés Cristina',
+  'Camila Baek',
+  'Nicolás Guardo',
+  'Verónica López Agosti',
 ].sort((a, b) => a.localeCompare(b));
 
 export const EQUIPO_SIG = [
@@ -29,10 +33,12 @@ export const EQUIPO_SIG = [
   'Cintia Di Grazia',
   'María Ángeles González',
   'Alan Santamarina',
+  'Joaquín Montorsi',
+  'Nicolás Guardo'
 ].sort((a, b) => a.localeCompare(b));
 
 export const EQUIPO_DRON = [
   'Luis Bree',
-  'Gonzalo Castro',
+  'Pablo Giner',
   'Alan Santamarina',
 ].sort((a, b) => a.localeCompare(b));
