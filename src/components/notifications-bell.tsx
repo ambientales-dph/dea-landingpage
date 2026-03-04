@@ -216,12 +216,12 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80 md:w-96 max-h-[60vh] overflow-hidden flex flex-col p-0">
-                <DropdownMenuLabel className="flex justify-between items-center p-4">
-                    <span>Notificaciones (Últimas 8hs)</span>
-                    {isLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="m-0" />
                 <div className="overflow-y-auto flex-1">
+                    {isLoading && notifications.length === 0 && (
+                        <div className="p-8 flex items-center justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                    )}
                     {notifications.length > 0 ? (
                         notifications.map(action => (
                             <DropdownMenuItem key={action.id} onSelect={() => handleSelect(action)} className="h-auto items-start gap-3 py-3 px-4 cursor-pointer border-b last:border-0 hover:bg-muted/50 focus:bg-muted/50">
@@ -245,7 +245,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                                 </div>
                             </DropdownMenuItem>
                         ))
-                    ) : (
+                    ) : !isLoading && (
                         <div className="p-8 text-center">
                             <p className="text-sm text-muted-foreground">No hay actividad reciente.</p>
                         </div>
