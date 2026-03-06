@@ -583,41 +583,47 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
                             color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white'
                         }} 
-                        className="p-6 relative rounded-t-lg"
+                        className="p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-4"
                     >
-                        {isEditing ? (
-                            <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} className="text-base font-semibold bg-transparent text-inherit border-white/30 h-auto p-1 mr-28" />
-                        ) : (
-                          <DialogTitle className="text-sm font-semibold mr-36 flex items-center gap-2">
-                            <span>{selectedCard.name}</span>
-                            <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 no-export"><LinkIcon className="h-4 w-4" /></a>
-                          </DialogTitle>
-                        )}
-                        
-                        <div className="flex flex-wrap gap-2 pt-2">
-                            {selectedCard.labels.map(label => (
-                                <Badge key={label.id} className="text-[10px] group cursor-default" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
-                                  {label.name}
-                                  {isEditing && <X className="ml-1 h-2 w-2 cursor-pointer hover:text-red-200" onClick={() => handleToggleLabel(label.id, true)} />}
-                                </Badge>
-                            ))}
-                            {isEditing && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-white/20"><Plus className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                  {boardLabels.map(l => (
-                                    <DropdownMenuCheckboxItem key={l.id} checked={selectedCard.labels.some(sl => sl.id === l.id)} onCheckedChange={() => handleToggleLabel(l.id, selectedCard.labels.some(sl => sl.id === l.id))}>
-                                      <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: trelloCoverColors.find(c => c.name === l.color)?.hex || '#ccc' }} />{l.name}</div>
-                                    </DropdownMenuCheckboxItem>
-                                  ))}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                        <div className="flex items-start justify-between gap-4">
+                            {isEditing ? (
+                                <Input 
+                                    value={editedName} 
+                                    onChange={(e) => setEditedName(e.target.value)} 
+                                    className="text-base font-semibold bg-white/10 text-inherit border-white/30 h-auto p-2 w-full" 
+                                />
+                            ) : (
+                              <DialogTitle className="text-sm font-semibold pr-8 flex items-center gap-2 leading-tight">
+                                <span>{selectedCard.name}</span>
+                                <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 no-export flex-shrink-0"><LinkIcon className="h-4 w-4" /></a>
+                              </DialogTitle>
                             )}
                         </div>
+                        
+                        <div className="flex flex-wrap items-center justify-between gap-3 mt-1">
+                            <div className="flex flex-wrap gap-2">
+                                {selectedCard.labels.map(label => (
+                                    <Badge key={label.id} className="text-[10px] group cursor-default" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
+                                      {label.name}
+                                      {isEditing && <X className="ml-1 h-2 w-2 cursor-pointer hover:text-red-200" onClick={() => handleToggleLabel(label.id, true)} />}
+                                    </Badge>
+                                ))}
+                                {isEditing && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-white/20"><Plus className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                    <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                                      {boardLabels.map(l => (
+                                        <DropdownMenuCheckboxItem key={l.id} checked={selectedCard.labels.some(sl => sl.id === l.id)} onCheckedChange={() => handleToggleLabel(l.id, selectedCard.labels.some(sl => sl.id === l.id))}>
+                                          <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: trelloCoverColors.find(c => c.name === l.color)?.hex || '#ccc' }} />{l.name}</div>
+                                        </DropdownMenuCheckboxItem>
+                                      ))}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                            </div>
 
-                        <div className="absolute top-4 right-12 flex gap-1 no-export">
                             {!isEditing && (
-                              <>
+                              <div className="flex items-center gap-1 no-export">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={() => setIsExportDialogOpen(true)} title="Exportar Ficha"><Printer className="h-4 w-4" /></Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20"><Palette className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -628,9 +634,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <Button variant="ghost" className="h-6 w-6 rounded-full border p-0" onClick={() => handleColorChange(null)}><X className="h-3 w-3" /></Button>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleEditClick}><Edit className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={fetchCardData} disabled={isRefreshing}><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
-                              </>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleEditClick} title="Editar Ficha"><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={fetchCardData} disabled={isRefreshing} title="Actualizar Datos"><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
+                              </div>
                             )}
                         </div>
                     </DialogHeader>
