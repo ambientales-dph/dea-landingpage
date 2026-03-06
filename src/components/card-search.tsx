@@ -98,27 +98,56 @@ const trelloColorToStyle = (color: string | null | undefined): React.CSSProperti
     };
 };
 
+const isDriveFolder = (url: string) => url.includes('drive.google.com') && (url.includes('/folders/') || url.includes('id='));
+const isDriveFile = (url: string) => url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('/open?id='));
+
 const renderDescription = (desc: string) => {
     const parts: (string | JSX.Element)[] = [];
     if (!desc) return parts;
-    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*|(\S+\.(?:jpg|jpeg|png|gif|bmp|webp|svg|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)\S*)/gi;
+    
+    // Regex mejorada para capturar markdown links, negritas, links de drive y otros archivos
+    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*|(https?:\/\/drive\.google\.com\/\S+)|(\S+\.(?:jpg|jpeg|png|gif|bmp|webp|svg|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)\S*)/gi;
     let lastIndex = 0;
     let match;
+    
     while ((match = regex.exec(desc)) !== null) {
         if (match.index > lastIndex) parts.push(desc.substring(lastIndex, match.index));
-        const [fullMatch, linkText, linkUrlRaw, boldText, standaloneUrl] = match;
+        
+        const [fullMatch, linkText, linkUrlRaw, boldText, standaloneDriveUrl, standaloneUrl] = match;
+        
         if (linkText !== undefined && linkUrlRaw !== undefined) {
             const urlMatch = linkUrlRaw.trim().match(/^\S+/);
             if (!urlMatch) continue;
             const linkUrl = urlMatch[0];
-            parts.push(<a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/80"><LinkIcon className="h-3.5 w-3.5" /><span>{linkText || 'Abrir'}</span></a>);
+            const isDrive = isDriveFolder(linkUrl) || isDriveFile(linkUrl);
+            const DriveIcon = isDriveFolder(linkUrl) ? Folder : FileText;
+            
+            parts.push(
+                <a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1",
+                    isDrive ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}>
+                    {isDrive ? <DriveIcon className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />}
+                    <span>{linkText || (isDrive ? 'Abrir en Drive' : 'Abrir')}</span>
+                </a>
+            );
         } else if (boldText !== undefined) {
             parts.push(<strong key={match.index}>{boldText}</strong>);
+        } else if (standaloneDriveUrl !== undefined) {
+            const DriveIcon = isDriveFolder(standaloneDriveUrl) ? Folder : FileText;
+            const label = isDriveFolder(standaloneDriveUrl) ? 'Carpeta Drive' : 'Archivo Drive';
+            parts.push(
+                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1">
+                    <DriveIcon className="h-3.5 w-3.5" />
+                    <span>{label}</span>
+                </a>
+            );
         } else if (standaloneUrl !== undefined) {
-             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80"><span>{standaloneUrl.split('/').pop()}</span></a>);
+             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1"><span>{standaloneUrl.split('/').pop()}</span></a>);
         }
         lastIndex = regex.lastIndex;
     }
+    
     if (lastIndex < desc.length) parts.push(desc.substring(lastIndex));
     return parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>);
 };
@@ -373,10 +402,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     });
   }, [selectedCard?.attachments, attachmentSort]);
 
-  const isDriveFolder = (url: string) => {
-    return url.includes('drive.google.com') && url.includes('/folders/');
-  };
-
   const handleExport = async () => {
     if (!selectedCard) return;
     setIsExporting(true);
@@ -388,7 +413,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         const margin = 15;
         let y = 20;
 
-        // Renderizado del título con ajuste de línea
+        // Renderizado del título
         const coverColor = trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#3182ce';
         const isLight = ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '');
         const titleLines = doc.splitTextToSize(selectedCard.name, pageWidth - (margin * 2) - 10);
@@ -396,12 +421,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
         doc.setFillColor(coverColor);
         doc.rect(margin, y, pageWidth - (margin * 2), headerHeight, 'F');
-        
         doc.setTextColor(isLight ? '#172b4d' : '#ffffff');
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
-        
-        // Posicionar el título centrado verticalmente en el bloque de color
         const titleStartY = y + (headerHeight / 2) + 1 - ((titleLines.length - 1) * 2.5);
         doc.text(titleLines, margin + 5, titleStartY);
         y += headerHeight + 10;
@@ -433,44 +455,59 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
 
-        // Procesamiento de la descripción línea por línea con soporte para negritas
         const descLines = (selectedCard.desc || 'Sin descripción').split('\n');
         descLines.forEach(line => {
             const trimmedLine = line.trim();
-            
-            // Omitir si es un campo de plantilla vacío (ej: "PARTIDO: ****")
-            const emptyBoldPattern = /:\s*\*\*\s*\*\*/;
-            if (emptyBoldPattern.test(trimmedLine) || trimmedLine === '****' || trimmedLine === '** **') {
-                return;
-            }
-
+            if (/:\s*\*\*\s*\*\*/.test(trimmedLine) || trimmedLine === '****' || trimmedLine === '** **') return;
             if (y > 275) { doc.addPage(); y = 20; }
 
-            const parts = line.split('**');
-            let currentX = margin;
-            let isBold = false;
-            let maxHeightInLine = 5;
+            // Procesamiento de links y negritas en PDF
+            const linkRegex = /\[([^\][]*?)\]\((.*?)\)|(https?:\/\/drive\.google\.com\/\S+)/gi;
+            let lineX = margin;
+            let lastIdx = 0;
+            let linkMatch;
 
-            parts.forEach((part, idx) => {
-                if (part === '') {
-                    isBold = !isBold;
-                    return;
+            // Primero manejamos links de Drive y Markdown para no imprimir la URL larga
+            const segments: { text: string; isBold: boolean; link?: string }[] = [];
+            const boldParts = line.split('**');
+            let isBold = false;
+            
+            boldParts.forEach(part => {
+                if (part === '') { isBold = !isBold; return; }
+                
+                // Buscar links dentro del segmento (aunque sea negrita)
+                let sIdx = 0;
+                while ((linkMatch = linkRegex.exec(part)) !== null) {
+                    if (linkMatch.index > sIdx) segments.push({ text: part.substring(sIdx, linkMatch.index), isBold });
+                    
+                    const [full, mText, mUrl, sDriveUrl] = linkMatch;
+                    if (mText !== undefined) {
+                        segments.push({ text: mText || 'Link', isBold, link: mUrl });
+                    } else if (sDriveUrl !== undefined) {
+                        const label = isDriveFolder(sDriveUrl) ? '[CARPETA DRIVE]' : '[ARCHIVO DRIVE]';
+                        segments.push({ text: label, isBold, link: sDriveUrl });
+                    }
+                    sIdx = linkRegex.lastIndex;
                 }
+                if (sIdx < part.length) segments.push({ text: part.substring(sIdx), isBold });
+                isBold = !isBold;
+            });
+
+            segments.forEach(seg => {
+                doc.setFont('helvetica', seg.isBold ? 'bold' : 'normal');
+                if (seg.link) doc.setTextColor('#3182ce'); else doc.setTextColor('#000000');
                 
-                doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-                // Manejar ajuste de línea para segmentos largos si fuera necesario, 
-                // pero usualmente son cortos en la descripción.
-                const segmentWidth = doc.getTextWidth(part);
+                const segText = seg.text;
+                const segWidth = doc.getTextWidth(segText);
                 
-                if (currentX + segmentWidth > pageWidth - margin) {
-                    y += 5;
-                    currentX = margin;
+                if (lineX + segWidth > pageWidth - margin) {
+                    y += 5; lineX = margin;
                     if (y > 275) { doc.addPage(); y = 20; }
                 }
                 
-                doc.text(part, currentX, y);
-                currentX += segmentWidth;
-                isBold = !isBold;
+                doc.text(segText, lineX, y);
+                if (seg.link) doc.link(lineX, y - 3, segWidth, 4, { url: seg.link });
+                lineX += segWidth;
             });
             
             y += 5;
@@ -479,34 +516,28 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
         if (exportOptions.includeAttachments && selectedCard.attachments.length > 0) {
             if (y > 250) { doc.addPage(); y = 20; }
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor('#000000');
             doc.text(`ADJUNTOS (${selectedCard.attachments.length}):`, margin, y);
             y += 7;
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
             selectedCard.attachments.forEach(att => {
                 if (y > 270) { doc.addPage(); y = 20; }
                 doc.text(`• ${att.name}`, margin + 2, y);
-                y += 5;
-                doc.setTextColor('#3182ce');
-                doc.text(att.url, margin + 5, y);
-                doc.setTextColor('#000000');
-                y += 6;
+                y += 5; doc.setTextColor('#3182ce'); doc.text(att.url, margin + 5, y);
+                doc.link(margin + 5, y - 3, doc.getTextWidth(att.url), 4, { url: att.url });
+                doc.setTextColor('#000000'); y += 6;
             });
             y += 5;
         }
 
         if (exportOptions.includeComments && activity.length > 0) {
             if (y > 250) { doc.addPage(); y = 20; }
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
             doc.text('HISTORIAL DE COMENTARIOS:', margin, y);
             y += 7;
             activity.forEach(action => {
                 if (y > 260) { doc.addPage(); y = 20; }
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(8);
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
                 const dateStr = format(new Date(action.date), 'dd/MM/yyyy HH:mm', { locale: es });
                 doc.text(`${action.memberCreator.fullName} - ${dateStr}`, margin, y);
                 y += 4;
@@ -517,22 +548,19 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             });
         }
 
-        const pageCount = doc.internal.pages.length - 1;
+        const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(7);
-            doc.setTextColor('#999999');
+            doc.setPage(i); doc.setFontSize(7); doc.setTextColor('#999999');
             doc.text(`Generado por Portal DEA - ${format(new Date(), 'dd/MM/yyyy HH:mm')} - Página ${i} de ${pageCount}`, margin, 285);
         }
 
         doc.save(`${fileName}.pdf`);
-
         await logPortalActivity('export_card', `Exportó ficha técnica como PDF`);
         toast({ title: '¡Exportación exitosa!', description: `Se ha descargado la ficha de "${selectedCard.name}" en formato PDF.` });
         setIsExportDialogOpen(false);
     } catch (error) {
         console.error('Export error:', error);
-        toast({ variant: 'destructive', title: 'Error al exportar', description: 'No se pudo generar el archivo PDF.' });
+        toast({ variant: 'destructive', title: 'Error al exportar' });
     } finally {
         setIsExporting(false);
     }
