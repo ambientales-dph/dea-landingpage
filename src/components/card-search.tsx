@@ -383,22 +383,28 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     
     try {
         const fileName = `DEA-Ficha-${selectedCard.name.replace(/[/\\?%*:|"<>]/g, '-')}`;
-        
         const doc = new jsPDF('p', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.width;
         const margin = 15;
         let y = 20;
 
+        // Renderizado del título con ajuste de línea
         const coverColor = trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#3182ce';
-        doc.setFillColor(coverColor);
-        doc.rect(margin, y, pageWidth - (margin * 2), 15, 'F');
-        
         const isLight = ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '');
+        const titleLines = doc.splitTextToSize(selectedCard.name, pageWidth - (margin * 2) - 10);
+        const headerHeight = Math.max(15, (titleLines.length * 5) + 6);
+
+        doc.setFillColor(coverColor);
+        doc.rect(margin, y, pageWidth - (margin * 2), headerHeight, 'F');
+        
         doc.setTextColor(isLight ? '#172b4d' : '#ffffff');
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text(selectedCard.name, margin + 5, y + 10);
-        y += 25;
+        doc.setFontSize(11);
+        
+        // Posicionar el título centrado verticalmente en el bloque de color
+        const titleStartY = y + (headerHeight / 2) + 1 - ((titleLines.length - 1) * 2.5);
+        doc.text(titleLines, margin + 5, titleStartY);
+        y += headerHeight + 10;
 
         doc.setTextColor('#333333');
         doc.setFontSize(8);
@@ -426,9 +432,50 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         y += 7;
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-        const descLines = doc.splitTextToSize(selectedCard.desc || 'Sin descripción', pageWidth - (margin * 2));
-        doc.text(descLines, margin, y);
-        y += (descLines.length * 5) + 10;
+
+        // Procesamiento de la descripción línea por línea con soporte para negritas
+        const descLines = (selectedCard.desc || 'Sin descripción').split('\n');
+        descLines.forEach(line => {
+            const trimmedLine = line.trim();
+            
+            // Omitir si es un campo de plantilla vacío (ej: "PARTIDO: ****")
+            const emptyBoldPattern = /:\s*\*\*\s*\*\*/;
+            if (emptyBoldPattern.test(trimmedLine) || trimmedLine === '****' || trimmedLine === '** **') {
+                return;
+            }
+
+            if (y > 275) { doc.addPage(); y = 20; }
+
+            const parts = line.split('**');
+            let currentX = margin;
+            let isBold = false;
+            let maxHeightInLine = 5;
+
+            parts.forEach((part, idx) => {
+                if (part === '') {
+                    isBold = !isBold;
+                    return;
+                }
+                
+                doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+                // Manejar ajuste de línea para segmentos largos si fuera necesario, 
+                // pero usualmente son cortos en la descripción.
+                const segmentWidth = doc.getTextWidth(part);
+                
+                if (currentX + segmentWidth > pageWidth - margin) {
+                    y += 5;
+                    currentX = margin;
+                    if (y > 275) { doc.addPage(); y = 20; }
+                }
+                
+                doc.text(part, currentX, y);
+                currentX += segmentWidth;
+                isBold = !isBold;
+            });
+            
+            y += 5;
+        });
+        y += 5;
 
         if (exportOptions.includeAttachments && selectedCard.attachments.length > 0) {
             if (y > 250) { doc.addPage(); y = 20; }
