@@ -110,6 +110,9 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                     const date = data.timestamp?.toDate() || new Date();
                     
                     if (date.getTime() < eightHoursAgo) return null;
+                    
+                    // Don't show export actions in notifications as they are not "editions"
+                    if (data.actionType === 'export_card') return null;
 
                     let actionText = '';
                     if (data.actionType === 'create_project') {
@@ -126,6 +129,8 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                         actionText = `comentó en "${data.projectName}" desde el portal`;
                     } else if (data.actionType === 'remove_attachment') {
                         actionText = `quitó un adjunto de "${data.projectName}" desde el portal`;
+                    } else if (data.actionType === 'status_change') {
+                        actionText = `cambió el hito/estado de "${data.projectName}" desde el portal`;
                     } else {
                         actionText = `actualizó el proyecto "${data.projectName}" desde el portal`;
                     }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -105,6 +104,7 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
       case 'add_comment': return 'COMENTARIO';
       case 'remove_attachment': return 'ADJUNTO';
       case 'status_change': return 'HITO/ESTADO';
+      case 'export_card': return 'DESCARGA';
       default: return type.toUpperCase();
     }
   };
@@ -119,6 +119,7 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
       case 'add_comment': return 'bg-slate-500/10 text-slate-600 border-slate-500/20';
       case 'remove_attachment': return 'bg-red-500/10 text-red-600 border-red-500/20';
       case 'status_change': return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
+      case 'export_card': return 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
     }
   };

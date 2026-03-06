@@ -390,12 +390,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         
         if (exportOptions.format === 'jpg') {
             if (cardRef.current) {
-                // Fix for SecurityError: Failed to read the 'cssRules' property
-                // By disabling font embedding we avoid the crash on cross-origin stylesheets
                 const dataUrl = await toJpeg(cardRef.current, { 
                   quality: 0.95, 
                   backgroundColor: '#ffffff',
+                  pixelRatio: 2,
                   fontEmbedCSS: '', 
+                  filter: (node: any) => {
+                    const classList = node.classList;
+                    if (classList && classList.contains('no-export')) return false;
+                    if (classList && classList.contains('export-attachments') && !exportOptions.includeAttachments) return false;
+                    if (classList && classList.contains('export-comments') && !exportOptions.includeComments) return false;
+                    return true;
+                  }
                 });
                 const link = document.createElement('a');
                 link.download = `${fileName}.jpg`;
@@ -584,7 +590,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         ) : (
                           <DialogTitle className="text-sm font-semibold mr-36 flex items-center gap-2">
                             <span>{selectedCard.name}</span>
-                            <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100"><LinkIcon className="h-4 w-4" /></a>
+                            <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 no-export"><LinkIcon className="h-4 w-4" /></a>
                           </DialogTitle>
                         )}
                         
@@ -636,7 +642,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         </div>
 
                         {selectedCard.attachments?.length > 0 && !isEditing && (
-                          <div className="p-6 pt-0">
+                          <div className="p-6 pt-0 export-attachments">
                             <div className="flex items-center justify-between mb-2">
                               <h3 className="font-semibold text-sm">Adjuntos ({selectedCard.attachments.length})</h3>
                               <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 no-export" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
@@ -660,7 +666,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         )}
 
                         {!isEditing && (
-                            <div className="p-6 pt-0">
+                            <div className="p-6 pt-0 export-comments">
                                 <div className="flex gap-2 mb-4 no-export">
                                     <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px]" />
                                     <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon"><Send className="h-4 w-4" /></Button>
