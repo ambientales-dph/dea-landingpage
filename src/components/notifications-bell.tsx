@@ -111,7 +111,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                     
                     if (date.getTime() < eightHoursAgo) return null;
                     
-                    // Don't show export actions in notifications as they are not "editions"
+                    // Filtrar estrictamente las descargas para que no aparezcan como notificaciones de edición
                     if (data.actionType === 'export_card') return null;
 
                     let actionText = '';
