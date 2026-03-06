@@ -382,38 +382,45 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   };
 
   const handleExport = async () => {
-    if (!selectedCard) return;
+    if (!selectedCard || !cardRef.current) return;
     setIsExporting(true);
     
     try {
         const fileName = `DEA-Ficha-${selectedCard.name.replace(/[/\\?%*:|"<>]/g, '-')}`;
         
         if (exportOptions.format === 'jpg') {
-            if (cardRef.current) {
-                const dataUrl = await toJpeg(cardRef.current, { 
-                  quality: 0.95, 
-                  backgroundColor: '#ffffff',
-                  pixelRatio: 2,
-                  cacheBust: true,
-                  style: {
-                    height: 'auto',
-                    maxHeight: 'none',
-                    overflow: 'visible',
-                    display: 'block'
-                  },
-                  filter: (node: any) => {
-                    const classList = node.classList;
-                    if (classList && classList.contains('no-export')) return false;
-                    if (classList && classList.contains('export-attachments') && !exportOptions.includeAttachments) return false;
-                    if (classList && classList.contains('export-comments') && !exportOptions.includeComments) return false;
-                    return true;
-                  }
-                });
-                const link = document.createElement('a');
-                link.download = `${fileName}.jpg`;
-                link.href = dataUrl;
-                link.click();
-            }
+            const node = cardRef.current;
+            // Identificar el viewport del área de scroll para expandirlo
+            const scrollAreaViewport = node.querySelector('[data-radix-scroll-area-viewport]');
+            
+            const dataUrl = await toJpeg(node, { 
+              quality: 0.95, 
+              backgroundColor: '#ffffff',
+              pixelRatio: 2,
+              cacheBust: true,
+              // Forzamos al renderizador vectorial a ignorar los límites físicos del diálogo
+              height: node.scrollHeight + (scrollAreaViewport?.scrollHeight || 0),
+              style: {
+                height: 'auto',
+                maxHeight: 'none',
+                overflow: 'visible',
+                display: 'block'
+              },
+              filter: (node: any) => {
+                const classList = node.classList;
+                if (classList && classList.contains('no-export')) return false;
+                if (classList && classList.contains('export-attachments') && !exportOptions.includeAttachments) return false;
+                if (classList && classList.contains('export-comments') && !exportOptions.includeComments) return false;
+                // Ocultar barras de scroll físicas en la captura
+                if (node.tagName === 'DIV' && node.style.overflow === 'scroll') return false;
+                return true;
+              }
+            });
+
+            const link = document.createElement('a');
+            link.download = `${fileName}.jpg`;
+            link.href = dataUrl;
+            link.click();
         } else {
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.width;
