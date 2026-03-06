@@ -50,7 +50,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import React from 'react';
 import { useFirestore, useUser } from '@/firebase';
@@ -59,7 +58,6 @@ import { WHITELIST } from '@/lib/auth-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
-import { toJpeg } from 'html-to-image';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -154,14 +152,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportOptions, setExportOptions] = useState({
     includeAttachments: true,
-    includeComments: true,
-    format: 'pdf' as 'pdf' | 'jpg'
+    includeComments: true
   });
   const [isExporting, setIsExporting] = useState(false);
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isSummaryOpen) {
@@ -382,153 +378,118 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   };
 
   const handleExport = async () => {
-    if (!selectedCard || !cardRef.current) return;
+    if (!selectedCard) return;
     setIsExporting(true);
     
     try {
         const fileName = `DEA-Ficha-${selectedCard.name.replace(/[/\\?%*:|"<>]/g, '-')}`;
         
-        if (exportOptions.format === 'jpg') {
-            const node = cardRef.current;
-            // Identificar el viewport del área de scroll para expandirlo
-            const scrollAreaViewport = node.querySelector('[data-radix-scroll-area-viewport]');
-            
-            const dataUrl = await toJpeg(node, { 
-              quality: 0.95, 
-              backgroundColor: '#ffffff',
-              pixelRatio: 2,
-              cacheBust: true,
-              // Forzamos al renderizador vectorial a ignorar los límites físicos del diálogo
-              height: node.scrollHeight + (scrollAreaViewport?.scrollHeight || 0),
-              style: {
-                height: 'auto',
-                maxHeight: 'none',
-                overflow: 'visible',
-                display: 'block'
-              },
-              filter: (node: any) => {
-                const classList = node.classList;
-                if (classList && classList.contains('no-export')) return false;
-                if (classList && classList.contains('export-attachments') && !exportOptions.includeAttachments) return false;
-                if (classList && classList.contains('export-comments') && !exportOptions.includeComments) return false;
-                // Ocultar barras de scroll físicas en la captura
-                if (node.tagName === 'DIV' && node.style.overflow === 'scroll') return false;
-                return true;
-              }
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.width;
+        const margin = 15;
+        let y = 20;
+
+        const coverColor = trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#3182ce';
+        doc.setFillColor(coverColor);
+        doc.rect(margin, y, pageWidth - (margin * 2), 15, 'F');
+        
+        const isLight = ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '');
+        doc.setTextColor(isLight ? '#172b4d' : '#ffffff');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text(selectedCard.name, margin + 5, y + 10);
+        y += 25;
+
+        doc.setTextColor('#333333');
+        doc.setFontSize(8);
+        if (selectedCard.labels.length > 0) {
+            doc.text('ETIQUETAS:', margin, y);
+            y += 5;
+            let lx = margin;
+            selectedCard.labels.forEach(label => {
+                const labelColor = label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc';
+                doc.setFillColor(labelColor);
+                const labelWidth = doc.getTextWidth(label.name) + 4;
+                if (lx + labelWidth > pageWidth - margin) { lx = margin; y += 6; }
+                doc.rect(lx, y - 4, labelWidth, 5, 'F');
+                doc.setTextColor('#ffffff');
+                doc.text(label.name, lx + 2, y - 0.5);
+                lx += labelWidth + 2;
             });
-
-            const link = document.createElement('a');
-            link.download = `${fileName}.jpg`;
-            link.href = dataUrl;
-            link.click();
-        } else {
-            const doc = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = doc.internal.pageSize.width;
-            const margin = 15;
-            let y = 20;
-
-            const coverColor = trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#3182ce';
-            doc.setFillColor(coverColor);
-            doc.rect(margin, y, pageWidth - (margin * 2), 15, 'F');
-            
-            const isLight = ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '');
-            doc.setTextColor(isLight ? '#172b4d' : '#ffffff');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(12);
-            doc.text(selectedCard.name, margin + 5, y + 10);
-            y += 25;
-
-            doc.setTextColor('#333333');
-            doc.setFontSize(8);
-            if (selectedCard.labels.length > 0) {
-                doc.text('ETIQUETAS:', margin, y);
-                y += 5;
-                let lx = margin;
-                selectedCard.labels.forEach(label => {
-                    const labelColor = label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc';
-                    doc.setFillColor(labelColor);
-                    const labelWidth = doc.getTextWidth(label.name) + 4;
-                    if (lx + labelWidth > pageWidth - margin) { lx = margin; y += 6; }
-                    doc.rect(lx, y - 4, labelWidth, 5, 'F');
-                    doc.setTextColor('#ffffff');
-                    doc.text(label.name, lx + 2, y - 0.5);
-                    lx += labelWidth + 2;
-                });
-                y += 10;
-            }
-
-            doc.setTextColor('#000000');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.text('DESCRIPCIÓN:', margin, y);
-            y += 7;
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            const descLines = doc.splitTextToSize(selectedCard.desc || 'Sin descripción', pageWidth - (margin * 2));
-            doc.text(descLines, margin, y);
-            y += (descLines.length * 5) + 10;
-
-            if (exportOptions.includeAttachments && selectedCard.attachments.length > 0) {
-                if (y > 250) { doc.addPage(); y = 20; }
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.text(`ADJUNTOS (${selectedCard.attachments.length}):`, margin, y);
-                y += 7;
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(8);
-                selectedCard.attachments.forEach(att => {
-                    if (y > 270) { doc.addPage(); y = 20; }
-                    doc.text(`• ${att.name}`, margin + 2, y);
-                    y += 5;
-                    doc.setTextColor('#3182ce');
-                    doc.text(att.url, margin + 5, y);
-                    doc.setTextColor('#000000');
-                    y += 6;
-                });
-                y += 5;
-            }
-
-            if (exportOptions.includeComments && activity.length > 0) {
-                if (y > 250) { doc.addPage(); y = 20; }
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.text('HISTORIAL DE COMENTARIOS:', margin, y);
-                y += 7;
-                activity.forEach(action => {
-                    if (y > 260) { doc.addPage(); y = 20; }
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(8);
-                    const dateStr = format(new Date(action.date), 'dd/MM/yyyy HH:mm', { locale: es });
-                    doc.text(`${action.memberCreator.fullName} - ${dateStr}`, margin, y);
-                    y += 4;
-                    doc.setFont('helvetica', 'normal');
-                    const commentLines = doc.splitTextToSize(action.data.text || '', pageWidth - (margin * 2) - 5);
-                    doc.text(commentLines, margin + 2, y);
-                    y += (commentLines.length * 4) + 6;
-                });
-            }
-
-            const pageCount = doc.internal.pages.length - 1;
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setFontSize(7);
-                doc.setTextColor('#999999');
-                doc.text(`Generado por Portal DEA - ${format(new Date(), 'dd/MM/yyyy HH:mm')} - Página ${i} de ${pageCount}`, margin, 285);
-            }
-
-            doc.save(`${fileName}.pdf`);
+            y += 10;
         }
 
-        await logPortalActivity('export_card', `Exportó ficha técnica como ${exportOptions.format.toUpperCase()}`);
-        toast({ title: '¡Exportación exitosa!', description: `Se ha descargado la ficha de "${selectedCard.name}".` });
+        doc.setTextColor('#000000');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('DESCRIPCIÓN:', margin, y);
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        const descLines = doc.splitTextToSize(selectedCard.desc || 'Sin descripción', pageWidth - (margin * 2));
+        doc.text(descLines, margin, y);
+        y += (descLines.length * 5) + 10;
+
+        if (exportOptions.includeAttachments && selectedCard.attachments.length > 0) {
+            if (y > 250) { doc.addPage(); y = 20; }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text(`ADJUNTOS (${selectedCard.attachments.length}):`, margin, y);
+            y += 7;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            selectedCard.attachments.forEach(att => {
+                if (y > 270) { doc.addPage(); y = 20; }
+                doc.text(`• ${att.name}`, margin + 2, y);
+                y += 5;
+                doc.setTextColor('#3182ce');
+                doc.text(att.url, margin + 5, y);
+                doc.setTextColor('#000000');
+                y += 6;
+            });
+            y += 5;
+        }
+
+        if (exportOptions.includeComments && activity.length > 0) {
+            if (y > 250) { doc.addPage(); y = 20; }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text('HISTORIAL DE COMENTARIOS:', margin, y);
+            y += 7;
+            activity.forEach(action => {
+                if (y > 260) { doc.addPage(); y = 20; }
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(8);
+                const dateStr = format(new Date(action.date), 'dd/MM/yyyy HH:mm', { locale: es });
+                doc.text(`${action.memberCreator.fullName} - ${dateStr}`, margin, y);
+                y += 4;
+                doc.setFont('helvetica', 'normal');
+                const commentLines = doc.splitTextToSize(action.data.text || '', pageWidth - (margin * 2) - 5);
+                doc.text(commentLines, margin + 2, y);
+                y += (commentLines.length * 4) + 6;
+            });
+        }
+
+        const pageCount = doc.internal.pages.length - 1;
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(7);
+            doc.setTextColor('#999999');
+            doc.text(`Generado por Portal DEA - ${format(new Date(), 'dd/MM/yyyy HH:mm')} - Página ${i} de ${pageCount}`, margin, 285);
+        }
+
+        doc.save(`${fileName}.pdf`);
+
+        await logPortalActivity('export_card', `Exportó ficha técnica como PDF`);
+        toast({ title: '¡Exportación exitosa!', description: `Se ha descargado la ficha de "${selectedCard.name}" en formato PDF.` });
         setIsExportDialogOpen(false);
     } catch (error) {
         console.error('Export error:', error);
-        toast({ variant: 'destructive', title: 'Error al exportar', description: 'No se pudo generar el archivo.' });
+        toast({ variant: 'destructive', title: 'Error al exportar', description: 'No se pudo generar el archivo PDF.' });
     } finally {
         setIsExporting(false);
     }
-  };
+};
 
   return (
     <div className="flex h-full w-full flex-col justify-end">
@@ -582,7 +543,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
             <DialogContent className="p-0 max-w-2xl overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] !flex !flex-col !gap-0">
-                <div ref={cardRef} className="bg-white flex flex-col h-full overflow-hidden">
+                <div className="bg-white flex flex-col h-full overflow-hidden">
                     <DialogHeader 
                         style={{
                             backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
@@ -739,10 +700,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                     <Download className="h-5 w-5 text-primary" />
-                    Configurar Exportación
+                    Exportar Ficha a PDF
                 </DialogTitle>
                 <DialogDescription>
-                    Seleccioná qué información querés incluir en el documento final.
+                    Seleccioná qué información querés incluir en el documento PDF.
                 </DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-4">
@@ -763,37 +724,17 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             checked={exportOptions.includeComments}
                             onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeComments: !!checked }))}
                         />
-                        <Label htmlFor="inc-comments" className="text-sm font-medium none cursor-pointer">
+                        <Label htmlFor="inc-comments" className="text-sm font-medium leading-none cursor-pointer">
                             Incluir historial de comentarios
                         </Label>
                     </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3">
-                    <Label className="text-xs uppercase font-bold text-muted-foreground">Formato de Salida</Label>
-                    <RadioGroup 
-                        value={exportOptions.format} 
-                        onValueChange={(val: any) => setExportOptions(prev => ({ ...prev, format: val }))}
-                        className="flex gap-4"
-                    >
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="pdf" id="f-pdf" />
-                            <Label htmlFor="f-pdf" className="cursor-pointer">PDF Documento</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="jpg" id="f-jpg" />
-                            <Label htmlFor="f-jpg" className="cursor-pointer">JPG Imagen</Label>
-                        </div>
-                    </RadioGroup>
                 </div>
             </div>
             <DialogFooter>
                 <Button variant="ghost" onClick={() => setIsExportDialogOpen(false)} disabled={isExporting}>Cancelar</Button>
                 <Button onClick={handleExport} disabled={isExporting} className="gap-2">
                     {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    {isExporting ? 'Generando...' : 'Descargar Ficha'}
+                    {isExporting ? 'Generando...' : 'Descargar PDF'}
                 </Button>
             </DialogFooter>
         </DialogContent>
