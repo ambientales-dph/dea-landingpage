@@ -576,16 +576,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl overflow-hidden border-0">
-                <div ref={cardRef} className="bg-white">
+            <DialogContent className="p-0 max-w-2xl overflow-hidden border-0 bg-white max-h-[90vh] flex flex-col">
+                <div ref={cardRef} className="bg-white flex flex-col h-full overflow-hidden">
                     <DialogHeader 
                         style={{
                             backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
                             color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white'
                         }} 
-                        className="p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-4"
+                        className="p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-4 shrink-0 overflow-hidden"
                     >
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex flex-col w-full pr-8">
                             {isEditing ? (
                                 <Input 
                                     value={editedName} 
@@ -593,17 +593,17 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     className="text-base font-semibold bg-white/10 text-inherit border-white/30 h-auto p-2 w-full" 
                                 />
                             ) : (
-                              <DialogTitle className="text-sm font-semibold pr-8 flex items-center gap-2 leading-tight">
+                              <DialogTitle className="text-sm md:text-base font-bold whitespace-normal break-words leading-tight w-full flex items-center gap-2">
                                 <span>{selectedCard.name}</span>
-                                <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 no-export flex-shrink-0"><LinkIcon className="h-4 w-4" /></a>
+                                <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 no-export shrink-0"><LinkIcon className="h-4 w-4" /></a>
                               </DialogTitle>
                             )}
                         </div>
                         
-                        <div className="flex flex-wrap items-center justify-between gap-3 mt-1">
-                            <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-col gap-3 w-full">
+                            <div className="flex flex-wrap gap-1.5">
                                 {selectedCard.labels.map(label => (
-                                    <Badge key={label.id} className="text-[10px] group cursor-default" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
+                                    <Badge key={label.id} className="text-[10px] group cursor-default h-5 px-2" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
                                       {label.name}
                                       {isEditing && <X className="ml-1 h-2 w-2 cursor-pointer hover:text-red-200" onClick={() => handleToggleLabel(label.id, true)} />}
                                     </Badge>
@@ -614,7 +614,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <DropdownMenuContent className="max-h-48 overflow-y-auto">
                                       {boardLabels.map(l => (
                                         <DropdownMenuCheckboxItem key={l.id} checked={selectedCard.labels.some(sl => sl.id === l.id)} onCheckedChange={() => handleToggleLabel(l.id, selectedCard.labels.some(sl => sl.id === l.id))}>
-                                          <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: trelloCoverColors.find(c => c.name === l.color)?.hex || '#ccc' }} />{l.name}</div>
+                                          <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: trelloCoverColors.find(c => l.color === c.name)?.hex || '#ccc' }} />{l.name}</div>
                                         </DropdownMenuCheckboxItem>
                                       ))}
                                     </DropdownMenuContent>
@@ -623,11 +623,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             </div>
 
                             {!isEditing && (
-                              <div className="flex items-center gap-1 no-export">
+                              <div className="flex flex-wrap items-center gap-1 no-export justify-start w-full">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={() => setIsExportDialogOpen(true)} title="Exportar Ficha"><Printer className="h-4 w-4" /></Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20"><Palette className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="grid grid-cols-5 gap-1 p-2">
+                                  <DropdownMenuContent align="start" className="grid grid-cols-5 gap-1 p-2">
                                     {trelloCoverColors.map(c => (
                                       <Button key={c.name} variant="ghost" className="h-6 w-6 rounded-full p-0" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(c.name)} />
                                     ))}
@@ -641,7 +641,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         </div>
                     </DialogHeader>
 
-                    <ScrollArea className="max-h-[70vh]">
+                    <ScrollArea className="flex-1">
                         <div className="p-6">
                             <h3 className="font-semibold text-sm mb-2">Descripción</h3>
                             {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderDescription(selectedCard.desc)}</div>}
@@ -679,7 +679,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 </div>
                                 <Collapsible defaultOpen={true}>
                                     <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
-                                    <CollapsibleContent className="mt-4 space-y-4">
+                                    <CollapsibleContent className="mt-4 space-y-4 pb-4">
                                         {activity.map(action => (
                                             <div key={action.id} className="flex gap-3 text-xs">
                                                 <Avatar className="h-6 w-6"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
@@ -697,7 +697,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 </div>
 
                 {isEditing && (
-                    <DialogFooter className="border-t p-4 gap-2">
+                    <DialogFooter className="border-t p-4 gap-2 bg-white shrink-0">
                         <div className="flex-1 flex gap-2">
                           <div className="flex flex-col gap-1 flex-1">
                             <label className="text-[10px] uppercase font-bold text-muted-foreground">Tablero</label>
