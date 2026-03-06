@@ -58,6 +58,7 @@ import { WHITELIST } from '@/lib/auth-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
+import { getDriveResourceName } from '@/services/google-drive';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -101,57 +102,6 @@ const trelloColorToStyle = (color: string | null | undefined): React.CSSProperti
 const isDriveFolder = (url: string) => url.includes('drive.google.com') && (url.includes('/folders/') || url.includes('id='));
 const isDriveFile = (url: string) => url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('/open?id='));
 
-const renderDescription = (desc: string) => {
-    const parts: (string | JSX.Element)[] = [];
-    if (!desc) return parts;
-    
-    // Regex mejorada para capturar markdown links, negritas, links de drive y otros archivos
-    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*|(https?:\/\/drive\.google\.com\/\S+)|(\S+\.(?:jpg|jpeg|png|gif|bmp|webp|svg|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)\S*)/gi;
-    let lastIndex = 0;
-    let match;
-    
-    while ((match = regex.exec(desc)) !== null) {
-        if (match.index > lastIndex) parts.push(desc.substring(lastIndex, match.index));
-        
-        const [fullMatch, linkText, linkUrlRaw, boldText, standaloneDriveUrl, standaloneUrl] = match;
-        
-        if (linkText !== undefined && linkUrlRaw !== undefined) {
-            const urlMatch = linkUrlRaw.trim().match(/^\S+/);
-            if (!urlMatch) continue;
-            const linkUrl = urlMatch[0];
-            const isDrive = isDriveFolder(linkUrl) || isDriveFile(linkUrl);
-            const DriveIcon = isDriveFolder(linkUrl) ? Folder : FileText;
-            
-            parts.push(
-                <a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1",
-                    isDrive ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}>
-                    {isDrive ? <DriveIcon className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />}
-                    <span>{linkText || (isDrive ? 'Abrir en Drive' : 'Abrir')}</span>
-                </a>
-            );
-        } else if (boldText !== undefined) {
-            parts.push(<strong key={match.index}>{boldText}</strong>);
-        } else if (standaloneDriveUrl !== undefined) {
-            const DriveIcon = isDriveFolder(standaloneDriveUrl) ? Folder : FileText;
-            const label = isDriveFolder(standaloneDriveUrl) ? 'Carpeta Drive' : 'Archivo Drive';
-            parts.push(
-                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1">
-                    <DriveIcon className="h-3.5 w-3.5" />
-                    <span>{label}</span>
-                </a>
-            );
-        } else if (standaloneUrl !== undefined) {
-             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1"><span>{standaloneUrl.split('/').pop()}</span></a>);
-        }
-        lastIndex = regex.lastIndex;
-    }
-    
-    if (lastIndex < desc.length) parts.push(desc.substring(lastIndex));
-    return parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>);
-};
-
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const { user } = useUser();
   const db = useFirestore();
@@ -176,6 +126,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [isListsLoading, setIsListsLoading] = useState(false);
   const [editedBoardId, setEditedBoardId] = useState('');
   const [editedListId, setEditedListId] = useState('');
+  const [driveNames, setDriveNames] = useState<Record<string, { name: string, isFolder: boolean }>>({});
 
   // Export states
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -199,6 +150,78 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       return () => clearTimeout(timer);
     }
   }, [isSummaryOpen]);
+
+  // Scanner de URLs de Drive para recuperar nombres
+  useEffect(() => {
+    if (selectedCard?.desc) {
+      const regex = /https?:\/\/drive\.google\.com\/\S+/gi;
+      const matches = selectedCard.desc.match(regex);
+      if (matches) {
+        matches.forEach(async (url) => {
+          if (!driveNames[url]) {
+            const result = await getDriveResourceName(url);
+            if (result) {
+              setDriveNames(prev => ({ ...prev, [url]: result }));
+            }
+          }
+        });
+      }
+    }
+  }, [selectedCard?.desc]);
+
+  const renderDescription = (desc: string) => {
+    const parts: (string | JSX.Element)[] = [];
+    if (!desc) return parts;
+    
+    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*|(https?:\/\/drive\.google\.com\/\S+)|(\S+\.(?:jpg|jpeg|png|gif|bmp|webp|svg|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)\S*)/gi;
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = regex.exec(desc)) !== null) {
+        if (match.index > lastIndex) parts.push(desc.substring(lastIndex, match.index));
+        
+        const [fullMatch, linkText, linkUrlRaw, boldText, standaloneDriveUrl, standaloneUrl] = match;
+        
+        if (linkText !== undefined && linkUrlRaw !== undefined) {
+            const urlMatch = linkUrlRaw.trim().match(/^\S+/);
+            if (!urlMatch) continue;
+            const linkUrl = urlMatch[0];
+            const isDrive = isDriveFolder(linkUrl) || isDriveFile(linkUrl);
+            const driveData = driveNames[linkUrl];
+            const DriveIcon = (driveData?.isFolder ?? isDriveFolder(linkUrl)) ? Folder : FileText;
+            
+            parts.push(
+                <a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1",
+                    isDrive ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}>
+                    {isDrive ? <DriveIcon className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />}
+                    <span>{linkText || driveData?.name || (isDrive ? (isDriveFolder(linkUrl) ? 'Carpeta Drive' : 'Archivo Drive') : 'Abrir')}</span>
+                </a>
+            );
+        } else if (boldText !== undefined) {
+            parts.push(<strong key={match.index}>{boldText}</strong>);
+        } else if (standaloneDriveUrl !== undefined) {
+            const driveData = driveNames[standaloneDriveUrl];
+            const isFolder = driveData?.isFolder ?? isDriveFolder(standaloneDriveUrl);
+            const DriveIcon = isFolder ? Folder : FileText;
+            const label = driveData?.name || (isFolder ? 'Carpeta Drive' : 'Archivo Drive');
+            
+            parts.push(
+                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1">
+                    <DriveIcon className="h-3.5 w-3.5" />
+                    <span>{label}</span>
+                </a>
+            );
+        } else if (standaloneUrl !== undefined) {
+             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1"><span>{standaloneUrl.split('/').pop()}</span></a>);
+        }
+        lastIndex = regex.lastIndex;
+    }
+    
+    if (lastIndex < desc.length) parts.push(desc.substring(lastIndex));
+    return parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>);
+  };
 
   const logPortalActivity = useCallback(async (actionType: string, detail: string) => {
     if (user && db && selectedCard) {
@@ -461,13 +484,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             if (/:\s*\*\*\s*\*\*/.test(trimmedLine) || trimmedLine === '****' || trimmedLine === '** **') return;
             if (y > 275) { doc.addPage(); y = 20; }
 
-            // Procesamiento de links y negritas en PDF
-            const linkRegex = /\[([^\][]*?)\]\((.*?)\)|(https?:\/\/drive\.google\.com\/\S+)/gi;
+            const regex = /\[([^\][]*?)\]\((.*?)\)|(https?:\/\/drive\.google\.com\/\S+)/gi;
             let lineX = margin;
-            let lastIdx = 0;
-            let linkMatch;
-
-            // Primero manejamos links de Drive y Markdown para no imprimir la URL larga
+            
             const segments: { text: string; isBold: boolean; link?: string }[] = [];
             const boldParts = line.split('**');
             let isBold = false;
@@ -475,19 +494,20 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             boldParts.forEach(part => {
                 if (part === '') { isBold = !isBold; return; }
                 
-                // Buscar links dentro del segmento (aunque sea negrita)
                 let sIdx = 0;
-                while ((linkMatch = linkRegex.exec(part)) !== null) {
+                let linkMatch;
+                while ((linkMatch = regex.exec(part)) !== null) {
                     if (linkMatch.index > sIdx) segments.push({ text: part.substring(sIdx, linkMatch.index), isBold });
                     
                     const [full, mText, mUrl, sDriveUrl] = linkMatch;
                     if (mText !== undefined) {
-                        segments.push({ text: mText || 'Link', isBold, link: mUrl });
+                        segments.push({ text: mText || driveNames[mUrl]?.name || 'Link', isBold, link: mUrl });
                     } else if (sDriveUrl !== undefined) {
-                        const label = isDriveFolder(sDriveUrl) ? '[CARPETA DRIVE]' : '[ARCHIVO DRIVE]';
+                        const driveData = driveNames[sDriveUrl];
+                        const label = driveData?.name || (isDriveFolder(sDriveUrl) ? '[CARPETA DRIVE]' : '[ARCHIVO DRIVE]');
                         segments.push({ text: label, isBold, link: sDriveUrl });
                     }
-                    sIdx = linkRegex.lastIndex;
+                    sIdx = regex.lastIndex;
                 }
                 if (sIdx < part.length) segments.push({ text: part.substring(sIdx), isBold });
                 isBold = !isBold;

@@ -18,6 +18,45 @@ const drive = google.drive({
 });
 
 /**
+ * Extrae el ID de un archivo o carpeta desde una URL de Google Drive.
+ */
+function extractIdFromUrl(url: string): string | null {
+    const folderMatch = url.match(/folders\/([a-zA-Z0-9_-]+)/);
+    if (folderMatch) return folderMatch[1];
+    
+    const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileMatch) return fileMatch[1];
+    
+    const idParamMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idParamMatch) return idParamMatch[1];
+
+    return null;
+}
+
+/**
+ * Obtiene el nombre de un recurso (archivo o carpeta) de Google Drive.
+ */
+export async function getDriveResourceName(url: string): Promise<{ name: string; isFolder: boolean } | null> {
+    const id = extractIdFromUrl(url);
+    if (!id) return null;
+
+    try {
+        const response = await drive.files.get({
+            fileId: id,
+            fields: 'name, mimeType',
+        });
+
+        return {
+            name: response.data.name || 'Recurso sin nombre',
+            isFolder: response.data.mimeType === 'application/vnd.google-apps.folder',
+        };
+    } catch (error) {
+        console.error('Error fetching resource name from Drive:', error);
+        return null;
+    }
+}
+
+/**
  * Crea una carpeta para el proyecto y devuelve tanto el ID como el enlace web.
  */
 export async function createProjectFolder(projectName: string, cuencaId: string): Promise<{ id: string; url: string }> {
