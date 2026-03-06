@@ -390,7 +390,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         
         if (exportOptions.format === 'jpg') {
             if (cardRef.current) {
-                const dataUrl = await toJpeg(cardRef.current, { quality: 0.95, backgroundColor: '#ffffff' });
+                // Fix for SecurityError: Failed to read the 'cssRules' property
+                // By disabling font embedding we avoid the crash on cross-origin stylesheets
+                const dataUrl = await toJpeg(cardRef.current, { 
+                  quality: 0.95, 
+                  backgroundColor: '#ffffff',
+                  fontEmbedCSS: '', 
+                });
                 const link = document.createElement('a');
                 link.download = `${fileName}.jpg`;
                 link.href = dataUrl;
