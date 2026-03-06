@@ -19,7 +19,7 @@ export const EQUIPO_DEA = [
   'Celina Bertoni',
   'Ariel Menescardi',
   'Sandra Lafalce',
-  'Andrea D´Emilio',
+  'Andrea D Emilio',
   'Carolina Silva',
   'Joaquín Montorsi',
   'Inés Cristina',
@@ -38,7 +38,6 @@ export const EQUIPO_SIG = [
 ].sort((a, b) => a.localeCompare(b));
 
 export const EQUIPO_DRON = [
-  'Luis Bree',
-  'Pablo Giner',
+   'Pablo Giner',
   'Alan Santamarina',
 ].sort((a, b) => a.localeCompare(b));
