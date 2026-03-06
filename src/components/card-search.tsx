@@ -394,6 +394,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                   quality: 0.95, 
                   backgroundColor: '#ffffff',
                   pixelRatio: 2,
+                  cacheBust: true,
                   style: {
                     height: 'auto',
                     maxHeight: 'none',
@@ -755,7 +756,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             checked={exportOptions.includeComments}
                             onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeComments: !!checked }))}
                         />
-                        <Label htmlFor="inc-comments" className="text-sm font-medium leading-none cursor-pointer">
+                        <Label htmlFor="inc-comments" className="text-sm font-medium none cursor-pointer">
                             Incluir historial de comentarios
                         </Label>
                     </div>
