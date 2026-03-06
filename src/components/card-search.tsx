@@ -192,11 +192,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             
             parts.push(
                 <a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1",
+                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1 max-w-full overflow-hidden",
                     isDrive ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:bg-muted/80"
                 )}>
-                    {isDrive ? <DriveIcon className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />}
-                    <span>{linkText || driveData?.name || (isDrive ? (isDriveFolder(linkUrl) ? 'Carpeta Drive' : 'Archivo Drive') : 'Abrir')}</span>
+                    {isDrive ? <DriveIcon className="h-3.5 w-3.5 shrink-0" /> : <LinkIcon className="h-3.5 w-3.5 shrink-0" />}
+                    <span className="truncate">{linkText || driveData?.name || (isDrive ? (isDriveFolder(linkUrl) ? 'Carpeta Drive' : 'Archivo Drive') : 'Abrir')}</span>
                 </a>
             );
         } else if (boldText !== undefined) {
@@ -208,13 +208,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             const label = driveData?.name || (isFolder ? 'Carpeta Drive' : 'Archivo Drive');
             
             parts.push(
-                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1">
-                    <DriveIcon className="h-3.5 w-3.5" />
-                    <span>{label}</span>
+                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1 max-w-full overflow-hidden">
+                    <DriveIcon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{label}</span>
                 </a>
             );
         } else if (standaloneUrl !== undefined) {
-             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1"><span>{standaloneUrl.split('/').pop()}</span></a>);
+             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1 max-w-full overflow-hidden"><span className="truncate">{standaloneUrl.split('/').pop()}</span></a>);
         }
         lastIndex = regex.lastIndex;
     }
@@ -719,13 +719,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             </div>
                             <div className="space-y-1">
                               {sortedAttachments.map(att => (
-                                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group">
+                                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group max-w-full overflow-hidden">
                                   {isDriveFolder(att.url) ? (
-                                    <Folder className="h-3 w-3 text-muted-foreground" />
+                                    <Folder className="h-3 w-3 text-muted-foreground shrink-0" />
                                   ) : (
-                                    <FileText className="h-3 w-3 text-muted-foreground" />
+                                    <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
                                   )}
-                                  <span className="flex-1 truncate">{att.name}</span>
+                                  <span className="flex-1 truncate min-w-0">{att.name}</span>
                                 </a>
                               ))}
                             </div>
@@ -742,11 +742,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
                                     <CollapsibleContent className="mt-4 space-y-4 pb-4">
                                         {activity.map(action => (
-                                            <div key={action.id} className="flex gap-3 text-xs">
-                                                <Avatar className="h-6 w-6"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
-                                                <div className="flex-1">
+                                            <div key={action.id} className="flex gap-3 text-xs overflow-hidden">
+                                                <Avatar className="h-6 w-6 shrink-0"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
+                                                <div className="flex-1 min-w-0 overflow-hidden">
                                                     <div className="flex items-center gap-2"><span className="font-semibold">{action.memberCreator.fullName}</span><span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span></div>
-                                                    <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap">{action.data.text}</p>
+                                                    <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap break-words">{action.data.text}</p>
                                                 </div>
                                             </div>
                                         ))}
