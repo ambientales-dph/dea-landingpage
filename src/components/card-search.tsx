@@ -734,9 +734,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
                         {!isEditing && (
                             <div className="p-6 pt-0 export-comments">
-                                <div className="flex gap-2 mb-4 no-export">
-                                    <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px]" />
-                                    <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon"><Send className="h-4 w-4" /></Button>
+                                <div className="flex gap-2 mb-4 no-export w-full items-start">
+                                    <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0" />
+                                    <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0"><Send className="h-4 w-4" /></Button>
                                 </div>
                                 <Collapsible defaultOpen={true}>
                                     <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
@@ -745,8 +745,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                             <div key={action.id} className="flex gap-3 text-xs overflow-hidden">
                                                 <Avatar className="h-6 w-6 shrink-0"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
                                                 <div className="flex-1 min-w-0 overflow-hidden">
-                                                    <div className="flex items-center gap-2"><span className="font-semibold">{action.memberCreator.fullName}</span><span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span></div>
-                                                    <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap break-words">{action.data.text}</p>
+                                                    <div className="flex items-center gap-2">
+                                                      <span className="font-semibold truncate">{action.memberCreator.fullName}</span>
+                                                      <span className="text-[10px] text-muted-foreground shrink-0">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span>
+                                                    </div>
+                                                    <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap break-words overflow-hidden">{action.data.text}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -834,6 +837,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Separator className="my-4" />
     </div>
   );
 }
