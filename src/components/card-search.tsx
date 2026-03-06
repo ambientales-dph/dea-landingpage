@@ -390,11 +390,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         
         if (exportOptions.format === 'jpg') {
             if (cardRef.current) {
+                // Para capturar TODO el contenido, incluso lo que está fuera del scroll
                 const dataUrl = await toJpeg(cardRef.current, { 
                   quality: 0.95, 
                   backgroundColor: '#ffffff',
-                  pixelRatio: 2,
-                  fontEmbedCSS: '', 
+                  pixelRatio: 2, // Alta resolución
+                  fontEmbedCSS: '', // Evita errores de reglas CSS externas
+                  style: {
+                    height: 'auto',
+                    maxHeight: 'none',
+                    overflow: 'visible',
+                    display: 'block'
+                  },
                   filter: (node: any) => {
                     const classList = node.classList;
                     if (classList && classList.contains('no-export')) return false;
@@ -506,6 +513,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             doc.save(`${fileName}.pdf`);
         }
 
+        // Se registra en bitácora pero NO genera notificación (filtrado en NotificationsBell)
         await logPortalActivity('export_card', `Exportó ficha técnica como ${exportOptions.format.toUpperCase()}`);
         toast({ title: '¡Exportación exitosa!', description: `Se ha descargado la ficha de "${selectedCard.name}".` });
         setIsExportDialogOpen(false);
