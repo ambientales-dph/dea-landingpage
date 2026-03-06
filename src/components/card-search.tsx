@@ -409,18 +409,15 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 link.click();
             }
         } else {
-            // Generate professional PDF using jsPDF
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.width;
             const margin = 15;
             let y = 20;
 
-            // Cover Header
             const coverColor = trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#3182ce';
             doc.setFillColor(coverColor);
             doc.rect(margin, y, pageWidth - (margin * 2), 15, 'F');
             
-            // Title in Header
             const isLight = ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '');
             doc.setTextColor(isLight ? '#172b4d' : '#ffffff');
             doc.setFont('helvetica', 'bold');
@@ -428,7 +425,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             doc.text(selectedCard.name, margin + 5, y + 10);
             y += 25;
 
-            // Labels
             doc.setTextColor('#333333');
             doc.setFontSize(8);
             if (selectedCard.labels.length > 0) {
@@ -448,7 +444,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 y += 10;
             }
 
-            // Description
             doc.setTextColor('#000000');
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
@@ -460,7 +455,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             doc.text(descLines, margin, y);
             y += (descLines.length * 5) + 10;
 
-            // Attachments
             if (exportOptions.includeAttachments && selectedCard.attachments.length > 0) {
                 if (y > 250) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold');
@@ -481,7 +475,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 y += 5;
             }
 
-            // Comments
             if (exportOptions.includeComments && activity.length > 0) {
                 if (y > 250) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold');
@@ -502,7 +495,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 });
             }
 
-            // Footer
             const pageCount = doc.internal.pages.length - 1;
             for (let i = 1; i <= pageCount; i++) {
                 doc.setPage(i);
@@ -576,14 +568,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl overflow-hidden border-0 bg-white max-h-[90vh] flex flex-col">
+            <DialogContent className="p-0 max-w-2xl overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] !flex !flex-col !gap-0">
                 <div ref={cardRef} className="bg-white flex flex-col h-full overflow-hidden">
                     <DialogHeader 
                         style={{
                             backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
                             color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white'
                         }} 
-                        className="p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-4 shrink-0 overflow-hidden"
+                        className="p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-3 shrink-0 overflow-hidden"
                     >
                         <div className="flex flex-col w-full pr-8">
                             {isEditing ? (
@@ -600,7 +592,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             )}
                         </div>
                         
-                        <div className="flex flex-col gap-3 w-full">
+                        <div className="flex flex-col gap-2 w-full">
                             <div className="flex flex-wrap gap-1.5">
                                 {selectedCard.labels.map(label => (
                                     <Badge key={label.id} className="text-[10px] group cursor-default h-5 px-2" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
@@ -623,7 +615,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             </div>
 
                             {!isEditing && (
-                              <div className="flex flex-wrap items-center gap-1 no-export justify-start w-full">
+                              <div className="flex flex-wrap items-center gap-2 no-export justify-start w-full mt-1">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={() => setIsExportDialogOpen(true)} title="Exportar Ficha"><Printer className="h-4 w-4" /></Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20"><Palette className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -641,7 +633,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         </div>
                     </DialogHeader>
 
-                    <ScrollArea className="flex-1">
+                    <ScrollArea className="flex-1 overflow-y-auto">
                         <div className="p-6">
                             <h3 className="font-semibold text-sm mb-2">Descripción</h3>
                             {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderDescription(selectedCard.desc)}</div>}
