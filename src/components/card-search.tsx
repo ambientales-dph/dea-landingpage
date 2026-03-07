@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -184,13 +183,13 @@ const ParticipantBadge = ({ participant, projectName, userEmail }: { participant
     return (
         <>
             <span 
-                className="inline-flex items-center gap-1 cursor-pointer rounded px-0.5 transition-all duration-200 hover:bg-primary/10 group select-none"
+                className="inline-flex items-center gap-1 cursor-pointer rounded px-0.5 transition-all duration-200 hover:bg-muted group select-none"
                 onClick={(e) => { e.stopPropagation(); setIsEmailOpen(true); }}
             >
-                <strong className="break-words text-primary decoration-primary/30 underline-offset-4 group-hover:underline">
+                <strong className="break-words text-foreground underline-offset-4 group-hover:underline">
                     {participant.name}
                 </strong>
-                <Mail className="h-3 w-3 text-primary opacity-0 transition-opacity group-hover:opacity-100 shrink-0" />
+                <Mail className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 shrink-0" />
             </span>
             <QuickEmailDialog 
                 isOpen={isEmailOpen} 
@@ -299,7 +298,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 </a>
             );
         } else if (boldText !== undefined) {
-            // Dividir por punto y coma para manejar múltiples nombres en un solo bloque de negrita
             const possibleNames = boldText.split(';').map(n => n.trim());
             const detectedParts: (string | JSX.Element)[] = [];
             
@@ -947,3 +945,4 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     </div>
   );
 }
+
