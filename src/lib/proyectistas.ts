@@ -1,3 +1,8 @@
+
+/**
+ * Lista estática de proyectistas (Legacy).
+ * Esta lista se mantendrá hasta que se complete la migración a Firestore.
+ */
 export const PROYECTISTAS = [
   'Romina Barán',
   'Javier Bodega',
@@ -26,3 +31,9 @@ export const PROYECTISTAS = [
   'Natalia Bormape',
   'Tadeo Turdo',
 ].sort((a, b) => a.localeCompare(b));
+
+export interface ProyectistaConfig {
+  name: string;
+  email?: string;
+  phone?: string;
+}

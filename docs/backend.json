@@ -10,11 +10,27 @@
         "userName": { "type": "string" },
         "userEmail": { "type": "string" },
         "userPhoto": { "type": "string" },
-        "actionType": { "type": "string", "enum": ["create_project", "update_project", "delete_project"] },
+        "actionType": { "type": "string", "enum": ["create_project", "update_project", "delete_project", "status_change", "attach_resource", "remove_attachment", "export_card", "update_cover", "update_labels", "add_comment"] },
         "projectName": { "type": "string" },
+        "detail": { "type": "string" },
+        "cardId": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "userName", "userEmail", "actionType", "projectName", "timestamp"]
+    },
+    "Proyectista": {
+      "title": "Proyectista",
+      "description": "Profesional externo o interno encargado del diseño de proyectos.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "company": { "type": "string" },
+        "observations": { "type": "string" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
     }
   },
   "auth": {
@@ -24,6 +40,10 @@
     "/app_activities/{activityId}": {
       "schema": { "$ref": "#/entities/AppActivity" },
       "description": "Colección global de actividades realizadas en la aplicación."
+    },
+    "/proyectistas/{proyectistaId}": {
+      "schema": { "$ref": "#/entities/Proyectista" },
+      "description": "Colección de profesionales proyectistas."
     }
   }
 }
