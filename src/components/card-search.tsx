@@ -48,9 +48,9 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import React from 'react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -190,11 +190,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             
             parts.push(
                 <a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1 max-w-full overflow-hidden shrink-0",
+                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1 max-w-full overflow-hidden shrink-0 min-w-0",
                     isDrive ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:bg-muted/80"
                 )}>
                     {isDrive ? <DriveIcon className="h-3.5 w-3.5 shrink-0" /> : <LinkIcon className="h-3.5 w-3.5 shrink-0" />}
-                    <span className="truncate">{linkText || driveData?.name || (isDrive ? (isDriveFolder(linkUrl) ? 'Carpeta Drive' : 'Archivo Drive') : 'Abrir')}</span>
+                    <span className="truncate flex-1">{linkText || driveData?.name || (isDrive ? (isDriveFolder(linkUrl) ? 'Carpeta Drive' : 'Archivo Drive') : 'Abrir')}</span>
                 </a>
             );
         } else if (boldText !== undefined) {
@@ -206,13 +206,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             const label = driveData?.name || (isFolder ? 'Carpeta Drive' : 'Archivo Drive');
             
             parts.push(
-                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1 max-w-full overflow-hidden shrink-0">
+                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1 max-w-full overflow-hidden shrink-0 min-w-0">
                     <DriveIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{label}</span>
+                    <span className="truncate flex-1">{label}</span>
                 </a>
             );
         } else if (standaloneUrl !== undefined) {
-             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1 max-w-full overflow-hidden shrink-0"><span className="truncate">{standaloneUrl.split('/').pop()}</span></a>);
+             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1 max-w-full overflow-hidden shrink-0 min-w-0"><span className="truncate flex-1">{standaloneUrl.split('/').pop()}</span></a>);
         }
         lastIndex = regex.lastIndex;
     }
@@ -623,16 +623,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] !flex !flex-col !gap-0">
-                <div className="bg-white flex flex-col h-full overflow-hidden flex-1 min-h-0 w-full max-w-full">
+            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] flex flex-col gap-0 box-border shadow-2xl">
+                <div className="bg-white flex flex-col h-full overflow-hidden flex-1 min-h-0 w-full max-w-full box-border">
                     <DialogHeader 
                         style={{
                             backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
                             color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white'
                         }} 
-                        className="p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-3 shrink-0 overflow-hidden"
+                        className="p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-3 shrink-0 overflow-hidden box-border"
                     >
-                        <div className="flex flex-col w-full pr-8">
+                        <div className="flex flex-col w-full pr-8 box-border min-w-0">
                             {isEditing ? (
                                 <Input 
                                     value={editedName} 
@@ -640,15 +640,15 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     className="text-base font-semibold bg-white/10 text-inherit border-white/30 h-auto p-2 w-full" 
                                 />
                             ) : (
-                              <DialogTitle className="text-sm md:text-base font-bold whitespace-normal break-words leading-tight w-full flex items-start gap-2">
-                                <span className="flex-1 min-w-0 max-w-full overflow-hidden">{selectedCard.name}</span>
-                                <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 no-export shrink-0"><LinkIcon className="h-4 w-4" /></a>
+                              <DialogTitle className="text-sm md:text-base font-bold whitespace-normal break-words leading-tight w-full flex items-start gap-2 min-w-0">
+                                <span className="flex-1 min-w-0 max-w-full overflow-hidden truncate md:whitespace-normal">{selectedCard.name}</span>
+                                <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 shrink-0"><LinkIcon className="h-4 w-4" /></a>
                               </DialogTitle>
                             )}
                         </div>
                         
-                        <div className="flex flex-col gap-2 w-full max-w-full overflow-hidden">
-                            <div className="flex flex-wrap gap-1.5 max-w-full overflow-hidden">
+                        <div className="flex flex-col gap-2 w-full max-w-full overflow-hidden box-border">
+                            <div className="flex flex-wrap gap-1.5 max-w-full overflow-hidden box-border">
                                 {selectedCard.labels.map(label => (
                                     <Badge key={label.id} className="text-[10px] group cursor-default h-5 px-2 truncate max-w-[150px]" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
                                       {label.name}
@@ -670,10 +670,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             </div>
 
                             {!isEditing && (
-                              <div className="flex flex-wrap items-center gap-2 no-export justify-start w-full mt-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={() => setIsExportDialogOpen(true)} title="Exportar Ficha"><Printer className="h-4 w-4" /></Button>
+                              <div className="flex flex-wrap items-center gap-2 no-export justify-start w-full mt-1 shrink-0 box-border">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={() => setIsExportDialogOpen(true)} title="Exportar Ficha"><Printer className="h-4 w-4" /></Button>
                                 <DropdownMenu>
-                                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20"><Palette className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0"><Palette className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                   <DropdownMenuContent align="start" className="grid grid-cols-5 gap-1 p-2">
                                     {trelloCoverColors.map(c => (
                                       <Button key={c.name} variant="ghost" className="h-6 w-6 rounded-full p-0" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(c.name)} />
@@ -681,33 +681,33 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <Button variant="ghost" className="h-6 w-6 rounded-full border p-0" onClick={() => handleColorChange(null)}><X className="h-3 w-3" /></Button>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleEditClick} title="Editar Ficha"><Edit className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={fetchCardData} disabled={isRefreshing} title="Actualizar Datos"><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={handleEditClick} title="Editar Ficha"><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={fetchCardData} disabled={isRefreshing} title="Actualizar Datos"><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
                               </div>
                             )}
                         </div>
                     </DialogHeader>
 
-                    <ScrollArea className="flex-1 overflow-y-auto w-full max-w-full">
-                        <div className="p-6 w-full max-w-full overflow-hidden box-border">
-                            <h3 className="font-semibold text-sm mb-2">Descripción</h3>
+                    <ScrollArea className="flex-1 overflow-y-auto w-full max-w-full box-border">
+                        <div className="p-6 w-full max-w-full overflow-hidden box-border min-w-0">
+                            <h3 className="font-semibold text-sm mb-2 text-primary uppercase text-[10px] tracking-wider">Descripción</h3>
                             {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden leading-relaxed">{renderDescription(selectedCard.desc)}</div>}
                         </div>
 
                         {selectedCard.attachments?.length > 0 && !isEditing && (
-                          <div className="p-6 pt-0 w-full max-w-full overflow-hidden box-border">
+                          <div className="p-6 pt-0 w-full max-w-full overflow-hidden box-border min-w-0">
                             <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-semibold text-sm">Adjuntos ({selectedCard.attachments.length})</h3>
+                              <h3 className="font-semibold text-[10px] uppercase tracking-wider text-primary">Adjuntos ({selectedCard.attachments.length})</h3>
                               <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 no-export" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
                                 <ArrowDownUp className="h-3 w-3" />
                                 {attachmentSort === 'name' ? 'Nombre' : 'Tipo'}
                               </Button>
                             </div>
-                            <div className="space-y-1 w-full max-w-full overflow-hidden">
+                            <div className="space-y-1 w-full max-w-full overflow-hidden flex flex-col min-w-0 box-border">
                               {sortedAttachments.map(att => (
-                                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group max-w-full overflow-hidden min-w-0">
-                                  {isDriveFolder(att.url) ? <Folder className="h-3 w-3 text-muted-foreground shrink-0" /> : <FileText className="h-3 w-3 text-muted-foreground shrink-0" />}
-                                  <span className="flex-1 truncate">{att.name}</span>
+                                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border">
+                                  {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                                  <span className="flex-1 truncate min-w-0">{att.name}</span>
                                 </a>
                               ))}
                             </div>
@@ -715,23 +715,24 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         )}
 
                         {!isEditing && (
-                            <div className="p-6 pt-0 space-y-4 w-full max-w-full overflow-hidden box-border">
-                                <div className="flex gap-2 no-export items-start w-full max-w-full overflow-hidden">
-                                    <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0 max-w-full" />
-                                    <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0"><Send className="h-4 w-4" /></Button>
+                            <div className="p-6 pt-0 space-y-4 w-full max-w-full overflow-hidden box-border min-w-0">
+                                <Separator className="mb-4" />
+                                <div className="flex gap-2 no-export items-start w-full max-w-full overflow-hidden box-border min-w-0">
+                                    <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0 max-w-full box-border" />
+                                    <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0 h-10 w-10"><Send className="h-4 w-4" /></Button>
                                 </div>
-                                <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden">
-                                    <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export mb-4">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
-                                    <CollapsibleContent className="space-y-4 pb-4 w-full max-w-full overflow-hidden">
+                                <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
+                                    <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80 no-export mb-4">Historial de cambios <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
+                                    <CollapsibleContent className="space-y-4 pb-4 w-full max-w-full overflow-hidden min-w-0 box-border">
                                         {activity.map(action => (
                                             <div key={action.id} className="flex gap-3 text-xs w-full max-w-full min-w-0 overflow-hidden box-border">
-                                                <Avatar className="h-6 w-6 shrink-0"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
-                                                <div className="flex-1 min-w-0 overflow-hidden">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                      <span className="font-semibold truncate">{action.memberCreator.fullName}</span>
+                                                <Avatar className="h-6 w-6 shrink-0 border"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
+                                                <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                      <span className="font-semibold truncate max-w-[120px]">{action.memberCreator.fullName}</span>
                                                       <span className="text-[10px] text-muted-foreground shrink-0">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span>
                                                     </div>
-                                                    <div className="bg-muted p-2 rounded-md border whitespace-pre-wrap break-words text-xs leading-relaxed max-w-full overflow-hidden box-border">
+                                                    <div className="bg-muted p-2 rounded-md border whitespace-pre-wrap break-words text-xs leading-relaxed max-w-full overflow-hidden box-border min-w-0">
                                                       {action.data.text}
                                                     </div>
                                                 </div>
@@ -745,30 +746,30 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 </div>
 
                 {isEditing && (
-                    <DialogFooter className="border-t p-4 gap-2 bg-white shrink-0">
-                        <div className="flex-1 flex gap-2 min-w-0">
+                    <DialogFooter className="border-t p-4 gap-2 bg-white shrink-0 box-border w-full max-w-full">
+                        <div className="flex-1 flex gap-2 min-w-0 overflow-hidden">
                           <div className="flex flex-col gap-1 flex-1 min-w-0">
-                            <label className="text-[10px] uppercase font-bold text-muted-foreground">Tablero</label>
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground truncate">Tablero</label>
                             <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between">{allBoards.find(b => b.id === editedBoardId)?.name || 'Cargando...'} <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between overflow-hidden"><span className="truncate">{allBoards.find(b => b.id === editedBoardId)?.name || 'Cargando...'}</span> <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
                               <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                {allBoards.map(b => <DropdownMenuItem key={b.id} onSelect={() => setEditedBoardId(b.id)}>{b.name}</DropdownMenuItem>)}
+                                {allBoards.map(b => <DropdownMenuItem key={b.id} onSelect={() => setEditedBoardId(b.id)} className="text-xs">{b.name}</DropdownMenuItem>)}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
                           <div className="flex flex-col gap-1 flex-1 min-w-0">
-                            <label className="text-[10px] uppercase font-bold text-muted-foreground">Lista</label>
+                            <label className="text-[10px] uppercase font-bold text-muted-foreground truncate">Lista</label>
                             <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between" disabled={isListsLoading}>{isListsLoading ? 'Cargando...' : (boardLists.find(l => l.id === editedListId)?.name || 'Seleccioná')} <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between overflow-hidden" disabled={isListsLoading}>{isListsLoading ? '...' : <span className="truncate">{boardLists.find(l => l.id === editedListId)?.name || 'Seleccioná'}</span>} <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
                               <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                {boardLists.map(l => <DropdownMenuItem key={l.id} onSelect={() => setEditedListId(l.id)}>{l.name}</DropdownMenuItem>)}
+                                {boardLists.map(l => <DropdownMenuItem key={l.id} onSelect={() => setEditedListId(l.id)} className="text-xs">{l.name}</DropdownMenuItem>)}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
                         </div>
                         <div className="flex items-end gap-2 shrink-0">
-                          <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancelar</Button>
-                          <Button size="sm" onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="text-xs">Cancelar</Button>
+                          <Button size="sm" onClick={handleSaveEdit} disabled={isSaving} className="text-xs">{isSaving ? '...' : 'Guardar'}</Button>
                         </div>
                     </DialogFooter>
                 )}
@@ -777,7 +778,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       )}
       
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md shadow-2xl">
             <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                     <Download className="h-5 w-5 text-primary" />
