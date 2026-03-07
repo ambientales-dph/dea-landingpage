@@ -435,7 +435,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         const margin = 15;
         let y = 20;
 
-        // Renderizado del título
         const coverColor = trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#3182ce';
         const isLight = ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '');
         const titleLines = doc.splitTextToSize(selectedCard.name, pageWidth - (margin * 2) - 10);
@@ -485,23 +484,19 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
             const regex = /\[([^\][]*?)\]\((.*?)\)|(https?:\/\/drive\.google\.com\/\S+)/gi;
             let lineX = margin;
-            
             const segments: { text: string; isBold: boolean; link?: string }[] = [];
             const boldParts = line.split('**');
             let isBold = false;
             
             boldParts.forEach(part => {
                 if (part === '') { isBold = !isBold; return; }
-                
                 let sIdx = 0;
                 let linkMatch;
                 while ((linkMatch = regex.exec(part)) !== null) {
                     if (linkMatch.index > sIdx) segments.push({ text: part.substring(sIdx, linkMatch.index), isBold });
-                    
                     const [full, mText, mUrl, sDriveUrl] = linkMatch;
-                    if (mText !== undefined) {
-                        segments.push({ text: mText || driveNames[mUrl]?.name || 'Link', isBold, link: mUrl });
-                    } else if (sDriveUrl !== undefined) {
+                    if (mText !== undefined) segments.push({ text: mText || driveNames[mUrl]?.name || 'Link', isBold, link: mUrl });
+                    else if (sDriveUrl !== undefined) {
                         const driveData = driveNames[sDriveUrl];
                         const label = driveData?.name || (isDriveFolder(sDriveUrl) ? '[CARPETA DRIVE]' : '[ARCHIVO DRIVE]');
                         segments.push({ text: label, isBold, link: sDriveUrl });
@@ -515,20 +510,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             segments.forEach(seg => {
                 doc.setFont('helvetica', seg.isBold ? 'bold' : 'normal');
                 if (seg.link) doc.setTextColor('#3182ce'); else doc.setTextColor('#000000');
-                
                 const segText = seg.text;
                 const segWidth = doc.getTextWidth(segText);
-                
-                if (lineX + segWidth > pageWidth - margin) {
-                    y += 5; lineX = margin;
-                    if (y > 275) { doc.addPage(); y = 20; }
-                }
-                
+                if (lineX + segWidth > pageWidth - margin) { y += 5; lineX = margin; if (y > 275) { doc.addPage(); y = 20; } }
                 doc.text(segText, lineX, y);
                 if (seg.link) doc.link(lineX, y - 3, segWidth, 4, { url: seg.link });
                 lineX += segWidth;
             });
-            
             y += 5;
         });
         y += 5;
@@ -586,7 +574,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 };
 
   return (
-    <div className="flex h-full w-full flex-col justify-end">
+    <div className="flex h-full w-full flex-col">
       <div className="relative w-full">
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
@@ -708,7 +696,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         </div>
 
                         {selectedCard.attachments?.length > 0 && !isEditing && (
-                          <div className="p-6 pt-0 export-attachments">
+                          <div className="p-6 pt-0">
                             <div className="flex items-center justify-between mb-2">
                               <h3 className="font-semibold text-sm">Adjuntos ({selectedCard.attachments.length})</h3>
                               <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 no-export" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
@@ -719,12 +707,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             <div className="space-y-1">
                               {sortedAttachments.map(att => (
                                 <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group max-w-full overflow-hidden min-w-0">
-                                  {isDriveFolder(att.url) ? (
-                                    <Folder className="h-3 w-3 text-muted-foreground shrink-0" />
-                                  ) : (
-                                    <FileText className="h-3 w-3 text-muted-foreground shrink-0" />
-                                  )}
-                                  <span className="flex-1 truncate min-w-0">{att.name}</span>
+                                  {isDriveFolder(att.url) ? <Folder className="h-3 w-3 text-muted-foreground shrink-0" /> : <FileText className="h-3 w-3 text-muted-foreground shrink-0" />}
+                                  <span className="flex-1 truncate">{att.name}</span>
                                 </a>
                               ))}
                             </div>
@@ -732,23 +716,25 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         )}
 
                         {!isEditing && (
-                            <div className="p-6 pt-0 export-comments space-y-4">
-                                <div className="flex gap-2 no-export items-start w-full">
+                            <div className="p-6 pt-0 space-y-4">
+                                <div className="flex gap-2 no-export items-start w-full overflow-hidden">
                                     <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0 max-w-full" />
                                     <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0"><Send className="h-4 w-4" /></Button>
                                 </div>
-                                <Collapsible defaultOpen={true}>
+                                <Collapsible defaultOpen={true} className="w-full">
                                     <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export mb-4">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
-                                    <CollapsibleContent className="space-y-4 pb-4">
+                                    <CollapsibleContent className="space-y-4 pb-4 w-full">
                                         {activity.map(action => (
-                                            <div key={action.id} className="flex gap-3 text-xs overflow-hidden min-w-0 max-w-full">
+                                            <div key={action.id} className="flex gap-3 text-xs w-full min-w-0">
                                                 <Avatar className="h-6 w-6 shrink-0"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
                                                 <div className="flex-1 min-w-0 overflow-hidden">
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 mb-1">
                                                       <span className="font-semibold truncate">{action.memberCreator.fullName}</span>
                                                       <span className="text-[10px] text-muted-foreground shrink-0">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span>
                                                     </div>
-                                                    <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap break-words overflow-hidden min-w-0 max-w-full">{action.data.text}</p>
+                                                    <div className="bg-muted p-2 rounded-md border whitespace-pre-wrap break-words text-xs leading-relaxed max-w-full overflow-hidden">
+                                                      {action.data.text}
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -791,7 +777,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         </Dialog>
       )}
       
-      {/* Export Options Dialog */}
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -799,9 +784,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     <Download className="h-5 w-5 text-primary" />
                     Exportar Ficha a PDF
                 </DialogTitle>
-                <DialogDescription>
-                    Seleccioná qué información querés incluir en el documento PDF.
-                </DialogDescription>
+                <DialogDescription>Seleccioná qué información querés incluir en el documento PDF.</DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-4">
                 <div className="space-y-4">
@@ -811,9 +794,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             checked={exportOptions.includeAttachments}
                             onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeAttachments: !!checked }))}
                         />
-                        <Label htmlFor="inc-attachments" className="text-sm font-medium leading-none cursor-pointer">
-                            Incluir lista de enlaces adjuntos
-                        </Label>
+                        <Label htmlFor="inc-attachments" className="text-sm font-medium leading-none cursor-pointer">Incluir lista de enlaces adjuntos</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                         <Checkbox 
@@ -821,9 +802,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             checked={exportOptions.includeComments}
                             onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeComments: !!checked }))}
                         />
-                        <Label htmlFor="inc-comments" className="text-sm font-medium leading-none cursor-pointer">
-                            Incluir historial de comentarios
-                        </Label>
+                        <Label htmlFor="inc-comments" className="text-sm font-medium leading-none cursor-pointer">Incluir historial de comentarios</Label>
                     </div>
                 </div>
             </div>
