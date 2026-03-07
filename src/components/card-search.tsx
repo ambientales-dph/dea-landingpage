@@ -151,7 +151,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
   }, [isSummaryOpen]);
 
-  // Scanner de URLs de Drive para recuperar nombres
   useEffect(() => {
     if (selectedCard?.desc) {
       const regex = /https?:\/\/drive\.google\.com\/\S+/gi;
@@ -705,7 +704,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     <ScrollArea className="flex-1 overflow-y-auto">
                         <div className="p-6">
                             <h3 className="font-semibold text-sm mb-2">Descripción</h3>
-                            {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap">{renderDescription(selectedCard.desc)}</div>}
+                            {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap min-w-0">{renderDescription(selectedCard.desc)}</div>}
                         </div>
 
                         {selectedCard.attachments?.length > 0 && !isEditing && (
@@ -719,7 +718,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             </div>
                             <div className="space-y-1">
                               {sortedAttachments.map(att => (
-                                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group max-w-full overflow-hidden">
+                                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group max-w-full overflow-hidden min-w-0">
                                   {isDriveFolder(att.url) ? (
                                     <Folder className="h-3 w-3 text-muted-foreground shrink-0" />
                                   ) : (
@@ -742,14 +741,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
                                     <CollapsibleContent className="mt-4 space-y-4 pb-4">
                                         {activity.map(action => (
-                                            <div key={action.id} className="flex gap-3 text-xs overflow-hidden">
+                                            <div key={action.id} className="flex gap-3 text-xs overflow-hidden min-w-0">
                                                 <Avatar className="h-6 w-6 shrink-0"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
                                                 <div className="flex-1 min-w-0 overflow-hidden">
                                                     <div className="flex items-center gap-2">
                                                       <span className="font-semibold truncate">{action.memberCreator.fullName}</span>
                                                       <span className="text-[10px] text-muted-foreground shrink-0">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span>
                                                     </div>
-                                                    <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap break-words overflow-hidden">{action.data.text}</p>
+                                                    <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap break-words overflow-hidden min-w-0">{action.data.text}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -791,7 +790,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             </DialogContent>
         </Dialog>
       )}
-
+      
       {/* Export Options Dialog */}
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -837,7 +836,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Separator className="my-4" />
     </div>
   );
 }
