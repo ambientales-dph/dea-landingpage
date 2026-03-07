@@ -177,34 +177,22 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, projectName, userEm
 };
 
 /**
- * Componente para renderizar un participante interactivo.
+ * Componente para renderizar un participante interactivo minimalista.
  */
 const ParticipantBadge = ({ participant, projectName, userEmail }: { participant: AuthorizedUser, projectName: string, userEmail: string | null }) => {
     const [isEmailOpen, setIsEmailOpen] = useState(false);
 
     return (
         <>
-            <TooltipProvider>
-                <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-1 cursor-pointer rounded px-1 transition-all duration-200 hover:bg-primary/10 group">
-                            <strong className="break-words text-primary decoration-primary/30 underline-offset-4 group-hover:underline">{participant.name}</strong>
-                            <Mail className="h-3 w-3 text-primary/50 opacity-0 transition-opacity group-hover:opacity-100" />
-                        </span>
-                    </TooltipTrigger>
-                    <TooltipContent className="flex items-center gap-2 p-1.5 shadow-xl border-primary/20" side="top">
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 rounded-full bg-primary/10 text-primary hover:bg-primary/20"
-                            onClick={(e) => { e.stopPropagation(); setIsEmailOpen(true); }}
-                        >
-                            <Mail className="h-4 w-4" />
-                        </Button>
-                        <span className="text-[10px] font-bold text-primary pr-2 uppercase tracking-wide">Contactar por Mail</span>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+            <span 
+                className="inline-flex items-center gap-1 cursor-pointer rounded px-0.5 transition-all duration-200 hover:bg-primary/10 group select-none"
+                onClick={(e) => { e.stopPropagation(); setIsEmailOpen(true); }}
+            >
+                <strong className="break-words text-primary decoration-primary/30 underline-offset-4 group-hover:underline">
+                    {participant.name}
+                </strong>
+                <Mail className="h-3 w-3 text-primary opacity-0 transition-opacity group-hover:opacity-100 shrink-0" />
+            </span>
             <QuickEmailDialog 
                 isOpen={isEmailOpen} 
                 onOpenChange={setIsEmailOpen} 
@@ -312,19 +300,31 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 </a>
             );
         } else if (boldText !== undefined) {
-            const participant = WHITELIST.find(p => p.name && p.name.toLowerCase() === boldText.toLowerCase());
-            if (participant) {
-                parts.push(
-                    <ParticipantBadge 
-                        key={match.index} 
-                        participant={participant} 
-                        projectName={selectedCard?.name || 'Proyecto'} 
-                        userEmail={user?.email || null} 
-                    />
-                );
-            } else {
-                parts.push(<strong key={match.index} className="break-words">{boldText}</strong>);
-            }
+            // Split by semicolon in case of multiple names in one bold block
+            const possibleNames = boldText.split(';').map(n => n.trim());
+            const detectedParts: (string | JSX.Element)[] = [];
+            
+            possibleNames.forEach((name, idx) => {
+                const participant = WHITELIST.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
+                if (participant) {
+                    detectedParts.push(
+                        <ParticipantBadge 
+                            key={`${match.index}-${idx}`} 
+                            participant={participant} 
+                            projectName={selectedCard?.name || 'Proyecto'} 
+                            userEmail={user?.email || null} 
+                        />
+                    );
+                } else {
+                    detectedParts.push(<strong key={`${match.index}-${idx}`} className="break-words">{name}</strong>);
+                }
+                
+                if (idx < possibleNames.length - 1) {
+                    detectedParts.push("; ");
+                }
+            });
+
+            parts.push(<React.Fragment key={match.index}>{detectedParts}</React.Fragment>);
         } else if (standaloneDriveUrl !== undefined) {
             const driveData = driveNames[standaloneDriveUrl];
             const isFolder = driveData?.isFolder ?? isDriveFolder(standaloneDriveUrl);
@@ -948,3 +948,4 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     </div>
   );
 }
+
