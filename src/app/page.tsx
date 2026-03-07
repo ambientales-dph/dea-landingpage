@@ -645,11 +645,11 @@ export default function Home() {
         <main className="flex-1 flex flex-col p-4 md:p-16 overflow-y-auto min-h-0">
           <div className="w-full md:w-4/5 mx-auto flex flex-col gap-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg">
-                <h2 className="text-xl font-bold mb-2 text-primary">Búsqueda de proyectos</h2>
-                <p className="text-sm text-balance">Encontrá proyectos por nombre o código. Si tiene una ubicación asignada, la verás en el mapa.</p>
+              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg overflow-hidden">
+                <h2 className="text-xl font-bold mb-2 text-primary shrink-0">Búsqueda de proyectos</h2>
+                <p className="text-sm text-balance truncate">Encontrá proyectos por nombre o código.</p>
               </div>
-              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg">
+              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg overflow-hidden">
                 <CardSearch
                   onCardSelect={handleCardSelect}
                   selectedCard={selectedCard}

@@ -128,7 +128,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [editedListId, setEditedListId] = useState('');
   const [driveNames, setDriveNames] = useState<Record<string, { name: string, isFolder: boolean }>>({});
 
-  // Export states
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportOptions, setExportOptions] = useState({
     includeAttachments: true,
@@ -191,7 +190,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             
             parts.push(
                 <a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1 max-w-full overflow-hidden",
+                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1 max-w-full overflow-hidden shrink-0",
                     isDrive ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:bg-muted/80"
                 )}>
                     {isDrive ? <DriveIcon className="h-3.5 w-3.5 shrink-0" /> : <LinkIcon className="h-3.5 w-3.5 shrink-0" />}
@@ -207,13 +206,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             const label = driveData?.name || (isFolder ? 'Carpeta Drive' : 'Archivo Drive');
             
             parts.push(
-                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1 max-w-full overflow-hidden">
+                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1 max-w-full overflow-hidden shrink-0">
                     <DriveIcon className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{label}</span>
                 </a>
             );
         } else if (standaloneUrl !== undefined) {
-             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1 max-w-full overflow-hidden"><span className="truncate">{standaloneUrl.split('/').pop()}</span></a>);
+             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1 max-w-full overflow-hidden shrink-0"><span className="truncate">{standaloneUrl.split('/').pop()}</span></a>);
         }
         lastIndex = regex.lastIndex;
     }
@@ -625,7 +624,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
             <DialogContent className="p-0 max-w-2xl overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] !flex !flex-col !gap-0">
-                <div className="bg-white flex flex-col h-full overflow-hidden flex-1 min-h-0">
+                <div className="bg-white flex flex-col h-full overflow-hidden flex-1 min-h-0 w-full max-w-full">
                     <DialogHeader 
                         style={{
                             backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
@@ -689,14 +688,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         </div>
                     </DialogHeader>
 
-                    <ScrollArea className="flex-1 overflow-y-auto">
-                        <div className="p-6">
+                    <ScrollArea className="flex-1 overflow-y-auto w-full max-w-full">
+                        <div className="p-6 w-full max-w-full overflow-hidden">
                             <h3 className="font-semibold text-sm mb-2">Descripción</h3>
-                            {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap min-w-0">{renderDescription(selectedCard.desc)}</div>}
+                            {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden">{renderDescription(selectedCard.desc)}</div>}
                         </div>
 
                         {selectedCard.attachments?.length > 0 && !isEditing && (
-                          <div className="p-6 pt-0">
+                          <div className="p-6 pt-0 w-full max-w-full overflow-hidden">
                             <div className="flex items-center justify-between mb-2">
                               <h3 className="font-semibold text-sm">Adjuntos ({selectedCard.attachments.length})</h3>
                               <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 no-export" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
@@ -704,7 +703,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 {attachmentSort === 'name' ? 'Nombre' : 'Tipo'}
                               </Button>
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-1 w-full max-w-full overflow-hidden">
                               {sortedAttachments.map(att => (
                                 <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group max-w-full overflow-hidden min-w-0">
                                   {isDriveFolder(att.url) ? <Folder className="h-3 w-3 text-muted-foreground shrink-0" /> : <FileText className="h-3 w-3 text-muted-foreground shrink-0" />}
@@ -716,16 +715,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         )}
 
                         {!isEditing && (
-                            <div className="p-6 pt-0 space-y-4">
-                                <div className="flex gap-2 no-export items-start w-full overflow-hidden">
+                            <div className="p-6 pt-0 space-y-4 w-full max-w-full overflow-hidden">
+                                <div className="flex gap-2 no-export items-start w-full max-w-full overflow-hidden box-border">
                                     <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0 max-w-full" />
                                     <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0"><Send className="h-4 w-4" /></Button>
                                 </div>
-                                <Collapsible defaultOpen={true} className="w-full">
+                                <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden">
                                     <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export mb-4">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
-                                    <CollapsibleContent className="space-y-4 pb-4 w-full">
+                                    <CollapsibleContent className="space-y-4 pb-4 w-full max-w-full overflow-hidden">
                                         {activity.map(action => (
-                                            <div key={action.id} className="flex gap-3 text-xs w-full min-w-0">
+                                            <div key={action.id} className="flex gap-3 text-xs w-full max-w-full min-w-0 overflow-hidden">
                                                 <Avatar className="h-6 w-6 shrink-0"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
                                                 <div className="flex-1 min-w-0 overflow-hidden">
                                                     <div className="flex items-center gap-2 mb-1">
