@@ -202,6 +202,7 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
 /**
  * Componente para renderizar un participante interactivo minimalista.
  * Los iconos son visibles permanentemente pero toman color al pasar el mouse.
+ * El fondo es blanco por defecto y gris en hover.
  */
 const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedUser, userEmail: string | null }) => {
     const [isEmailOpen, setIsEmailOpen] = useState(false);
@@ -216,7 +217,7 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
     return (
         <>
             <span 
-                className="inline-flex items-center gap-1 cursor-default rounded-md bg-muted/50 px-1.5 py-0.5 transition-all duration-200 hover:bg-muted group select-none border border-muted/50"
+                className="inline-flex items-center gap-1 cursor-default rounded-md bg-white px-1.5 py-0.5 transition-all duration-200 hover:bg-muted/50 group select-none border border-muted/60 shadow-sm"
             >
                 <strong className="break-words text-foreground font-bold">
                     {participant.name}
