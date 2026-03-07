@@ -649,7 +649,7 @@ export default function Home() {
                 <h2 className="text-xl font-bold mb-2 text-primary">Búsqueda de proyectos</h2>
                 <p className="text-sm text-balance">Encontrá proyectos por nombre o código. Si tiene una ubicación asignada, la verás en el mapa.</p>
               </div>
-              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-end shadow-lg">
+              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg">
                 <CardSearch
                   onCardSelect={handleCardSelect}
                   selectedCard={selectedCard}

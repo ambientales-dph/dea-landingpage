@@ -637,7 +637,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
             <DialogContent className="p-0 max-w-2xl overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] !flex !flex-col !gap-0">
-                <div className="bg-white flex flex-col h-full overflow-hidden">
+                <div className="bg-white flex flex-col h-full overflow-hidden flex-1 min-h-0">
                     <DialogHeader 
                         style={{
                             backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
@@ -653,8 +653,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     className="text-base font-semibold bg-white/10 text-inherit border-white/30 h-auto p-2 w-full" 
                                 />
                             ) : (
-                              <DialogTitle className="text-sm md:text-base font-bold whitespace-normal break-words leading-tight w-full flex items-center gap-2">
-                                <span>{selectedCard.name}</span>
+                              <DialogTitle className="text-sm md:text-base font-bold whitespace-normal break-words leading-tight w-full flex items-start gap-2">
+                                <span className="flex-1 min-w-0">{selectedCard.name}</span>
                                 <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 no-export shrink-0"><LinkIcon className="h-4 w-4" /></a>
                               </DialogTitle>
                             )}
@@ -733,13 +733,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
                         {!isEditing && (
                             <div className="p-6 pt-0 export-comments">
-                                <div className="flex gap-2 mb-4 no-export w-full items-start">
+                                <div className="flex gap-2 mb-4 no-export w-[95%] mx-auto items-start">
                                     <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0" />
                                     <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0"><Send className="h-4 w-4" /></Button>
                                 </div>
                                 <Collapsible defaultOpen={true}>
-                                    <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
-                                    <CollapsibleContent className="mt-4 space-y-4 pb-4">
+                                    <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export px-4">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
+                                    <CollapsibleContent className="mt-4 space-y-4 pb-4 px-4">
                                         {activity.map(action => (
                                             <div key={action.id} className="flex gap-3 text-xs overflow-hidden min-w-0">
                                                 <Avatar className="h-6 w-6 shrink-0"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
