@@ -190,11 +190,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             
             parts.push(
                 <a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1 max-w-full overflow-hidden shrink-0 min-w-0",
+                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1 max-w-full overflow-hidden shrink-0 min-w-0 break-words whitespace-normal",
                     isDrive ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:bg-muted/80"
                 )}>
                     {isDrive ? <DriveIcon className="h-3.5 w-3.5 shrink-0" /> : <LinkIcon className="h-3.5 w-3.5 shrink-0" />}
-                    <span className="truncate flex-1">{linkText || driveData?.name || (isDrive ? (isDriveFolder(linkUrl) ? 'Carpeta Drive' : 'Archivo Drive') : 'Abrir')}</span>
+                    <span className="flex-1 min-w-0 break-words whitespace-normal">{linkText || driveData?.name || (isDrive ? (isDriveFolder(linkUrl) ? 'Carpeta Drive' : 'Archivo Drive') : 'Abrir')}</span>
                 </a>
             );
         } else if (boldText !== undefined) {
@@ -206,13 +206,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             const label = driveData?.name || (isFolder ? 'Carpeta Drive' : 'Archivo Drive');
             
             parts.push(
-                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1 max-w-full overflow-hidden shrink-0 min-w-0">
+                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1 max-w-full overflow-hidden shrink-0 min-w-0 break-words whitespace-normal">
                     <DriveIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate flex-1">{label}</span>
+                    <span className="flex-1 min-w-0 break-words whitespace-normal">{label}</span>
                 </a>
             );
         } else if (standaloneUrl !== undefined) {
-             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1 max-w-full overflow-hidden shrink-0 min-w-0"><span className="truncate flex-1">{standaloneUrl.split('/').pop()}</span></a>);
+             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1 max-w-full overflow-hidden shrink-0 min-w-0 break-words whitespace-normal"><span className="flex-1 min-w-0 break-words whitespace-normal">{standaloneUrl.split('/').pop()}</span></a>);
         }
         lastIndex = regex.lastIndex;
     }
@@ -573,7 +573,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 };
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex w-full flex-col">
       <div className="relative w-full">
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
@@ -641,7 +641,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 />
                             ) : (
                               <DialogTitle className="text-sm md:text-base font-bold whitespace-normal break-words leading-tight w-full flex items-start gap-2 min-w-0">
-                                <span className="flex-1 min-w-0 max-w-full overflow-hidden truncate md:whitespace-normal">{selectedCard.name}</span>
+                                <span className="flex-1 min-w-0 max-w-full overflow-hidden break-words whitespace-normal">{selectedCard.name}</span>
                                 <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 shrink-0"><LinkIcon className="h-4 w-4" /></a>
                               </DialogTitle>
                             )}
@@ -650,7 +650,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <div className="flex flex-col gap-2 w-full max-w-full overflow-hidden box-border">
                             <div className="flex flex-wrap gap-1.5 max-w-full overflow-hidden box-border">
                                 {selectedCard.labels.map(label => (
-                                    <Badge key={label.id} className="text-[10px] group cursor-default h-5 px-2 truncate max-w-[150px]" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
+                                    <Badge key={label.id} className="text-[10px] group cursor-default h-5 px-2 break-words whitespace-normal max-w-full" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
                                       {label.name}
                                       {isEditing && <X className="ml-1 h-2 w-2 cursor-pointer hover:text-red-200 shrink-0" onClick={() => handleToggleLabel(label.id, true)} />}
                                     </Badge>
@@ -670,7 +670,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             </div>
 
                             {!isEditing && (
-                              <div className="flex flex-wrap items-center gap-2 no-export justify-start w-full mt-1 shrink-0 box-border">
+                              <div className="flex flex-wrap items-center gap-2 justify-start w-full mt-1 shrink-0 box-border">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={() => setIsExportDialogOpen(true)} title="Exportar Ficha"><Printer className="h-4 w-4" /></Button>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0"><Palette className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -698,16 +698,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                           <div className="p-6 pt-0 w-full max-w-full overflow-hidden box-border min-w-0">
                             <div className="flex items-center justify-between mb-2">
                               <h3 className="font-semibold text-[10px] uppercase tracking-wider text-primary">Adjuntos ({selectedCard.attachments.length})</h3>
-                              <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 no-export" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
+                              <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
                                 <ArrowDownUp className="h-3 w-3" />
                                 {attachmentSort === 'name' ? 'Nombre' : 'Tipo'}
                               </Button>
                             </div>
                             <div className="space-y-1 w-full max-w-full overflow-hidden flex flex-col min-w-0 box-border">
                               {sortedAttachments.map(att => (
-                                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border">
-                                  {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                                  <span className="flex-1 truncate min-w-0">{att.name}</span>
+                                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal">
+                                  {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                                  <span className="flex-1 min-w-0 break-words whitespace-normal">{att.name}</span>
                                 </a>
                               ))}
                             </div>
@@ -717,12 +717,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         {!isEditing && (
                             <div className="p-6 pt-0 space-y-4 w-full max-w-full overflow-hidden box-border min-w-0">
                                 <Separator className="mb-4" />
-                                <div className="flex gap-2 no-export items-start w-full max-w-full overflow-hidden box-border min-w-0">
-                                    <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0 max-w-full box-border" />
+                                <div className="flex gap-2 items-start w-full max-w-full overflow-hidden box-border min-w-0">
+                                    <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0 max-w-full box-border break-words whitespace-normal" />
                                     <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0 h-10 w-10"><Send className="h-4 w-4" /></Button>
                                 </div>
                                 <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
-                                    <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80 no-export mb-4">Historial de cambios <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
+                                    <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80 mb-4">Historial de cambios <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
                                     <CollapsibleContent className="space-y-4 pb-4 w-full max-w-full overflow-hidden min-w-0 box-border">
                                         {activity.map(action => (
                                             <div key={action.id} className="flex gap-3 text-xs w-full max-w-full min-w-0 overflow-hidden box-border">
