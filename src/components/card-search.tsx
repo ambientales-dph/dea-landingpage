@@ -198,7 +198,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 </a>
             );
         } else if (boldText !== undefined) {
-            parts.push(<strong key={match.index}>{boldText}</strong>);
+            parts.push(<strong key={match.index} className="break-words">{boldText}</strong>);
         } else if (standaloneDriveUrl !== undefined) {
             const driveData = driveNames[standaloneDriveUrl];
             const isFolder = driveData?.isFolder ?? isDriveFolder(standaloneDriveUrl);
@@ -623,7 +623,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
       {selectedCard && (
         <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] !flex !flex-col !gap-0">
+            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] !flex !flex-col !gap-0">
                 <div className="bg-white flex flex-col h-full overflow-hidden flex-1 min-h-0 w-full max-w-full">
                     <DialogHeader 
                         style={{
@@ -641,23 +641,23 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 />
                             ) : (
                               <DialogTitle className="text-sm md:text-base font-bold whitespace-normal break-words leading-tight w-full flex items-start gap-2">
-                                <span className="flex-1 min-w-0">{selectedCard.name}</span>
+                                <span className="flex-1 min-w-0 max-w-full overflow-hidden">{selectedCard.name}</span>
                                 <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 no-export shrink-0"><LinkIcon className="h-4 w-4" /></a>
                               </DialogTitle>
                             )}
                         </div>
                         
-                        <div className="flex flex-col gap-2 w-full">
-                            <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-col gap-2 w-full max-w-full overflow-hidden">
+                            <div className="flex flex-wrap gap-1.5 max-w-full overflow-hidden">
                                 {selectedCard.labels.map(label => (
-                                    <Badge key={label.id} className="text-[10px] group cursor-default h-5 px-2" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
+                                    <Badge key={label.id} className="text-[10px] group cursor-default h-5 px-2 truncate max-w-[150px]" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
                                       {label.name}
-                                      {isEditing && <X className="ml-1 h-2 w-2 cursor-pointer hover:text-red-200" onClick={() => handleToggleLabel(label.id, true)} />}
+                                      {isEditing && <X className="ml-1 h-2 w-2 cursor-pointer hover:text-red-200 shrink-0" onClick={() => handleToggleLabel(label.id, true)} />}
                                     </Badge>
                                 ))}
                                 {isEditing && (
                                   <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-white/20"><Plus className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-white/20 shrink-0"><Plus className="h-3 w-3" /></Button></DropdownMenuTrigger>
                                     <DropdownMenuContent className="max-h-48 overflow-y-auto">
                                       {boardLabels.map(l => (
                                         <DropdownMenuCheckboxItem key={l.id} checked={selectedCard.labels.some(sl => sl.id === l.id)} onCheckedChange={() => handleToggleLabel(l.id, selectedCard.labels.some(sl => sl.id === l.id))}>
@@ -689,13 +689,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     </DialogHeader>
 
                     <ScrollArea className="flex-1 overflow-y-auto w-full max-w-full">
-                        <div className="p-6 w-full max-w-full overflow-hidden">
+                        <div className="p-6 w-full max-w-full overflow-hidden box-border">
                             <h3 className="font-semibold text-sm mb-2">Descripción</h3>
-                            {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden">{renderDescription(selectedCard.desc)}</div>}
+                            {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden leading-relaxed">{renderDescription(selectedCard.desc)}</div>}
                         </div>
 
                         {selectedCard.attachments?.length > 0 && !isEditing && (
-                          <div className="p-6 pt-0 w-full max-w-full overflow-hidden">
+                          <div className="p-6 pt-0 w-full max-w-full overflow-hidden box-border">
                             <div className="flex items-center justify-between mb-2">
                               <h3 className="font-semibold text-sm">Adjuntos ({selectedCard.attachments.length})</h3>
                               <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 no-export" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
@@ -715,8 +715,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         )}
 
                         {!isEditing && (
-                            <div className="p-6 pt-0 space-y-4 w-full max-w-full overflow-hidden">
-                                <div className="flex gap-2 no-export items-start w-full max-w-full overflow-hidden box-border">
+                            <div className="p-6 pt-0 space-y-4 w-full max-w-full overflow-hidden box-border">
+                                <div className="flex gap-2 no-export items-start w-full max-w-full overflow-hidden">
                                     <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0 max-w-full" />
                                     <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0"><Send className="h-4 w-4" /></Button>
                                 </div>
@@ -724,14 +724,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export mb-4">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
                                     <CollapsibleContent className="space-y-4 pb-4 w-full max-w-full overflow-hidden">
                                         {activity.map(action => (
-                                            <div key={action.id} className="flex gap-3 text-xs w-full max-w-full min-w-0 overflow-hidden">
+                                            <div key={action.id} className="flex gap-3 text-xs w-full max-w-full min-w-0 overflow-hidden box-border">
                                                 <Avatar className="h-6 w-6 shrink-0"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
                                                 <div className="flex-1 min-w-0 overflow-hidden">
                                                     <div className="flex items-center gap-2 mb-1">
                                                       <span className="font-semibold truncate">{action.memberCreator.fullName}</span>
                                                       <span className="text-[10px] text-muted-foreground shrink-0">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span>
                                                     </div>
-                                                    <div className="bg-muted p-2 rounded-md border whitespace-pre-wrap break-words text-xs leading-relaxed max-w-full overflow-hidden">
+                                                    <div className="bg-muted p-2 rounded-md border whitespace-pre-wrap break-words text-xs leading-relaxed max-w-full overflow-hidden box-border">
                                                       {action.data.text}
                                                     </div>
                                                 </div>
@@ -746,27 +746,27 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
                 {isEditing && (
                     <DialogFooter className="border-t p-4 gap-2 bg-white shrink-0">
-                        <div className="flex-1 flex gap-2">
-                          <div className="flex flex-col gap-1 flex-1">
+                        <div className="flex-1 flex gap-2 min-w-0">
+                          <div className="flex flex-col gap-1 flex-1 min-w-0">
                             <label className="text-[10px] uppercase font-bold text-muted-foreground">Tablero</label>
                             <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between">{allBoards.find(b => b.id === editedBoardId)?.name || 'Cargando...'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between">{allBoards.find(b => b.id === editedBoardId)?.name || 'Cargando...'} <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
                               <DropdownMenuContent className="max-h-48 overflow-y-auto">
                                 {allBoards.map(b => <DropdownMenuItem key={b.id} onSelect={() => setEditedBoardId(b.id)}>{b.name}</DropdownMenuItem>)}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
-                          <div className="flex flex-col gap-1 flex-1">
+                          <div className="flex flex-col gap-1 flex-1 min-w-0">
                             <label className="text-[10px] uppercase font-bold text-muted-foreground">Lista</label>
                             <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between" disabled={isListsLoading}>{isListsLoading ? 'Cargando...' : (boardLists.find(l => l.id === editedListId)?.name || 'Seleccioná')} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between" disabled={isListsLoading}>{isListsLoading ? 'Cargando...' : (boardLists.find(l => l.id === editedListId)?.name || 'Seleccioná')} <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
                               <DropdownMenuContent className="max-h-48 overflow-y-auto">
                                 {boardLists.map(l => <DropdownMenuItem key={l.id} onSelect={() => setEditedListId(l.id)}>{l.name}</DropdownMenuItem>)}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
                         </div>
-                        <div className="flex items-end gap-2">
+                        <div className="flex items-end gap-2 shrink-0">
                           <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancelar</Button>
                           <Button size="sm" onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar'}</Button>
                         </div>
