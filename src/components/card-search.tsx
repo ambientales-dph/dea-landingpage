@@ -732,23 +732,23 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         )}
 
                         {!isEditing && (
-                            <div className="p-6 pt-0 export-comments">
-                                <div className="flex gap-2 mb-4 no-export w-[95%] mx-auto items-start">
-                                    <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0" />
+                            <div className="p-6 pt-0 export-comments space-y-4">
+                                <div className="flex gap-2 no-export items-start w-full">
+                                    <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0 max-w-full" />
                                     <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0"><Send className="h-4 w-4" /></Button>
                                 </div>
                                 <Collapsible defaultOpen={true}>
-                                    <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export px-4">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
-                                    <CollapsibleContent className="mt-4 space-y-4 pb-4 px-4">
+                                    <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground no-export mb-4">Historial <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
+                                    <CollapsibleContent className="space-y-4 pb-4">
                                         {activity.map(action => (
-                                            <div key={action.id} className="flex gap-3 text-xs overflow-hidden min-w-0">
+                                            <div key={action.id} className="flex gap-3 text-xs overflow-hidden min-w-0 max-w-full">
                                                 <Avatar className="h-6 w-6 shrink-0"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
                                                 <div className="flex-1 min-w-0 overflow-hidden">
                                                     <div className="flex items-center gap-2">
                                                       <span className="font-semibold truncate">{action.memberCreator.fullName}</span>
                                                       <span className="text-[10px] text-muted-foreground shrink-0">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span>
                                                     </div>
-                                                    <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap break-words overflow-hidden min-w-0">{action.data.text}</p>
+                                                    <p className="mt-1 bg-muted p-2 rounded-md border whitespace-pre-wrap break-words overflow-hidden min-w-0 max-w-full">{action.data.text}</p>
                                                 </div>
                                             </div>
                                         ))}
