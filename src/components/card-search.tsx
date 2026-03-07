@@ -116,29 +116,35 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 /**
  * Diálogo para enviar un correo electrónico rápido desde la ficha.
  */
-const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, projectName, userEmail }: { isOpen: boolean, onOpenChange: (open: boolean) => void, recipient: AuthorizedUser, projectName: string, userEmail: string | null }) => {
+const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOpen: boolean, onOpenChange: (open: boolean) => void, recipient: AuthorizedUser, userEmail: string | null }) => {
+    const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
     const [isSending, setIsSending] = useState(false);
     const { toast } = useToast();
 
+    // Limpiar campos al abrir
+    useEffect(() => {
+        if (isOpen) {
+            setSubject('');
+            setBody('');
+        }
+    }, [isOpen]);
+
     const handleSend = async () => {
         if (!userEmail) return;
         setIsSending(true);
-        const subject = `[DEA] Consulta sobre proyecto: ${projectName}`;
-        const finalBody = `${body}\n\n---\nMensaje enviado desde el Portal DEA por ${userEmail}`;
 
         try {
             const result = await sendProjectEmail({
                 to: recipient.email,
-                subject,
-                body: finalBody,
+                subject: subject || '(Sin asunto) - Portal DEA',
+                body: body,
                 replyTo: userEmail
             });
 
             if (result.success) {
                 toast({ title: 'Correo enviado', description: `Se ha enviado tu consulta a ${recipient.name}.` });
                 onOpenChange(false);
-                setBody('');
             } else {
                 toast({ variant: 'destructive', title: 'Error al enviar', description: result.error });
             }
@@ -158,14 +164,23 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, projectName, userEm
                         Enviar consulta a {recipient.name}
                     </DialogTitle>
                     <DialogDescription className="text-[10px]">
-                        Tu mensaje será enviado desde ambientales.dph@gmail.com, pero las respuestas te llegarán directamente a <strong>{userEmail}</strong>.
+                        Tu mensaje será enviado desde ambientales.dph@gmail.com. Las respuestas llegarán directamente a <strong>{userEmail}</strong>.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Asunto</Label>
+                        <Input 
+                            placeholder="Escribí el asunto aquí..." 
+                            value={subject} 
+                            onChange={(e) => setSubject(e.target.value)}
+                            className="text-xs"
+                        />
+                    </div>
+                    <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Mensaje</Label>
                         <Textarea 
-                            placeholder="Escribí tu consulta aquí..." 
+                            placeholder="Escribí tu mensaje aquí..." 
                             value={body} 
                             onChange={(e) => setBody(e.target.value)}
                             className="min-h-[150px] text-xs"
@@ -174,7 +189,7 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, projectName, userEm
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={isSending}>Cancelar</Button>
-                    <Button size="sm" onClick={handleSend} disabled={!body.trim() || isSending} className="gap-2">
+                    <Button size="sm" onClick={handleSend} disabled={(!subject.trim() && !body.trim()) || isSending} className="gap-2">
                         {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                         {isSending ? 'Enviando...' : 'Enviar Mail'}
                     </Button>
@@ -187,15 +202,15 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, projectName, userEm
 /**
  * Componente para renderizar un participante interactivo minimalista.
  */
-const ParticipantBadge = ({ participant, projectName, userEmail }: { participant: AuthorizedUser, projectName: string, userEmail: string | null }) => {
+const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedUser, userEmail: string | null }) => {
     const [isEmailOpen, setIsEmailOpen] = useState(false);
 
     const handleWhatsAppClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!participant.phone) return;
         const cleanPhone = participant.phone.replace(/\D/g, '');
-        const text = encodeURIComponent(`Hola ${participant.name}, te escribo desde el Portal DEA por el proyecto: ${projectName}`);
-        window.open(`https://wa.me/${cleanPhone}?text=${text}`, '_blank');
+        // Sin mensaje preformateado
+        window.open(`https://wa.me/${cleanPhone}`, '_blank');
     };
 
     return (
@@ -203,7 +218,7 @@ const ParticipantBadge = ({ participant, projectName, userEmail }: { participant
             <span 
                 className="inline-flex items-center gap-1 cursor-default rounded px-0.5 transition-all duration-200 hover:bg-muted group select-none"
             >
-                <strong className="break-words text-foreground">
+                <strong className="break-words text-foreground font-bold">
                     {participant.name}
                 </strong>
                 <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 shrink-0">
@@ -233,7 +248,6 @@ const ParticipantBadge = ({ participant, projectName, userEmail }: { participant
                 isOpen={isEmailOpen} 
                 onOpenChange={setIsEmailOpen} 
                 recipient={participant} 
-                projectName={projectName} 
                 userEmail={userEmail} 
             />
         </>
@@ -346,12 +360,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <ParticipantBadge 
                             key={`${match.index}-${idx}`} 
                             participant={participant} 
-                            projectName={selectedCard?.name || 'Proyecto'} 
                             userEmail={user?.email || null} 
                         />
                     );
                 } else {
-                    detectedParts.push(<strong key={`${match.index}-${idx}`} className="break-words">{name}</strong>);
+                    detectedParts.push(<strong key={`${match.index}-${idx}`} className="break-words font-bold">{name}</strong>);
                 }
                 
                 if (idx < possibleNames.length - 1) {
