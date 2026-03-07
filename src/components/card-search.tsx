@@ -201,6 +201,7 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
 
 /**
  * Componente para renderizar un participante interactivo minimalista.
+ * Los iconos son visibles permanentemente pero toman color al pasar el mouse.
  */
 const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedUser, userEmail: string | null }) => {
     const [isEmailOpen, setIsEmailOpen] = useState(false);
@@ -209,23 +210,22 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
         e.stopPropagation();
         if (!participant.phone) return;
         const cleanPhone = participant.phone.replace(/\D/g, '');
-        // Sin mensaje preformateado
         window.open(`https://wa.me/${cleanPhone}`, '_blank');
     };
 
     return (
         <>
             <span 
-                className="inline-flex items-center gap-1 cursor-default rounded px-0.5 transition-all duration-200 hover:bg-muted group select-none"
+                className="inline-flex items-center gap-1 cursor-default rounded-md bg-muted/50 px-1.5 py-0.5 transition-all duration-200 hover:bg-muted group select-none border border-muted/50"
             >
                 <strong className="break-words text-foreground font-bold">
                     {participant.name}
                 </strong>
-                <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 shrink-0">
+                <div className="flex items-center gap-0.5 shrink-0 ml-1 border-l pl-1 border-muted-foreground/20">
                     <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-5 w-5 p-0.5 hover:bg-primary/20 hover:text-primary"
+                        className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-primary/20 hover:text-primary transition-colors"
                         onClick={(e) => { e.stopPropagation(); setIsEmailOpen(true); }}
                         title={`Enviar mail a ${participant.name}`}
                     >
@@ -235,7 +235,7 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-5 w-5 p-0.5 hover:bg-green-500/20 hover:text-green-600"
+                            className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-green-500/20 hover:text-green-600 transition-colors"
                             onClick={handleWhatsAppClick}
                             title={`Enviar WhatsApp a ${participant.name}`}
                         >
