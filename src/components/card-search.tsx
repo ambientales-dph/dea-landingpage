@@ -696,21 +696,25 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
                         {selectedCard.attachments?.length > 0 && !isEditing && (
                           <div className="p-6 pt-0 w-full max-w-full overflow-hidden box-border min-w-0">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-semibold text-[10px] uppercase tracking-wider text-primary">Adjuntos ({selectedCard.attachments.length})</h3>
-                              <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
-                                <ArrowDownUp className="h-3 w-3" />
-                                {attachmentSort === 'name' ? 'Nombre' : 'Tipo'}
-                              </Button>
-                            </div>
-                            <div className="space-y-1 w-full max-w-full overflow-hidden flex flex-col min-w-0 box-border">
-                              {sortedAttachments.map(att => (
-                                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal">
-                                  {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
-                                  <span className="flex-1 min-w-0 break-words whitespace-normal">{att.name}</span>
-                                </a>
-                              ))}
-                            </div>
+                            <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
+                              <div className="flex items-center justify-between mb-4">
+                                <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80">
+                                  Adjuntos ({selectedCard.attachments.length}) <ChevronDown className="h-3 w-3" />
+                                </CollapsibleTrigger>
+                                <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 px-2" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
+                                  <ArrowDownUp className="h-3 w-3" />
+                                  {attachmentSort === 'name' ? 'Nombre' : 'Tipo'}
+                                </Button>
+                              </div>
+                              <CollapsibleContent className="space-y-1 w-full max-w-full overflow-hidden flex flex-col min-w-0 box-border">
+                                {sortedAttachments.map(att => (
+                                  <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal">
+                                    {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                                    <span className="flex-1 min-w-0 break-words whitespace-normal">{att.name}</span>
+                                  </a>
+                                ))}
+                              </CollapsibleContent>
+                            </Collapsible>
                           </div>
                         )}
 
@@ -722,7 +726,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0 h-10 w-10"><Send className="h-4 w-4" /></Button>
                                 </div>
                                 <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
-                                    <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80 mb-4">Historial de cambios <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
+                                    <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80 mb-4">COMENTARIOS <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
                                     <CollapsibleContent className="space-y-4 pb-4 w-full max-w-full overflow-hidden min-w-0 box-border">
                                         {activity.map(action => (
                                             <div key={action.id} className="flex gap-3 text-xs w-full max-w-full min-w-0 overflow-hidden box-border">
