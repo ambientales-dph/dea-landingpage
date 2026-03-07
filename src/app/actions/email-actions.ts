@@ -12,6 +12,9 @@ export type EmailResult = {
 /**
  * Envía un correo electrónico utilizando la cuenta central ambientales.dph@gmail.com
  * pero configurando el Reply-To con el correo del usuario logueado.
+ * 
+ * NOTA IMPORTANTE: Para GMAIL_PASS se debe utilizar una "Contraseña de Aplicación" 
+ * generada desde la configuración de seguridad de la cuenta de Google.
  */
 export async function sendProjectEmail({
   to,
@@ -52,6 +55,13 @@ export async function sendProjectEmail({
     return { success: true, message: 'Correo enviado correctamente.' };
   } catch (error: any) {
     console.error('Error al enviar correo:', error);
+    // Mejorar el mensaje de error para el usuario en caso de fallo de autenticación común
+    if (error.message.includes('535-5.7.8')) {
+        return { 
+            success: false, 
+            error: 'Error de autenticación: Asegurate de estar usando una "Contraseña de Aplicación" de Google y no tu clave normal.' 
+        };
+    }
     return { success: false, error: error.message || 'Error desconocido al enviar el mail.' };
   }
 }

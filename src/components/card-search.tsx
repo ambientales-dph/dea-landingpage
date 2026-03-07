@@ -52,7 +52,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -300,7 +299,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 </a>
             );
         } else if (boldText !== undefined) {
-            // Split by semicolon in case of multiple names in one bold block
+            // Dividir por punto y coma para manejar múltiples nombres en un solo bloque de negrita
             const possibleNames = boldText.split(';').map(n => n.trim());
             const detectedParts: (string | JSX.Element)[] = [];
             
@@ -948,4 +947,3 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     </div>
   );
 }
-
