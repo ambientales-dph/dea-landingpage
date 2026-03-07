@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -22,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Download, CheckCircle2, Loader2 } from 'lucide-react';
+import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -51,14 +52,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { WHITELIST } from '@/lib/auth-data';
+import { WHITELIST, AuthorizedUser } from '@/lib/auth-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
 import { getDriveResourceName } from '@/services/google-drive';
+import { sendProjectEmail } from '@/app/actions/email-actions';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -101,6 +104,117 @@ const trelloColorToStyle = (color: string | null | undefined): React.CSSProperti
 
 const isDriveFolder = (url: string) => url.includes('drive.google.com') && (url.includes('/folders/') || url.includes('id='));
 const isDriveFile = (url: string) => url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('/open?id='));
+
+/**
+ * Diálogo para enviar un correo electrónico rápido desde la ficha.
+ */
+const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, projectName, userEmail }: { isOpen: boolean, onOpenChange: (open: boolean) => void, recipient: AuthorizedUser, projectName: string, userEmail: string | null }) => {
+    const [body, setBody] = useState('');
+    const [isSending, setIsSending] = useState(false);
+    const { toast } = useToast();
+
+    const handleSend = async () => {
+        if (!userEmail) return;
+        setIsSending(true);
+        const subject = `[DEA] Consulta sobre proyecto: ${projectName}`;
+        const finalBody = `${body}\n\n---\nMensaje enviado desde el Portal DEA por ${userEmail}`;
+
+        try {
+            const result = await sendProjectEmail({
+                to: recipient.email,
+                subject,
+                body: finalBody,
+                replyTo: userEmail
+            });
+
+            if (result.success) {
+                toast({ title: 'Correo enviado', description: `Se ha enviado tu consulta a ${recipient.name}.` });
+                onOpenChange(false);
+                setBody('');
+            } else {
+                toast({ variant: 'destructive', title: 'Error al enviar', description: result.error });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error de red', description: 'No se pudo contactar con el servidor de correo.' });
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md shadow-2xl">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Mail className="h-5 w-5 text-primary" />
+                        Enviar consulta a {recipient.name}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs">
+                        Tu mensaje será enviado desde ambientales.dph@gmail.com, pero las respuestas te llegarán directamente a <strong>{userEmail}</strong>.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Mensaje</Label>
+                        <Textarea 
+                            placeholder="Escribí tu consulta aquí..." 
+                            value={body} 
+                            onChange={(e) => setBody(e.target.value)}
+                            className="min-h-[150px] text-xs"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSending}>Cancelar</Button>
+                    <Button onClick={handleSend} disabled={!body.trim() || isSending} className="gap-2">
+                        {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        {isSending ? 'Enviando...' : 'Enviar Mail'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+/**
+ * Componente para renderizar un participante interactivo.
+ */
+const ParticipantBadge = ({ participant, projectName, userEmail }: { participant: AuthorizedUser, projectName: string, userEmail: string | null }) => {
+    const [isEmailOpen, setIsEmailOpen] = useState(false);
+
+    return (
+        <>
+            <TooltipProvider>
+                <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 cursor-pointer rounded px-1 transition-all duration-200 hover:bg-primary/10 group">
+                            <strong className="break-words text-primary decoration-primary/30 underline-offset-4 group-hover:underline">{participant.name}</strong>
+                            <Mail className="h-3 w-3 text-primary/50 opacity-0 transition-opacity group-hover:opacity-100" />
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="flex items-center gap-2 p-1.5 shadow-xl border-primary/20" side="top">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 rounded-full bg-primary/10 text-primary hover:bg-primary/20"
+                            onClick={(e) => { e.stopPropagation(); setIsEmailOpen(true); }}
+                        >
+                            <Mail className="h-4 w-4" />
+                        </Button>
+                        <span className="text-[10px] font-bold text-primary pr-2 uppercase tracking-wide">Contactar por Mail</span>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+            <QuickEmailDialog 
+                isOpen={isEmailOpen} 
+                onOpenChange={setIsEmailOpen} 
+                recipient={participant} 
+                projectName={projectName} 
+                userEmail={userEmail} 
+            />
+        </>
+    );
+};
 
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const { user } = useUser();
@@ -198,7 +312,19 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 </a>
             );
         } else if (boldText !== undefined) {
-            parts.push(<strong key={match.index} className="break-words">{boldText}</strong>);
+            const participant = WHITELIST.find(p => p.name && p.name.toLowerCase() === boldText.toLowerCase());
+            if (participant) {
+                parts.push(
+                    <ParticipantBadge 
+                        key={match.index} 
+                        participant={participant} 
+                        projectName={selectedCard?.name || 'Proyecto'} 
+                        userEmail={user?.email || null} 
+                    />
+                );
+            } else {
+                parts.push(<strong key={match.index} className="break-words">{boldText}</strong>);
+            }
         } else if (standaloneDriveUrl !== undefined) {
             const driveData = driveNames[standaloneDriveUrl];
             const isFolder = driveData?.isFolder ?? isDriveFolder(standaloneDriveUrl);
@@ -690,8 +816,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
                     <ScrollArea className="flex-1 overflow-y-auto w-full max-w-full box-border">
                         <div className="p-6 w-full max-w-full overflow-hidden box-border min-w-0">
-                            <h3 className="font-semibold text-sm mb-2 text-primary uppercase text-[10px] tracking-wider">Descripción</h3>
-                            {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden leading-relaxed">{renderDescription(selectedCard.desc)}</div>}
+                            <h3 className="font-semibold text-sm mb-2 text-primary uppercase text-[10px] tracking-wider text-left">Descripción</h3>
+                            {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden leading-relaxed text-left">{renderDescription(selectedCard.desc)}</div>}
                         </div>
 
                         {selectedCard.attachments?.length > 0 && !isEditing && (
@@ -710,7 +836,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 {sortedAttachments.map(att => (
                                   <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal">
                                     {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
-                                    <span className="flex-1 min-w-0 break-words whitespace-normal">{att.name}</span>
+                                    <span className="flex-1 min-w-0 break-words whitespace-normal text-left">{att.name}</span>
                                   </a>
                                 ))}
                               </CollapsibleContent>
@@ -736,7 +862,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                       <span className="font-semibold truncate max-w-[120px]">{action.memberCreator.fullName}</span>
                                                       <span className="text-[10px] text-muted-foreground shrink-0">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span>
                                                     </div>
-                                                    <div className="bg-muted p-2 rounded-md border whitespace-pre-wrap break-words text-xs leading-relaxed max-w-full overflow-hidden box-border min-w-0">
+                                                    <div className="bg-muted p-2 rounded-md border whitespace-pre-wrap break-words text-xs leading-relaxed max-w-full overflow-hidden box-border min-w-0 text-left">
                                                       {action.data.text}
                                                     </div>
                                                 </div>
@@ -752,7 +878,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 {isEditing && (
                     <DialogFooter className="border-t p-4 gap-2 bg-white shrink-0 box-border w-full max-w-full">
                         <div className="flex-1 flex gap-2 min-w-0 overflow-hidden">
-                          <div className="flex flex-col gap-1 flex-1 min-w-0">
+                          <div className="flex flex-col gap-1 flex-1 min-w-0 text-left">
                             <label className="text-[10px] uppercase font-bold text-muted-foreground truncate">Tablero</label>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between overflow-hidden"><span className="truncate">{allBoards.find(b => b.id === editedBoardId)?.name || 'Cargando...'}</span> <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
@@ -761,7 +887,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
-                          <div className="flex flex-col gap-1 flex-1 min-w-0">
+                          <div className="flex flex-col gap-1 flex-1 min-w-0 text-left">
                             <label className="text-[10px] uppercase font-bold text-muted-foreground truncate">Lista</label>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between overflow-hidden" disabled={isListsLoading}>{isListsLoading ? '...' : <span className="truncate">{boardLists.find(l => l.id === editedListId)?.name || 'Seleccioná'}</span>} <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
@@ -785,7 +911,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         <DialogContent className="sm:max-w-md shadow-2xl">
             <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                    <Download className="h-5 w-5 text-primary" />
+                    <Printer className="h-5 w-5 text-primary" />
                     Exportar Ficha a PDF
                 </DialogTitle>
                 <DialogDescription>Seleccioná qué información querés incluir en el documento PDF.</DialogDescription>
