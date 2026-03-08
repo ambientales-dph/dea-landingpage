@@ -1,6 +1,6 @@
 /**
  * Whitelist de personal autorizado del Departamento de Estudios Ambientales.
- * Este archivo es neutral (no tiene 'use client') para ser usado en servidor y cliente.
+ * Incluye personal interno y proyectistas externos para reconocimiento en el portal.
  */
 export interface AuthorizedUser {
   email: string;
@@ -9,6 +9,7 @@ export interface AuthorizedUser {
 }
 
 export const WHITELIST: AuthorizedUser[] = [
+  // --- Personal Interno DEA ---
   { name: 'Nancy Neschuk', email: 'nancyneschuk@gmail.com', phone: '+549 221 465-1214' },
   { name: 'Luis Bree', email: 'luisbree@gmail.com', phone: '+549 221 318-3040' },
   { name: 'Norma Bordón', email: 'no68si40@gmail.com', phone: '+549 221 575-5057' },
@@ -32,6 +33,34 @@ export const WHITELIST: AuthorizedUser[] = [
   { name: 'Carolina Silva', email: 'karitosilva@gmail.com', phone: '+549 221 542-6189' },
   { name: 'Joaquín Montorsi', email: 'joaquinmontorsi@gmail.com', phone: '+549 221 654-5669' },
   { email: 'ambientales.dph@gmail.com', name: 'DEA Genérico' },
+
+  // --- Proyectistas ---
+  { name: 'Andrea Ferro', email: 'mariandrea_ferro@yahoo.com.ar' },
+  { name: 'Constanza Alí', email: 'constanzaali.dph@gmail.com' },
+  { name: 'Fabricio Pesch', email: 'fabriciopesch@yahoo.com.ar' },
+  { name: 'Fermín Garath', email: '' }, // Sin mail provisto
+  { name: 'Francisco Espil Nosa', email: 'fespil@serman.com.ar' },
+  { name: 'Gustavo Bollini', email: 'gustavobollini@yahoo.com.ar' },
+  { name: 'Iván Brielfritsch', email: 'ivangabrielfritsch@gmail.com' },
+  { name: 'Javier Bodega', email: 'Javierbodega@gmail.com' },
+  { name: 'Joaquín Bonoldi', email: 'joaquin.bonoldi@gmail.com' },
+  { name: 'Jorge Bidegorry', email: 'jorgebidegorry@gmail.com' },
+  { name: 'José Luis Donantueno', email: 'donantueno@gmail.com' },
+  { name: 'Laura Agabios', email: 'lagabios@hotmail.com' },
+  { name: 'Leandro Mugetti', email: 'dpoh.proyectos@gmail.com' },
+  { name: 'Lucas Acha', email: 'achalucas94@gmail.com' },
+  { name: 'Luciano Almirón', email: 'lucianosixtoalmiron@gmail.com' },
+  { name: 'Luciano Rossi', email: 'rossilucianodph@gmail.com' },
+  { name: 'Marcela Busquets', email: 'marcelabusquets@yahoo.com.ar' },
+  { name: 'Marcelo Sarubi', email: 'mmsarub@hotmail.com' },
+  { name: 'Mariana Palma', email: '' }, // Sin mail provisto
+  { name: 'Natalia Bormape', email: 'nataliabormape@hotmail.com' },
+  { name: 'Roberto Sciarrone', email: 'rsciarrone@gmail.com' },
+  { name: 'Romina Barán', email: 'rominabaran@hotmail.com' },
+  { name: 'Tadeo Turdo', email: 'tadeo.turdo@gmail.com' },
+  { name: 'Víctor Barros', email: 'vhbarros07@gmail.com' },
+  { name: 'Víctor Suárez', email: 'suarezvictorh@gmail.com' },
+  { name: 'Yuliano Donantueno', email: 'yulianod@gmail.com' },
 ];
 
 export function isUserAuthorized(email: string | null): boolean {

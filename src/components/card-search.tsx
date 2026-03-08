@@ -214,6 +214,9 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
         window.open(`https://wa.me/${cleanPhone}`, '_blank');
     };
 
+    const hasEmail = !!participant.email && participant.email.includes('@');
+    const hasPhone = !!participant.phone;
+
     return (
         <>
             <span 
@@ -222,35 +225,41 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
                 <strong className="break-words text-foreground font-bold">
                     {participant.name}
                 </strong>
-                <div className="flex items-center gap-0.5 shrink-0 ml-1 border-l pl-1 border-muted-foreground/20">
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-primary/20 hover:text-primary transition-colors"
-                        onClick={(e) => { e.stopPropagation(); setIsEmailOpen(true); }}
-                        title={`Enviar mail a ${participant.name}`}
-                    >
-                        <Mail className="h-full w-full" />
-                    </Button>
-                    {participant.phone && (
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-green-500/20 hover:text-green-600 transition-colors"
-                            onClick={handleWhatsAppClick}
-                            title={`Enviar WhatsApp a ${participant.name}`}
-                        >
-                            <WhatsAppIcon className="h-full w-full" />
-                        </Button>
-                    )}
-                </div>
+                {(hasEmail || hasPhone) && (
+                    <div className="flex items-center gap-0.5 shrink-0 ml-1 border-l pl-1 border-muted-foreground/20">
+                        {hasEmail && (
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-primary/20 hover:text-primary transition-colors"
+                                onClick={(e) => { e.stopPropagation(); setIsEmailOpen(true); }}
+                                title={`Enviar mail a ${participant.name}`}
+                            >
+                                <Mail className="h-full w-full" />
+                            </Button>
+                        )}
+                        {hasPhone && (
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-green-500/20 hover:text-green-600 transition-colors"
+                                onClick={handleWhatsAppClick}
+                                title={`Enviar WhatsApp a ${participant.name}`}
+                            >
+                                <WhatsAppIcon className="h-full w-full" />
+                            </Button>
+                        )}
+                    </div>
+                )}
             </span>
-            <QuickEmailDialog 
-                isOpen={isEmailOpen} 
-                onOpenChange={setIsEmailOpen} 
-                recipient={participant} 
-                userEmail={userEmail} 
-            />
+            {hasEmail && (
+                <QuickEmailDialog 
+                    isOpen={isEmailOpen} 
+                    onOpenChange={setIsEmailOpen} 
+                    recipient={participant} 
+                    userEmail={userEmail} 
+                />
+            )}
         </>
     );
 };
