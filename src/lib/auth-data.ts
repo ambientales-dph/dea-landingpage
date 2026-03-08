@@ -1,6 +1,6 @@
 /**
- * Whitelist de personal autorizado del Departamento de Estudios Ambientales.
- * Incluye personal interno y proyectistas externos para reconocimiento en el portal.
+ * Datos de personal y proyectistas del Departamento de Estudios Ambientales.
+ * Se separa el personal interno (con acceso al sistema) de los proyectistas externos (solo contacto).
  */
 export interface AuthorizedUser {
   email: string;
@@ -8,8 +8,8 @@ export interface AuthorizedUser {
   name?: string;
 }
 
-export const WHITELIST: AuthorizedUser[] = [
-  // --- Personal Interno DEA ---
+// --- PERSONAL INTERNO DEA (SÍ tienen permiso de acceso al sistema) ---
+const INTERNAL_STAFF: AuthorizedUser[] = [
   { name: 'Nancy Neschuk', email: 'nancyneschuk@gmail.com', phone: '+549 221 465-1214' },
   { name: 'Luis Bree', email: 'luisbree@gmail.com', phone: '+549 221 318-3040' },
   { name: 'Norma Bordón', email: 'no68si40@gmail.com', phone: '+549 221 575-5057' },
@@ -33,12 +33,14 @@ export const WHITELIST: AuthorizedUser[] = [
   { name: 'Carolina Silva', email: 'karitosilva@gmail.com', phone: '+549 221 542-6189' },
   { name: 'Joaquín Montorsi', email: 'joaquinmontorsi@gmail.com', phone: '+549 221 654-5669' },
   { email: 'ambientales.dph@gmail.com', name: 'DEA Genérico' },
+];
 
-  // --- Proyectistas ---
+// --- PROYECTISTAS EXTERNOS (NO tienen permiso de acceso, solo para contacto técnico) ---
+const EXTERNAL_PROYECTISTAS: AuthorizedUser[] = [
   { name: 'Andrea Ferro', email: 'mariandrea_ferro@yahoo.com.ar' },
   { name: 'Constanza Alí', email: 'constanzaali.dph@gmail.com' },
   { name: 'Fabricio Pesch', email: 'fabriciopesch@yahoo.com.ar' },
-  { name: 'Fermín Garath', email: '' }, // Sin mail provisto
+  { name: 'Fermín Garath', email: '' },
   { name: 'Francisco Espil Nosa', email: 'fespil@serman.com.ar' },
   { name: 'Gustavo Bollini', email: 'gustavobollini@yahoo.com.ar' },
   { name: 'Iván Brielfritsch', email: 'ivangabrielfritsch@gmail.com' },
@@ -53,7 +55,7 @@ export const WHITELIST: AuthorizedUser[] = [
   { name: 'Luciano Rossi', email: 'rossilucianodph@gmail.com' },
   { name: 'Marcela Busquets', email: 'marcelabusquets@yahoo.com.ar' },
   { name: 'Marcelo Sarubi', email: 'mmsarub@hotmail.com' },
-  { name: 'Mariana Palma', email: '' }, // Sin mail provisto
+  { name: 'Mariana Palma', email: '' },
   { name: 'Natalia Bormape', email: 'nataliabormape@hotmail.com' },
   { name: 'Roberto Sciarrone', email: 'rsciarrone@gmail.com' },
   { name: 'Romina Barán', email: 'rominabaran@hotmail.com' },
@@ -63,10 +65,21 @@ export const WHITELIST: AuthorizedUser[] = [
   { name: 'Yuliano Donantueno', email: 'yulianod@gmail.com' },
 ];
 
+/**
+ * Lista unificada para el reconocimiento de nombres en las descripciones de Trello.
+ * Permite que ParticipantBadge encuentre emails para enviar correos.
+ */
+export const WHITELIST: AuthorizedUser[] = [...INTERNAL_STAFF, ...EXTERNAL_PROYECTISTAS];
+
+/**
+ * Valida si un email pertenece al personal interno con permiso de logueo.
+ */
 export function isUserAuthorized(email: string | null): boolean {
   if (!email) return false;
   const normalizedEmail = email.trim().toLowerCase();
-  return WHITELIST.some(
+  
+  // IMPORTANTE: Solo el personal interno (INTERNAL_STAFF) puede entrar al portal.
+  return INTERNAL_STAFF.some(
     (authorized) => authorized.email.trim().toLowerCase() === normalizedEmail
   );
 }
