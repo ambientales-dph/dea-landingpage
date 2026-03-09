@@ -31,6 +31,44 @@
         "lastUpdated": { "type": "string", "format": "date-time" }
       },
       "required": ["name"]
+    },
+    "TimelineProject": {
+      "title": "TimelineProject",
+      "description": "Datos extendidos de proyectos para la línea de tiempo.",
+      "type": "object",
+      "properties": {
+        "trelloCardId": { "type": "string" },
+        "name": { "type": "string" },
+        "driveFolderId": { "type": "string" },
+        "customCategories": { "type": "array", "items": { "type": "string" } },
+        "lastSync": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Milestone": {
+      "title": "Milestone",
+      "description": "Hito o evento histórico de un proyecto.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "category": { "type": "string" },
+        "type": { "type": "string", "enum": ["manual", "automatic", "trello", "drive"] },
+        "attachments": { "type": "array", "items": { "type": "object" } },
+        "metadata": { "type": "object" }
+      },
+      "required": ["projectId", "title", "date", "type"]
+    },
+    "TimelineCategory": {
+      "title": "TimelineCategory",
+      "description": "Categorías personalizadas para clasificar hitos.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "icon": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -44,6 +82,18 @@
     "/proyectistas/{proyectistaId}": {
       "schema": { "$ref": "#/entities/Proyectista" },
       "description": "Colección de profesionales proyectistas."
+    },
+    "/timeline_projects/{projectId}": {
+      "schema": { "$ref": "#/entities/TimelineProject" },
+      "description": "Configuración extendida de proyectos en la TL."
+    },
+    "/timeline_projects/{projectId}/milestones/{milestoneId}": {
+      "schema": { "$ref": "#/entities/Milestone" },
+      "description": "Hitos específicos de un proyecto."
+    },
+    "/timeline_categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/TimelineCategory" },
+      "description": "Diccionario de categorías de hitos."
     }
   }
 }
