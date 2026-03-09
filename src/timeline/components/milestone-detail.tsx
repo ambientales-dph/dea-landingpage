@@ -1,0 +1,714 @@
+
+'use client';
+
+import * as React from 'react';
+import type { Milestone, Category, AssociatedFile } from '@/types';
+import { FileIcon } from './file-icon';
+import { Badge } from './ui/badge';
+import { Separator } from './ui/separator';
+import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Paperclip, Tag, X, Star, Pencil, History, UploadCloud, Clock, ExternalLink, Trash2, CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { format, parseISO, isSameDay, isValid, parse } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Button } from './ui/button';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
+import { ScrollArea } from './ui/scroll-area';
+import { Textarea } from './ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/services/google-drive';
+import { attachUrlToCard, deleteAttachmentFromCard, getCardAttachments } from '@/services/trello';
+import { Buffer } from 'buffer';
+import { Calendar } from './ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { FileConflictDialog, type ConflictStrategy } from './file-conflict-dialog';
+
+interface MilestoneDetailProps {
+  milestone: Milestone;
+  categories: Category[];
+  onMilestoneUpdate: (updatedMilestone: Milestone) => void;
+  onMilestoneDelete: (milestoneId: string) => void;
+  onClose: () => void;
+  projectName: string;
+  cardId: string | null;
+}
+
+export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMilestoneDelete, onClose, projectName, cardId }: MilestoneDetailProps) {
+  const [newTag, setNewTag] = React.useState('');
+  const [isEditingTitle, setIsEditingTitle] = React.useState(false);
+  const [editableTitle, setEditableTitle] = React.useState('');
+  const [isEditingDescription, setIsEditingDescription] = React.useState(false);
+  const [editableDescription, setEditableDescription] = React.useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
+  
+  const [fileToDelete, setFileToDelete] = React.useState<AssociatedFile | null>(null);
+  const [fileDeleteConfirmation, setFileDeleteConfirmation] = React.useState('');
+
+  const [showCalendar, setShowCalendar] = React.useState(false);
+  const [manualDateText, setManualDateText] = React.useState('');
+
+  // Conflict state
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = React.useState(false);
+  const [conflicts, setConflicts] = React.useState<any[]>([]);
+  const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  React.useEffect(() => {
+    if (milestone) {
+      setEditableTitle(milestone.name);
+      setEditableDescription(milestone.description);
+      setManualDateText(format(parseISO(milestone.occurredAt), "dd/MM/yyyy"));
+      setNewTag('');
+      setIsEditingTitle(false);
+      setIsEditingDescription(false);
+      setIsDeleteDialogOpen(false);
+      setDeleteConfirmation('');
+      setFileToDelete(null);
+      setFileDeleteConfirmation('');
+      setShowCalendar(false);
+    }
+  }, [milestone]);
+
+  const createLogEntry = (action: string): string => {
+    return `${format(new Date(), "PPpp", { locale: es })} - ${action}`;
+  };
+
+  const handleTitleSave = () => {
+    if (milestone && editableTitle.trim() && editableTitle.trim() !== milestone.name) {
+      const updatedMilestone = {
+        ...milestone,
+        name: editableTitle.trim(),
+        history: [...milestone.history, createLogEntry(`Título cambiado a "${editableTitle.trim()}"`)],
+      };
+      onMilestoneUpdate(updatedMilestone);
+    }
+    setIsEditingTitle(false);
+  };
+  
+  const handleDescriptionSave = () => {
+    if (milestone && editableDescription.trim() !== milestone.description) {
+        onMilestoneUpdate({
+            ...milestone,
+            description: editableDescription.trim(),
+            history: [...milestone.history, createLogEntry('Descripción actualizada.')],
+        });
+    }
+    setIsEditingDescription(false);
+  };
+
+  const handleCategoryChange = (categoryId: string) => {
+    const newCategory = categories.find(c => c.id === categoryId);
+    if (newCategory && milestone && newCategory.id !== milestone.category.id) {
+      onMilestoneUpdate({
+        ...milestone,
+        category: newCategory,
+        history: [...milestone.history, createLogEntry(`Categoría cambiada a "${newCategory.name}"`)],
+      });
+    }
+  };
+
+  const handleDateChange = (newDate: Date | undefined) => {
+    if (newDate && milestone) {
+      const now = new Date();
+      let finalDate = new Date(newDate);
+
+      if (isSameDay(finalDate, now)) {
+        finalDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+      } else {
+        finalDate.setHours(7, 0, 0, 0);
+      }
+
+      if (finalDate.toISOString() !== milestone.occurredAt) {
+        onMilestoneUpdate({
+          ...milestone,
+          occurredAt: finalDate.toISOString(),
+          history: [...milestone.history, createLogEntry(`Fecha cambiada a ${format(finalDate, 'PPP', { locale: es })}`)],
+        });
+      }
+      setShowCalendar(false);
+    }
+  };
+
+  const handleManualDateChange = (val: string) => {
+    const cleaned = val.replace(/[^0-9/]/g, "");
+    setManualDateText(cleaned);
+    
+    if (cleaned.length === 10) {
+      const parsedDate = parse(cleaned, "dd/MM/yyyy", new Date());
+      if (isValid(parsedDate)) {
+        handleDateChange(parsedDate);
+      }
+    }
+  };
+
+  const handleTagAdd = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newTag.trim() !== '' && milestone) {
+      e.preventDefault();
+      if (milestone.tags && milestone.tags.includes(newTag.trim())) {
+        setNewTag('');
+        return;
+      }
+      const newTagName = newTag.trim();
+      const updatedTags = [...(milestone.tags || []), newTagName];
+      onMilestoneUpdate({
+        ...milestone,
+        tags: updatedTags,
+        history: [...milestone.history, createLogEntry(`Etiqueta añadida: "${newTagName}"`)],
+      });
+      setNewTag('');
+    }
+  };
+  
+  const handleTagRemove = (tagToRemove: string) => {
+    if (milestone) {
+        const updatedTags = (milestone.tags || []).filter(tag => tag !== tagToRemove);
+        onMilestoneUpdate({
+          ...milestone,
+          tags: updatedTags,
+          history: [...milestone.history, createLogEntry(`Etiqueta eliminada: "${tagToRemove}"`)],
+        });
+    }
+  };
+
+  const handleToggleImportant = () => {
+    if (milestone) {
+      const action = !milestone.isImportant ? 'marcado como importante' : 'desmarcado como importante';
+      onMilestoneUpdate({
+        ...milestone,
+        isImportant: !milestone.isImportant,
+        history: [...milestone.history, createLogEntry(`Hito ${action}`)],
+      });
+    }
+  };
+
+  const handleFileAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !milestone) return;
+
+    const filesToUpload = Array.from(e.target.files);
+    if (e.target) e.target.value = '';
+
+    const codeMatch = projectName.match(/\b([A-Z]{3}\d{3})\b/i);
+    const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
+
+    const { id: toastId, dismiss } = toast({
+      title: "Escaneando Drive...",
+      description: "Buscando archivos duplicados.",
+      duration: Infinity,
+    });
+
+    try {
+        const folderId = await getOrCreateProjectFolder(projectCode);
+        const foundConflicts = [];
+        for (const file of filesToUpload) {
+            const existing = await findFileInFolder(folderId, file.name);
+            if (existing) {
+                foundConflicts.push({ name: file.name, existingId: existing.id });
+            }
+        }
+
+        dismiss(toastId);
+
+        if (foundConflicts.length > 0) {
+            setConflicts(foundConflicts);
+            setPendingFiles(filesToUpload);
+            setIsConflictDialogOpen(true);
+        } else {
+            executeFinalFileAdd(filesToUpload, folderId, {});
+        }
+    } catch (error: any) {
+        dismiss(toastId);
+        toast({ variant: "destructive", title: "Error en Drive", description: error.message });
+    }
+  };
+
+  const executeFinalFileAdd = async (files: File[], folderId: string, resolutions: Record<string, ConflictStrategy>) => {
+    if (!milestone) return;
+
+    const { id: toastId, update, dismiss } = toast({
+      title: "Subiendo archivos...",
+      description: "Iniciando proceso.",
+      duration: Infinity,
+    });
+
+    try {
+      const newAssociatedFiles: AssociatedFile[] = [];
+
+      for (const file of files) {
+        const strategy = resolutions[file.name] || 'rename';
+        if (strategy === 'omit') continue;
+
+        update({ id: toastId, description: `Procesando "${file.name}"...` });
+
+        const arrayBuffer = await file.arrayBuffer();
+        const base64Data = Buffer.from(arrayBuffer).toString('base64');
+        
+        let targetName = file.name;
+        let existingId = strategy === 'overwrite' ? conflicts.find(c => c.name === file.name)?.existingId : undefined;
+
+        const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
+        
+        update({ id: toastId, title: "Vinculando con Trello...", description: driveResult.name });
+        let trelloId: string | undefined = undefined;
+        if (cardId) {
+            // Cleanup Trello duplicate attachments by name before attaching the new one
+            const currentTrelloAttachments = await getCardAttachments(cardId);
+            const duplicates = currentTrelloAttachments.filter(a => a.fileName === targetName);
+            for (const dup of duplicates) {
+                await deleteAttachmentFromCard(cardId, dup.id);
+            }
+
+            const trelloAtt = await attachUrlToCard(cardId, driveResult.name, driveResult.webViewLink);
+            if (trelloAtt) trelloId = trelloAtt.id;
+        }
+
+        newAssociatedFiles.push({
+          id: driveResult.id,
+          name: driveResult.name,
+          size: `${(file.size / 1024).toFixed(2)} KB`,
+          type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => file.type.includes(t)) ? 'document' : 'other',
+          url: driveResult.webViewLink,
+          driveId: driveResult.id,
+          trelloId: trelloId
+        });
+      }
+
+      if (newAssociatedFiles.length > 0) {
+        const newFileNames = new Set(newAssociatedFiles.map(f => f.name));
+        const newDriveIds = new Set(newAssociatedFiles.map(f => f.driveId).filter(Boolean));
+
+        const cleanedOldFiles = milestone.associatedFiles.filter(f => {
+            const fid = f.driveId || f.id;
+            const isDuplicate = newFileNames.has(f.name) || newDriveIds.has(fid);
+            return !isDuplicate;
+        });
+
+        onMilestoneUpdate({
+          ...milestone,
+          associatedFiles: [...cleanedOldFiles, ...newAssociatedFiles],
+          history: [...milestone.history, createLogEntry(`Se gestionaron ${newAssociatedFiles.length} archivo(s) (añadidos o actualizados)`)],
+        });
+      }
+
+      dismiss(toastId);
+      toast({ title: "Archivos actualizados", description: "Proceso de carga finalizado." });
+    } catch (error: any) {
+      console.error("Error adding files:", error);
+      dismiss(toastId);
+      toast({ variant: "destructive", title: "Error al añadir archivos", description: error.message });
+    } finally {
+        setConflicts([]);
+        setPendingFiles([]);
+    }
+  };
+
+  const handleConflictResolve = async (resolutions: Record<string, ConflictStrategy>) => {
+    setIsConflictDialogOpen(false);
+    const codeMatch = projectName.match(/\b([A-Z]{3}\d{3})\b/i);
+    const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
+    const folderId = await getOrCreateProjectFolder(projectCode);
+    executeFinalFileAdd(pendingFiles, folderId, resolutions);
+  };
+
+  const handleDeleteConfirmed = () => {
+    if (deleteConfirmation === 'borralo') {
+      onMilestoneDelete(milestone.id);
+      setIsDeleteDialogOpen(false);
+    }
+  };
+
+  const handleFileDeleteRequest = (file: AssociatedFile) => {
+    setFileToDelete(file);
+    setFileDeleteConfirmation('');
+  };
+
+  const handleFileDeleteConfirm = async () => {
+    if (fileDeleteConfirmation !== 'borralo' || !fileToDelete || !milestone) return;
+
+    const fileToRem = fileToDelete;
+    setFileToDelete(null);
+
+    const { id: toastId, update, dismiss } = toast({
+      title: "Eliminando archivo...",
+      description: fileToRem.name,
+      duration: Infinity,
+    });
+
+    try {
+        if (cardId && fileToRem.trelloId) {
+            update({ id: toastId, description: `Eliminando de Trello: ${fileToRem.name}` });
+            await deleteAttachmentFromCard(cardId, fileToRem.trelloId);
+        }
+
+        const driveId = fileToRem.driveId || fileToRem.id;
+        if (driveId) {
+            update({ id: toastId, description: `Eliminando de Google Drive: ${fileToRem.name}` });
+            await deleteFileFromDrive(driveId);
+        }
+
+        const updatedFiles = milestone.associatedFiles.filter(f => f.id !== fileToRem.id);
+        onMilestoneUpdate({
+            ...milestone,
+            associatedFiles: updatedFiles,
+            history: [...milestone.history, createLogEntry(`Archivo eliminado: "${fileToRem.name}"`)],
+        });
+
+        dismiss(toastId);
+        toast({ title: "Archivo eliminado", description: `"${fileToRem.name}" fue removido.` });
+    } catch (error: any) {
+        console.error("Error deleting file:", error);
+        dismiss(toastId);
+        toast({ variant: "destructive", title: "Error al eliminar archivo", description: error.message });
+    }
+  };
+
+  const uniqueFiles = React.useMemo(() => {
+    const seen = new Set();
+    return milestone.associatedFiles.filter(file => {
+      if (seen.has(file.id)) return false;
+      seen.add(file.id);
+      return true;
+    });
+  }, [milestone.associatedFiles]);
+
+  return (
+    <div className="flex flex-col h-full p-3 overflow-hidden text-black">
+        <div className="flex items-start justify-between gap-2 shrink-0">
+            <div className="flex-1 min-w-0">
+                {isEditingTitle ? (
+                <Input
+                    value={editableTitle}
+                    onChange={(e) => setEditableTitle(e.target.value)}
+                    onBlur={handleTitleSave}
+                    onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleTitleSave();
+                    if (e.key === 'Escape') setIsEditingTitle(false);
+                    }}
+                    className="text-lg font-headline font-medium h-auto p-0 border-0 border-b-2 border-primary rounded-none focus-visible:ring-0 bg-transparent"
+                    autoFocus
+                />
+                ) : (
+                <h2 className="font-headline text-lg font-medium flex items-center gap-2 truncate">
+                    <span className="truncate" title={milestone.name}>{milestone.name}</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setIsEditingTitle(true)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                </h2>
+                )}
+                <div className="flex items-center pt-1.5">
+                    <Select value={milestone.category.id} onValueChange={handleCategoryChange}>
+                        <SelectTrigger className="w-auto border-none shadow-none focus:ring-0 gap-2 h-auto p-0 text-xs font-medium text-zinc-700 hover:text-black focus:text-black disabled:opacity-100 bg-transparent">
+                            <SelectValue asChild>
+                                <div className="flex items-center cursor-pointer">
+                                    <div
+                                        className="w-2.5 h-2.5 rounded-full mr-2 shrink-0"
+                                        style={{ backgroundColor: milestone.category.color }}
+                                    />
+                                    <span>{milestone.category.name}</span>
+                                </div>
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {categories.map(category => (
+                                <SelectItem key={category.id} value={category.id}>
+                                    <div className="flex items-center">
+                                        <div
+                                            className="w-2 h-2 rounded-full mr-2"
+                                            style={{ backgroundColor: category.color }}
+                                        />
+                                        {category.name}
+                                    </div>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div className="flex flex-col text-xs text-zinc-700 mt-1.5 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Clock className="h-3 w-3 mr-1" />
+                        <div className="flex gap-1">
+                          <Input 
+                            placeholder="DD/MM/YYYY" 
+                            className="h-7 text-[10px] w-24 bg-zinc-100 text-black border-zinc-400"
+                            value={manualDateText}
+                            onChange={(e) => handleManualDateChange(e.target.value)}
+                          />
+                          <button 
+                              onClick={() => setShowCalendar(!showCalendar)}
+                              className={cn(
+                                  "hover:text-black transition-colors focus:outline-none flex items-center p-1 border border-zinc-400 rounded bg-zinc-100",
+                                  showCalendar && "text-primary border-primary font-bold"
+                              )}
+                          >
+                              <CalendarIcon className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-zinc-500 italic">
+                          {format(parseISO(milestone.occurredAt), "PPP", { locale: es })}
+                        </span>
+                    </div>
+
+                    {showCalendar && (
+                        <div className="p-2 bg-white rounded-lg shadow-lg border border-zinc-300 animate-in fade-in zoom-in-95 duration-200 z-50">
+                            <Calendar
+                                mode="single"
+                                selected={parseISO(milestone.occurredAt)}
+                                onSelect={handleDateChange}
+                                disabled={(date) =>
+                                    date > new Date() || date < new Date("1900-01-01")
+                                }
+                                captionLayout="dropdown"
+                                fromYear={1900}
+                                toYear={new Date().getFullYear()}
+                                locale={es}
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+                <button 
+                    onClick={handleToggleImportant} 
+                    className="p-1 rounded-full text-zinc-500 hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors disabled:hover:text-zinc-500 disabled:hover:bg-transparent"
+                    aria-label={milestone.isImportant ? 'Quitar de importantes' : 'Marcar como importante'}
+                >
+                    <Star className={cn("h-5 w-5", milestone.isImportant && "fill-yellow-400 text-yellow-400")} />
+                </button>
+                <Button variant="ghost" size="icon" onClick={() => setIsDeleteDialogOpen(true)} className="h-8 w-8 text-zinc-700 hover:text-destructive transition-colors" title="Eliminar hito">
+                    <Trash2 className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-zinc-700 hover:text-black">
+                    <X className="h-5 w-5" />
+                </Button>
+            </div>
+        </div>
+        
+        <Separator className="my-2 shrink-0 bg-zinc-400/50" />
+        
+        <ScrollArea className="flex-1 -mr-3 pr-3">
+            <div className="space-y-3">
+                {isEditingDescription ? (
+                <Textarea
+                    value={editableDescription}
+                    onChange={(e) => setEditableDescription(e.target.value)}
+                    onBlur={handleDescriptionSave}
+                    onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                        setIsEditingDescription(false);
+                        setEditableDescription(milestone.description);
+                    }
+                    }}
+                    className="text-sm leading-normal w-full bg-zinc-100 border-zinc-400 text-black"
+                    autoFocus
+                    rows={3}
+                />
+                ) : (
+                <div
+                    className={cn(
+                        "text-sm text-zinc-700 leading-normal relative",
+                        "cursor-pointer hover:bg-zinc-400/30 p-2 -m-2 rounded-md transition-colors group"
+                    )}
+                    onClick={() => setIsEditingDescription(true)}
+                >
+                    <p className="whitespace-pre-wrap">{milestone.description || 'Añade una descripción...'}</p>
+                    <Pencil className="h-3 w-3 absolute top-1 right-1 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                )}
+                
+                <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2 items-center">
+                        <Tag className="h-4 w-4 text-zinc-600" />
+                        {(milestone.tags || []).map(tag => (
+                            <Badge key={tag} className="group/badge relative pl-2.5 pr-1 py-0.5 text-xs bg-zinc-200 text-black hover:bg-zinc-200/80 border-transparent">
+                                {tag}
+                                <button 
+                                    onClick={() => handleTagRemove(tag)} 
+                                    className="ml-1 rounded-full opacity-50 group-hover/badge:opacity-100 hover:bg-destructive/10 p-0.5 transition-opacity disabled:hover:bg-transparent text-destructive"
+                                    aria-label={`Quitar etiqueta ${tag}`}
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </Badge>
+                        ))}
+                    </div>
+                    <Input 
+                        type="text"
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        onKeyDown={handleTagAdd}
+                        placeholder={"Añadir etiqueta y presionar Enter..."}
+                        className="h-8 bg-zinc-100 text-xs border border-zinc-400 text-black placeholder:text-zinc-500"
+                    />
+                </div>
+            
+                <Separator className="bg-zinc-400/50" />
+
+                <div className="space-y-2">
+                    <h3 className="font-semibold flex items-center justify-between gap-2 text-sm text-black">
+                        <div className="flex items-center gap-2">
+                            <Paperclip className="h-4 w-4" /> Archivos Adjuntos
+                        </div>
+                        <Button variant="outline" size="sm" className="h-7 text-black border-zinc-400 hover:bg-zinc-200" onClick={() => fileInputRef.current?.click()}>
+                            <UploadCloud className="mr-2 h-3 w-3"/>
+                            Añadir
+                        </Button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            multiple
+                            onChange={handleFileAdd}
+                        />
+                    </h3>
+                    {uniqueFiles.length > 0 ? (
+                        <ul className="space-y-1.5 border border-zinc-400 rounded-md p-2 bg-zinc-200">
+                           {uniqueFiles.map(file => (
+                                <li key={file.id} className="group/file flex items-center justify-between p-1.5 bg-zinc-100 rounded-md hover:bg-zinc-50 transition-colors">
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        <FileIcon type={file.type} />
+                                        <span className="text-xs font-medium truncate text-black" title={file.name}>{file.name}</span>
+                                    </div>
+                                    <div className="flex items-center shrink-0 ml-2 gap-2">
+                                        <span className="text-xs text-zinc-700">{file.size}</span>
+                                        <div className="flex items-center gap-1">
+                                            {file.url && (
+                                                <a 
+                                                    href={file.url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors"
+                                                    title="Abrir archivo"
+                                                >
+                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                </a>
+                                            )}
+                                            <button 
+                                                onClick={() => handleFileDeleteRequest(file)}
+                                                className="p-1 rounded-md hover:bg-destructive/10 text-zinc-500 hover:text-destructive transition-colors"
+                                                title="Eliminar archivo"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-xs text-zinc-700 italic">No hay archivos adjuntos para este hito.</p>
+                    )}
+                </div>
+                
+                <Separator className="bg-zinc-400/50" />
+
+                <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="history" className="border-b-0">
+                        <AccordionTrigger className="text-sm font-semibold hover:no-underline py-1 text-black">
+                            <div className="flex items-center gap-2">
+                                <History className="h-4 w-4" /> Historial de Cambios
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <ul className="space-y-1.5 text-xs text-zinc-700 pr-4 max-h-24 overflow-y-auto">
+                            {milestone.history.slice().reverse().map((entry, index) => (
+                                <li key={index}>{entry}</li>
+                            ))}
+                            </ul>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            </div>
+        </ScrollArea>
+
+        {/* Dialogo para borrar Hito */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogContent className="sm:max-w-[400px] bg-zinc-100 text-black border-zinc-400">
+                <DialogHeader>
+                    <DialogTitle className="text-destructive flex items-center gap-2">
+                        <Trash2 className="h-5 w-5" /> Confirmar Eliminación del Hito
+                    </DialogTitle>
+                    <DialogDescription className="text-zinc-700 pt-2">
+                        Esta acción es irreversible y eliminará el hito permanentemente. 
+                        Para confirmar, escribí <span className="font-bold text-black select-none">borralo</span> a continuación:
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <input
+                        value={deleteConfirmation}
+                        onChange={(e) => setDeleteConfirmation(e.target.value)}
+                        onPaste={(e) => e.preventDefault()}
+                        placeholder="Escribí aquí..."
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 bg-white border-zinc-400 text-black focus:ring-destructive focus:border-destructive"
+                        autoFocus
+                    />
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="border-zinc-400 text-black hover:bg-zinc-200">
+                        Cancelar
+                    </Button>
+                    <Button 
+                        variant="destructive" 
+                        onClick={handleDeleteConfirmed} 
+                        disabled={deleteConfirmation !== 'borralo'}
+                        className="disabled:opacity-50"
+                    >
+                        Eliminar hito
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        {/* Dialogo para borrar Archivo */}
+        <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
+            <DialogContent className="sm:max-w-[400px] bg-zinc-100 text-black border-zinc-400">
+                <DialogHeader>
+                    <DialogTitle className="text-destructive flex items-center gap-2">
+                        <Trash2 className="h-5 w-5" /> Confirmar Eliminación de Archivo
+                    </DialogTitle>
+                    <DialogDescription className="text-zinc-700 pt-2">
+                        Se eliminará el archivo <span className="font-bold text-black">{fileToDelete?.name}</span> de este hito (y de Trello si corresponde).
+                        Para confirmar, escribí <span className="font-bold text-black select-none">borralo</span> a continuación:
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <input
+                        value={fileDeleteConfirmation}
+                        onChange={(e) => setFileDeleteConfirmation(e.target.value)}
+                        onPaste={(e) => e.preventDefault()}
+                        placeholder="Escribí aquí..."
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 bg-white border-zinc-400 text-black focus:ring-destructive focus:border-destructive"
+                        autoFocus
+                    />
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="outline" onClick={() => setFileToDelete(null)} className="border-zinc-400 text-black hover:bg-zinc-200">
+                        Cancelar
+                    </Button>
+                    <Button 
+                        variant="destructive" 
+                        onClick={handleFileDeleteConfirm} 
+                        disabled={fileDeleteConfirmation !== 'borralo'}
+                        className="disabled:opacity-50"
+                    >
+                        Eliminar archivo
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <FileConflictDialog 
+            isOpen={isConflictDialogOpen}
+            conflicts={conflicts}
+            onResolve={handleConflictResolve}
+            onCancel={() => {
+                setIsConflictDialogOpen(false);
+                setConflicts([]);
+                setPendingFiles([]);
+            }}
+        />
+    </div>
+  );
+}
