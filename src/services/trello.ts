@@ -1,4 +1,3 @@
-
 'use server';
 
 const TRELLO_API_KEY = process.env.TRELLO_API_KEY;
@@ -283,7 +282,7 @@ export async function updateTrelloCard({ cardId, name, desc, cover, idBoard, idL
 
 export async function getCardActivity(cardId: string): Promise<TrelloAction[]> {
   try {
-    const actions = (await trelloFetch(`/cards/${cardId}/actions?filter=commentCard&member_creator=true`)) as TrelloAction[];
+    const actions = (await trelloFetch(`/cards/${cardId}/actions?filter=all&limit=1000&member_creator=true`)) as TrelloAction[];
     return actions;
   } catch (error) {
     if (error instanceof Error) {
@@ -451,7 +450,3 @@ export async function createTrelloCard(cardInfo: NewCardInfo): Promise<TrelloCar
     throw new Error('Hubo un error desconocido al crear la tarjeta.');
   }
 }
-
-    
-
-

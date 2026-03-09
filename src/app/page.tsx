@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   FolderKanban,
@@ -84,6 +85,7 @@ const INITIAL_VIEW_STATE = {
 };
 
 export default function Home() {
+  const router = useRouter();
   const { user, loading } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
@@ -262,14 +264,11 @@ export default function Home() {
   };
 
   const handleTimelineButtonClick = () => {
-    const baseUrl = 'https://studio--studio-1444688551-39519.us-central1.hosted.app';
-    let finalUrl = baseUrl;
-
+    let path = '/timeline';
     if (selectedCard) {
-      finalUrl = `${baseUrl}?cardId=${selectedCard.id}`;
+      path += `?cardId=${selectedCard.id}`;
     }
-
-    window.open(finalUrl, '_blank');
+    router.push(path);
   };
   
   const handleClearSelection = useCallback(() => {
