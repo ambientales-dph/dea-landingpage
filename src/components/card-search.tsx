@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -789,7 +788,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 if (y > 270) { doc.addPage(); y = 20; }
                 doc.text(`• ${att.name}`, margin + 2, y);
                 y += 5; doc.setTextColor('#3182ce'); doc.text(att.url, margin + 5, y);
-                doc.link(margin + 5, y - 3, doc.getTextWidth(att.url), 4, { url: att.url });
+                doc.link(margin + 5, y - 3, doc.getTextWidth(att.url), 4, { url: seg.link });
                 doc.setTextColor('#000000'); y += 6;
             });
             y += 5;
@@ -1001,10 +1000,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                             </button>
                                           </ContextMenuTrigger>
                                           <ContextMenuContent className="w-48">
-                                            <ContextMenuItem onClick={() => handleAttachmentClick(att)}>
-                                              <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
-                                            </ContextMenuItem>
-                                            {!isDriveFolder(att.url) && (
+                                            {isDriveFolder(att.url) ? (
+                                              <ContextMenuItem onClick={() => window.open(att.url, '_blank')}>
+                                                <ExternalLink className="mr-2 h-4 w-4" /> Abrir en la Web
+                                              </ContextMenuItem>
+                                            ) : (
                                               <ContextMenuItem onClick={() => handleDownloadFile(att)}>
                                                 <Download className="mr-2 h-4 w-4" /> Descargar
                                               </ContextMenuItem>
@@ -1033,11 +1033,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                               </button>
                                             </ContextMenuTrigger>
                                             <ContextMenuContent className="w-48">
-                                              <ContextMenuItem onClick={() => handleDriveFileClick(file)}>
-                                                {file.mimeType === 'application/vnd.google-apps.folder' ? <Folder className="mr-2 h-4 w-4" /> : <ExternalLink className="mr-2 h-4 w-4" />}
-                                                {file.mimeType === 'application/vnd.google-apps.folder' ? 'Explorar Carpeta' : 'Abrir en Drive'}
-                                              </ContextMenuItem>
-                                              {file.mimeType !== 'application/vnd.google-apps.folder' && (
+                                              {file.mimeType === 'application/vnd.google-apps.folder' ? (
+                                                <ContextMenuItem onClick={() => window.open(file.webViewLink, '_blank')}>
+                                                  <ExternalLink className="mr-2 h-4 w-4" /> Abrir en la Web
+                                                </ContextMenuItem>
+                                              ) : (
                                                 <ContextMenuItem onClick={() => handleDownloadFile(file)}>
                                                   <Download className="mr-2 h-4 w-4" /> Descargar
                                                 </ContextMenuItem>
