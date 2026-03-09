@@ -4,9 +4,9 @@
  * - getTrelloBoardSummaryTool - A tool that fetches a summary of a Trello board.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '@/timeline/ai/genkit';
 import {z} from 'zod';
-import {getBoardSummary} from '@/services/trello';
+import {getBoardSummary} from '@/timeline/services/trello';
 
 export const getTrelloBoardSummaryTool = ai.defineTool(
   {

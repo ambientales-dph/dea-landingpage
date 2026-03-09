@@ -6,9 +6,9 @@
  * - TrelloSummaryInput - The input type for the flow.
  */
 
-import {ai, geminiModel} from '@/ai/genkit';
+import {ai, geminiModel} from '@/timeline/ai/genkit';
 import {z} from 'zod';
-import {getTrelloBoardSummaryTool} from '@/ai/tools/trello-tool';
+import {getTrelloBoardSummaryTool} from '@/timeline/ai/tools/trello-tool';
 
 const TrelloSummaryInputSchema = z.object({
   topic: z.string().describe("The user's question or topic about the Trello board."),

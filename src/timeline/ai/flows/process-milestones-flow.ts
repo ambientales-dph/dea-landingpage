@@ -4,7 +4,7 @@
  * @fileOverview Flujo de Genkit para procesar tablas de hitos desde texto.
  */
 
-import { ai, geminiModel } from '@/ai/genkit';
+import { ai, geminiModel } from '@/timeline/ai/genkit';
 import { z } from 'genkit';
 
 const MilestoneExtractionInputSchema = z.object({

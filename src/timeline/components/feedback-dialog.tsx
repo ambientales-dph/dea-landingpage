@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { toast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { sendFeedback } from '@/actions/send-feedback';
+import { sendFeedback } from '@/timeline/actions/send-feedback';
 
 const feedbackSchema = z.object({
   userEmail: z.string().email({ message: 'Por favor, introduce un correo válido.' }),

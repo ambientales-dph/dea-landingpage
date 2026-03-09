@@ -8,7 +8,7 @@
  * - AutoTagFilesOutput - El tipo de retorno para la función autoTagFiles.
  */
 
-import {ai, geminiModel} from '@/ai/genkit';
+import {ai, geminiModel} from '@/timeline/ai/genkit';
 import {z} from 'genkit';
 
 const TaggingRequestSchema = z.object({

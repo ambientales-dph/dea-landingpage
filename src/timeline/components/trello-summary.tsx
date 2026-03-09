@@ -12,7 +12,7 @@ import { Button } from './ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Textarea } from './ui/textarea';
-import { generateTrelloSummary } from '@/ai/flows/generate-trello-summary';
+import { generateTrelloSummary } from '@/timeline/ai/flows/generate-trello-summary';
 import { Loader2 } from 'lucide-react';
 
 interface TrelloSummaryProps {
