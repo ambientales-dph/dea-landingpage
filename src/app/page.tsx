@@ -240,6 +240,19 @@ export default function Home() {
     }, 150);
   }, [handleCardSelect]);
 
+  const handleActivityLogClick = useCallback(async (cardId: string) => {
+    try {
+      const card = await getCardById(cardId);
+      handleNotificationClick(card);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al abrir proyecto',
+        description: 'No se pudo cargar la información desde Trello.',
+      });
+    }
+  }, [handleNotificationClick, toast]);
+
   const handleCardOrBoardButtonClick = () => {
     if (selectedCard) {
       setIsSummaryOpen(true);
@@ -804,7 +817,11 @@ export default function Home() {
           </SheetContent>
         </Sheet>
         <ResourceLibrary isOpen={isLibraryOpen} onOpenChange={setIsLibraryOpen} selectedCard={selectedCard} onCardUpdate={handleCardSelect} />
-        <ActivityLogDialog isOpen={isActivityLogOpen} onOpenChange={setIsActivityLogOpen} />
+        <ActivityLogDialog 
+          isOpen={isActivityLogOpen} 
+          onOpenChange={setIsActivityLogOpen} 
+          onActivityClick={handleActivityLogClick}
+        />
       </div>
     </div>
   );

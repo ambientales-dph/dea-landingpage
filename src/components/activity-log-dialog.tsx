@@ -36,15 +36,17 @@ interface Activity {
   actionType: string;
   projectName: string;
   detail?: string;
+  cardId?: string;
   timestamp: any;
 }
 
 interface ActivityLogDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onActivityClick?: (cardId: string) => void;
 }
 
-export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogDialogProps) {
+export default function ActivityLogDialog({ isOpen, onOpenChange, onActivityClick }: ActivityLogDialogProps) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -193,9 +195,15 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
                   <TableRow 
                     key={activity.id} 
                     className={cn(
-                      "hover:bg-muted/40 transition-colors border-b border-muted/20",
+                      "hover:bg-muted/40 transition-colors border-b border-muted/20 cursor-pointer group",
                       index % 2 === 0 ? "bg-[#cceeff]/40" : "bg-muted/10"
                     )}
+                    onClick={() => {
+                      if (activity.cardId) {
+                        onActivityClick?.(activity.cardId);
+                        onOpenChange(false);
+                      }
+                    }}
                   >
                     <TableCell className="text-[10px] font-mono whitespace-nowrap px-3 py-1.5 text-muted-foreground">
                       {activity.timestamp ? format(activity.timestamp.toDate(), 'dd/MM/yy HH:mm', { locale: es }) : '---'}
@@ -221,7 +229,7 @@ export default function ActivityLogDialog({ isOpen, onOpenChange }: ActivityLogD
                     </TableCell>
                     <TableCell className="text-[10px] px-3 py-1.5 truncate max-w-[300px]">
                       <div className="flex flex-col">
-                        <span className="font-semibold">{activity.projectName}</span>
+                        <span className="font-semibold group-hover:text-primary transition-colors">{activity.projectName}</span>
                         {activity.detail && <span className="text-[9px] text-muted-foreground italic">{activity.detail}</span>}
                       </div>
                     </TableCell>
