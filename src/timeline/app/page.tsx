@@ -1,29 +1,30 @@
+
 'use client';
 
 import * as React from 'react';
-import { Sidebar } from '@/components/sidebar';
-import { Header } from '@/components/header';
-import { Timeline } from '@/components/timeline';
-import { MilestoneDetail } from '@/components/milestone-detail';
-import { type Milestone, type Category, type AssociatedFile } from '@/types';
-import { CATEGORIES } from '@/lib/data';
+import { Sidebar } from '@/timeline/components/sidebar';
+import { Header } from '@/timeline/components/header';
+import { Timeline } from '@/timeline/components/timeline';
+import { MilestoneDetail } from '@/timeline/components/milestone-detail';
+import { type Milestone, type Category, type AssociatedFile } from '@/timeline/types';
+import { CATEGORIES } from '@/timeline/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { addMonths, endOfDay, parseISO, startOfDay, subMonths, subYears, format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
-import { getCardAttachments, type TrelloCardBasic, getCardActions, attachUrlToCard, deleteAttachmentFromCard, deleteAction, getCardById } from '@/services/trello';
-import { FileUpload } from '@/components/file-upload';
-import { MilestoneSummaryTable } from '@/components/milestone-summary-sheet';
-import { WelcomeScreen } from '@/components/welcome-screen';
-import { RSA060_MILESTONES } from '@/lib/rsa060-data';
-import { FeedbackButton } from '@/components/feedback-button';
-import { FeedbackDialog } from '@/components/feedback-dialog';
+import { getCardAttachments, type TrelloCardBasic, getCardActions, attachUrlToCard, deleteAttachmentFromCard, deleteAction, getCardById } from '@/timeline/services/trello';
+import { FileUpload } from '@/timeline/components/file-upload';
+import { MilestoneSummaryTable } from '@/timeline/components/milestone-summary-sheet';
+import { WelcomeScreen } from '@/timeline/components/welcome-screen';
+import { RSA060_MILESTONES } from '@/timeline/lib/rsa060-data';
+import { FeedbackButton } from '@/timeline/components/feedback-button';
+import { FeedbackDialog } from '@/timeline/components/feedback-dialog';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, doc, setDoc, addDoc, getDocs, writeBatch, deleteDoc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/services/google-drive';
+import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/timeline/services/google-drive';
 import { Buffer } from 'buffer';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
@@ -32,7 +33,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
   } from '@/components/ui/tooltip';
-import { FileConflictDialog, type ConflictStrategy } from '@/components/file-conflict-dialog';
+import { FileConflictDialog, type ConflictStrategy } from '@/timeline/components/file-conflict-dialog';
 
 function getTrelloObjectCreationDate(trelloId: string): Date {
     const timestampHex = trelloId.substring(0, 8);

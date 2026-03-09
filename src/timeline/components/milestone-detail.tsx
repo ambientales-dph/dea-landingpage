@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import type { Milestone, Category, AssociatedFile } from '@/types';
+import type { Milestone, Category, AssociatedFile } from '@/timeline/types';
 import { FileIcon } from './file-icon';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
@@ -17,8 +17,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './
 import { ScrollArea } from './ui/scroll-area';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/services/google-drive';
-import { attachUrlToCard, deleteAttachmentFromCard, getCardAttachments } from '@/services/trello';
+import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/timeline/services/google-drive';
+import { attachUrlToCard, deleteAttachmentFromCard, getCardAttachments } from '@/timeline/services/trello';
 import { Buffer } from 'buffer';
 import { Calendar } from './ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
