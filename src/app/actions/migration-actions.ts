@@ -1,7 +1,7 @@
 
 'use server';
 
-import { initializeApp, getApps, deleteApp } from 'firebase/app';
+import { initializeApp, deleteApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, setDoc, writeBatch } from 'firebase/firestore';
 
 // Configuración del proyecto de ORIGEN (el viejo) extraída del .env
@@ -17,6 +17,7 @@ const sourceConfig = {
 /**
  * Ejecuta la migración masiva de datos desde el Firestore original al nuevo.
  * Esta función está diseñada para ejecutarse una sola vez.
+ * ES UNA OPERACIÓN DE COPIA: No altera ni borra nada en el proyecto original.
  */
 export async function migrateFirestoreData() {
   if (!sourceConfig.apiKey || !sourceConfig.projectId) {
@@ -63,7 +64,8 @@ export async function migrateFirestoreData() {
       const milestoneBatch = writeBatch(targetDb);
       
       sourceMilestonesSnap.forEach((mDoc) => {
-        const targetMilestoneRef = doc(targetDb, 'timeline_projects', projectProjectDoc.id, 'milestones', mDoc.id);
+        // Corregido: Usamos projectDoc.id para la ruta del destino
+        const targetMilestoneRef = doc(targetDb, 'timeline_projects', projectDoc.id, 'milestones', mDoc.id);
         milestoneBatch.set(targetMilestoneRef, mDoc.data());
       });
       
@@ -72,17 +74,17 @@ export async function migrateFirestoreData() {
       }
     }
 
-    // Limpieza
+    // Limpieza de la conexión temporal
     await deleteApp(sourceApp);
     
     return { 
       success: true, 
-      message: `Migración completada: ${sourceCatsSnap.size} categorías y ${sourceProjectsSnap.size} proyectos con sus respectivos hitos.` 
+      message: `Migración completada con éxito: ${sourceCatsSnap.size} categorías y ${sourceProjectsSnap.size} proyectos con sus respectivos hitos copiados.` 
     };
 
   } catch (error: any) {
     console.error('Error durante la migración:', error);
-    await deleteApp(sourceApp);
+    if (sourceApp) await deleteApp(sourceApp);
     return { success: false, message: `Fallo en la migración: ${error.message}` };
   }
 }
