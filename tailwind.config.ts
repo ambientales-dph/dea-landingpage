@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -6,12 +7,14 @@ export default {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/timeline/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
       fontFamily: {
         body: ['"Encode Sans"', 'sans-serif'],
-        headline: ['"Encode Sans"', 'sans-serif'],
+        headline: ['"Encode Sans Condensed"', 'sans-serif'],
+        sans: ['"Encode Sans"', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {

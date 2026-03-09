@@ -83,15 +83,15 @@
       "schema": { "$ref": "#/entities/Proyectista" },
       "description": "Colección de profesionales proyectistas."
     },
-    "/timeline_projects/{projectId}": {
+    "/projects/{projectId}": {
       "schema": { "$ref": "#/entities/TimelineProject" },
       "description": "Configuración extendida de proyectos en la TL."
     },
-    "/timeline_projects/{projectId}/milestones/{milestoneId}": {
+    "/projects/{projectId}/milestones/{milestoneId}": {
       "schema": { "$ref": "#/entities/Milestone" },
       "description": "Hitos específicos de un proyecto."
     },
-    "/timeline_categories/{categoryId}": {
+    "/categories/{categoryId}": {
       "schema": { "$ref": "#/entities/TimelineCategory" },
       "description": "Diccionario de categorías de hitos."
     }

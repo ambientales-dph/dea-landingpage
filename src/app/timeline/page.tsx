@@ -29,7 +29,7 @@ import { RSA060_MILESTONES } from '@/timeline/lib/rsa060-data';
 import { FeedbackButton } from '@/timeline/components/feedback-button';
 import { FeedbackDialog } from '@/timeline/components/feedback-dialog';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, doc, setDoc, addDoc, getDocs, writeBatch, deleteDoc, updateDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, addDoc, getDocs, writeBatch, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/timeline/services/google-drive';
@@ -82,20 +82,12 @@ function HomeContent() {
   const [milestones, setMilestones] = React.useState<Milestone[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = React.useState(true);
 
-  // Cargar Categorías desde Firestore (Usando ruta unificada)
+  // Cargar Categorías desde Firestore usando nombre original
   React.useEffect(() => {
     if (!firestore) return;
-    const unsubscribe = onSnapshot(collection(firestore, 'timeline_categories'), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(firestore, 'categories'), (snapshot) => {
       const cats = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Category));
-      if (cats.length === 0) {
-          // Seed initial categories if none exist (one-time fallback)
-          const batch = writeBatch(firestore);
-          CATEGORIES.forEach(cat => {
-              const docRef = doc(firestore, 'timeline_categories', cat.id);
-              batch.set(docRef, cat);
-          });
-          batch.commit();
-      } else {
+      if (cats.length > 0) {
           setFirestoreCategories(cats);
       }
     });
@@ -106,7 +98,7 @@ function HomeContent() {
     return firestoreCategories.length > 0 ? firestoreCategories : CATEGORIES;
   }, [firestoreCategories]);
 
-  // Cargar Hitos cuando cambia el proyecto seleccionado
+  // Cargar Hitos cuando cambia el proyecto seleccionado (Nombre original 'projects')
   React.useEffect(() => {
     if (!firestore || !selectedCard || selectedCard.id === 'training-rsa999') {
         if (!selectedCard) setIsLoadingTimeline(false);
@@ -114,7 +106,7 @@ function HomeContent() {
     }
 
     setIsLoadingTimeline(true);
-    const q = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
+    const q = collection(firestore, 'projects', selectedCard.id, 'milestones');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ms = snapshot.docs.map(d => {
           const data = d.data();
@@ -196,7 +188,7 @@ function HomeContent() {
     }
   }, [router, pathname]);
   
-  // Motor de Sincronización Trello -> Firestore (Usando rutas unificadas)
+  // Motor de Sincronización Trello -> Firestore usando nombres originales
   React.useEffect(() => {
     const syncTrelloToFirestore = async () => {
         if (!selectedCard || !firestore || syncPerformedForCard.current === selectedCard.id) {
@@ -211,7 +203,7 @@ function HomeContent() {
         syncPerformedForCard.current = selectedCard.id;
         
         try {
-            const projectRef = doc(firestore, 'timeline_projects', selectedCard.id);
+            const projectRef = doc(firestore, 'projects', selectedCard.id);
             const codeMatch = selectedCard.name.match(/\b([A-Z]{3}\d{3})\b/i);
             const projectData = {
                 name: selectedCard.name,
@@ -228,7 +220,7 @@ function HomeContent() {
             const currentTrelloAttachmentIds = new Set(attachments.map(a => a.id));
             const currentTrelloActionIds = new Set(actions.map(a => a.id));
             
-            const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
+            const milestonesRef = collection(firestore, 'projects', selectedCard.id, 'milestones');
             const existingDocsSnapshot = await getDocs(milestonesRef);
             
             const existingHitosByTrelloId = new Map();
@@ -329,11 +321,11 @@ function HomeContent() {
 
             if (allTrelloItems.length > 0 || idsToRemove.length > 0 || hasChanges) {
                 allTrelloItems.forEach(milestone => {
-                    const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestone.id);
+                    const milestoneRef = doc(firestore, 'projects', selectedCard.id, 'milestones', milestone.id);
                     batch.set(milestoneRef, milestone, { merge: true });
                 });
                 idsToRemove.forEach(id => {
-                    const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', id);
+                    const milestoneRef = doc(firestore, 'projects', selectedCard.id, 'milestones', id);
                     batch.delete(milestoneRef);
                 });
                 batch.commit().catch(err => console.error("Error committing sync batch:", err));
@@ -454,7 +446,7 @@ function HomeContent() {
           history: [`${format(new Date(), "PPpp", { locale: es })} - Creación de hito con ${associatedFiles.length} archivo(s).`],
       };
 
-      const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
+      const milestonesRef = collection(firestore, 'projects', selectedCard.id, 'milestones');
       addDoc(milestonesRef, newMilestoneData);
       
       setIsUploadOpen(false);
@@ -533,7 +525,7 @@ function HomeContent() {
       return;
     }
 
-    const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', updatedMilestone.id);
+    const milestoneRef = doc(firestore, 'projects', selectedCard.id, 'milestones', updatedMilestone.id);
     updateDoc(milestoneRef, updatedMilestone as any);
     toast({ title: "Hito actualizado" });
     if (selectedMilestone && selectedMilestone.id === updatedMilestone.id) {
@@ -575,7 +567,7 @@ function HomeContent() {
         dismiss(toastId);
     }
 
-    const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestoneId);
+    const milestoneRef = doc(firestore, 'projects', selectedCard.id, 'milestones', milestoneId);
     deleteDoc(milestoneRef);
     toast({ title: "Hito eliminado" });
     setSelectedMilestone(null);
@@ -618,7 +610,7 @@ function HomeContent() {
 
   const handleCategoryColorChange = React.useCallback((categoryId: string, color: string) => {
     if (!firestore) return;
-    const catRef = doc(firestore, 'timeline_categories', categoryId);
+    const catRef = doc(firestore, 'categories', categoryId);
     updateDoc(catRef, { color });
   }, [firestore]);
   
@@ -626,20 +618,20 @@ function HomeContent() {
     if (!firestore) return;
     const DEFAULT_COLORS = ['#a3e635', '#22c55e', '#14b8a6', '#0ea5e9', '#4f46e5', '#8b5cf6', '#be185d', '#f97316', '#facc15'];
     const color = DEFAULT_COLORS[categories.length % DEFAULT_COLORS.length];
-    addDoc(collection(firestore, 'timeline_categories'), { name, color });
+    addDoc(collection(firestore, 'categories'), { name, color });
   }, [firestore, categories]);
 
   const handleCategoryUpdate = React.useCallback((categoryId: string, name: string) => {
     if (!firestore) return;
     const newName = name.trim();
     if (!newName) return;
-    const catRef = doc(firestore, 'timeline_categories', categoryId);
+    const catRef = doc(firestore, 'categories', categoryId);
     updateDoc(catRef, { name: newName });
   }, [firestore]);
   
   const handleCategoryDelete = React.useCallback((categoryId: string) => {
     if (!firestore) return;
-    const catRef = doc(firestore, 'timeline_categories', categoryId);
+    const catRef = doc(firestore, 'categories', categoryId);
     deleteDoc(catRef);
   }, [firestore]);
 
@@ -700,7 +692,7 @@ function HomeContent() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-background font-sans">
+    <div className="timeline-app-root flex h-screen w-full bg-background font-sans text-foreground">
       <Sidebar 
         categories={categories} 
         onCategoryColorChange={handleCategoryColorChange}
