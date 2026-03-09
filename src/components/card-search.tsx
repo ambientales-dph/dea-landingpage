@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -23,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -59,7 +58,7 @@ import { WHITELIST, AuthorizedUser } from '@/lib/auth-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
-import { getDriveResourceName } from '@/services/google-drive';
+import { getDriveResourceName, extractIdFromUrl, listFolderContents } from '@/services/google-drive';
 import { sendProjectEmail } from '@/app/actions/email-actions';
 
 interface CardSearchProps {
@@ -201,8 +200,6 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
 
 /**
  * Componente para renderizar un participante interactivo minimalista.
- * Los iconos son visibles permanentemente pero toman color al pasar el mouse.
- * El fondo es blanco por defecto y gris en hover.
  */
 const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedUser, userEmail: string | null }) => {
     const [isEmailOpen, setIsEmailOpen] = useState(false);
@@ -290,6 +287,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [editedListId, setEditedListId] = useState('');
   const [driveNames, setDriveNames] = useState<Record<string, { name: string, isFolder: boolean }>>({});
 
+  // Estados para el Inspector de Archivos
+  const [inspectionPath, setInspectionPath] = useState<{ id: string, name: string }[]>([]);
+  const [folderContents, setFolderContents] = useState<any[]>([]);
+  const [isInspecting, setIsInspecting] = useState(false);
+
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportOptions, setExportOptions] = useState({
     includeAttachments: true,
@@ -311,6 +313,63 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       return () => clearTimeout(timer);
     }
   }, [isSummaryOpen]);
+
+  // Resetear inspector al cambiar de tarjeta o cerrar modal
+  useEffect(() => {
+    setInspectionPath([]);
+    setFolderContents([]);
+    setIsInspecting(false);
+  }, [selectedCard?.id, isSummaryOpen]);
+
+  // Cargar contenido cuando cambia el path del inspector
+  useEffect(() => {
+    const fetchContents = async () => {
+      if (inspectionPath.length === 0) {
+        setIsInspecting(false);
+        setFolderContents([]);
+        return;
+      }
+
+      setIsInspecting(true);
+      const currentFolder = inspectionPath[inspectionPath.length - 1];
+      try {
+        const files = await listFolderContents(currentFolder.id);
+        setFolderContents(files);
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error al leer carpeta', description: 'No se pudieron cargar los archivos.' });
+        handlePopFolder();
+      } finally {
+        setIsInspecting(false);
+      }
+    };
+
+    fetchContents();
+  }, [inspectionPath]);
+
+  const handleEnterFolder = async (id: string, name: string) => {
+    setInspectionPath(prev => [...prev, { id, name }]);
+  };
+
+  const handlePopFolder = () => {
+    setInspectionPath(prev => prev.slice(0, -1));
+  };
+
+  const handleAttachmentClick = async (att: any) => {
+    if (isDriveFolder(att.url)) {
+      const id = await extractIdFromUrl(att.url);
+      if (id) handleEnterFolder(id, att.name);
+    } else {
+      window.open(att.url, '_blank');
+    }
+  };
+
+  const handleDriveFileClick = (file: any) => {
+    if (file.mimeType === 'application/vnd.google-apps.folder') {
+      handleEnterFolder(file.id, file.name);
+    } else {
+      window.open(file.webViewLink, '_blank');
+    }
+  };
 
   useEffect(() => {
     if (selectedCard?.desc) {
@@ -882,21 +941,71 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                           <div className="p-6 pt-0 w-full max-w-full overflow-hidden box-border min-w-0">
                             <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
                               <div className="flex items-center justify-between mb-4">
-                                <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80">
-                                  Adjuntos ({selectedCard.attachments.length}) <ChevronDown className="h-3 w-3" />
-                                </CollapsibleTrigger>
+                                <div className="flex items-center gap-2">
+                                  {inspectionPath.length > 0 && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePopFolder} title="Volver">
+                                      <ChevronLeft className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80">
+                                    {inspectionPath.length > 0 ? (
+                                      <span className="flex items-center gap-1">
+                                        <Folder className="h-3 w-3" />
+                                        {inspectionPath[inspectionPath.length - 1].name}
+                                      </span>
+                                    ) : (
+                                      `Adjuntos (${selectedCard.attachments.length})`
+                                    )}
+                                    <ChevronDown className="h-3 w-3" />
+                                  </CollapsibleTrigger>
+                                </div>
                                 <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 px-2" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
                                   <ArrowDownUp className="h-3 w-3" />
                                   {attachmentSort === 'name' ? 'Nombre' : 'Tipo'}
                                 </Button>
                               </div>
-                              <CollapsibleContent className="space-y-1 w-full max-w-full overflow-hidden flex flex-col min-w-0 box-border">
-                                {sortedAttachments.map(att => (
-                                  <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal">
-                                    {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
-                                    <span className="flex-1 min-w-0 break-words whitespace-normal text-left">{att.name}</span>
-                                  </a>
-                                ))}
+                              <CollapsibleContent className="space-y-1 w-full max-w-full overflow-hidden flex flex-col min-w-0 box-border border rounded-md p-2 bg-muted/5">
+                                {isInspecting ? (
+                                  <div className="flex items-center justify-center p-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                  </div>
+                                ) : (
+                                  <>
+                                    {inspectionPath.length === 0 ? (
+                                      // Render Root Trello Attachments
+                                      sortedAttachments.map(att => (
+                                        <button 
+                                          key={att.id} 
+                                          onClick={() => handleAttachmentClick(att)}
+                                          className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                        >
+                                          {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                                          <span className="flex-1 min-w-0 break-words whitespace-normal">{att.name}</span>
+                                        </button>
+                                      ))
+                                    ) : (
+                                      // Render Google Drive Folder Contents
+                                      folderContents.length === 0 ? (
+                                        <div className="p-4 text-center text-[10px] text-muted-foreground italic">Carpeta vacía</div>
+                                      ) : (
+                                        folderContents.map(file => (
+                                          <button 
+                                            key={file.id} 
+                                            onClick={() => handleDriveFileClick(file)}
+                                            className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                          >
+                                            {file.mimeType === 'application/vnd.google-apps.folder' ? (
+                                              <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                            ) : (
+                                              <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                                            )}
+                                            <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
+                                          </button>
+                                        ))
+                                      )
+                                    )}
+                                  </>
+                                )}
                               </CollapsibleContent>
                             </Collapsible>
                           </div>

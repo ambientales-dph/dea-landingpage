@@ -20,7 +20,7 @@ const drive = google.drive({
 /**
  * Extrae el ID de un archivo o carpeta desde una URL de Google Drive.
  */
-function extractIdFromUrl(url: string): string | null {
+export async function extractIdFromUrl(url: string): Promise<string | null> {
     const folderMatch = url.match(/folders\/([a-zA-Z0-9_-]+)/);
     if (folderMatch) return folderMatch[1];
     
@@ -37,7 +37,7 @@ function extractIdFromUrl(url: string): string | null {
  * Obtiene el nombre de un recurso (archivo o carpeta) de Google Drive.
  */
 export async function getDriveResourceName(url: string): Promise<{ name: string; isFolder: boolean } | null> {
-    const id = extractIdFromUrl(url);
+    const id = await extractIdFromUrl(url);
     if (!id) return null;
 
     try {
@@ -54,6 +54,23 @@ export async function getDriveResourceName(url: string): Promise<{ name: string;
         console.error('Error fetching resource name from Drive:', error);
         return null;
     }
+}
+
+/**
+ * Lista el contenido de una carpeta de Google Drive.
+ */
+export async function listFolderContents(folderId: string) {
+  try {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      fields: 'files(id, name, mimeType, webViewLink, iconLink)',
+      orderBy: 'folder,name',
+    });
+    return response.data.files || [];
+  } catch (error) {
+    console.error('Error listing folder contents:', error);
+    throw new Error('No se pudo leer el contenido de la carpeta.');
+  }
 }
 
 /**
