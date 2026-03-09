@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -22,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft } from 'lucide-react';
+import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -42,6 +43,12 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -368,6 +375,15 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       handleEnterFolder(file.id, file.name);
     } else {
       window.open(file.webViewLink, '_blank');
+    }
+  };
+
+  const handleDownloadFile = (file: any) => {
+    const downloadUrl = file.webContentLink || file.url;
+    if (downloadUrl) {
+      window.open(downloadUrl, '_blank');
+    } else {
+      toast({ variant: 'destructive', title: 'Descarga no disponible', description: 'Este archivo no permite descarga directa.' });
     }
   };
 
@@ -974,14 +990,27 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     {inspectionPath.length === 0 ? (
                                       // Render Root Trello Attachments
                                       sortedAttachments.map(att => (
-                                        <button 
-                                          key={att.id} 
-                                          onClick={() => handleAttachmentClick(att)}
-                                          className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
-                                        >
-                                          {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
-                                          <span className="flex-1 min-w-0 break-words whitespace-normal">{att.name}</span>
-                                        </button>
+                                        <ContextMenu key={att.id}>
+                                          <ContextMenuTrigger asChild>
+                                            <button 
+                                              onClick={() => handleAttachmentClick(att)}
+                                              className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                            >
+                                              {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                                              <span className="flex-1 min-w-0 break-words whitespace-normal">{att.name}</span>
+                                            </button>
+                                          </ContextMenuTrigger>
+                                          <ContextMenuContent className="w-48">
+                                            <ContextMenuItem onClick={() => handleAttachmentClick(att)}>
+                                              <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
+                                            </ContextMenuItem>
+                                            {!isDriveFolder(att.url) && (
+                                              <ContextMenuItem onClick={() => handleDownloadFile(att)}>
+                                                <Download className="mr-2 h-4 w-4" /> Descargar
+                                              </ContextMenuItem>
+                                            )}
+                                          </ContextMenuContent>
+                                        </ContextMenu>
                                       ))
                                     ) : (
                                       // Render Google Drive Folder Contents
@@ -989,18 +1018,32 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                         <div className="p-4 text-center text-[10px] text-muted-foreground italic">Carpeta vacía</div>
                                       ) : (
                                         folderContents.map(file => (
-                                          <button 
-                                            key={file.id} 
-                                            onClick={() => handleDriveFileClick(file)}
-                                            className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
-                                          >
-                                            {file.mimeType === 'application/vnd.google-apps.folder' ? (
-                                              <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                            ) : (
-                                              <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                                            )}
-                                            <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
-                                          </button>
+                                          <ContextMenu key={file.id}>
+                                            <ContextMenuTrigger asChild>
+                                              <button 
+                                                onClick={() => handleDriveFileClick(file)}
+                                                className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                              >
+                                                {file.mimeType === 'application/vnd.google-apps.folder' ? (
+                                                  <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                                ) : (
+                                                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                                                )}
+                                                <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
+                                              </button>
+                                            </ContextMenuTrigger>
+                                            <ContextMenuContent className="w-48">
+                                              <ContextMenuItem onClick={() => handleDriveFileClick(file)}>
+                                                {file.mimeType === 'application/vnd.google-apps.folder' ? <Folder className="mr-2 h-4 w-4" /> : <ExternalLink className="mr-2 h-4 w-4" />}
+                                                {file.mimeType === 'application/vnd.google-apps.folder' ? 'Explorar Carpeta' : 'Abrir en Drive'}
+                                              </ContextMenuItem>
+                                              {file.mimeType !== 'application/vnd.google-apps.folder' && (
+                                                <ContextMenuItem onClick={() => handleDownloadFile(file)}>
+                                                  <Download className="mr-2 h-4 w-4" /> Descargar
+                                                </ContextMenuItem>
+                                              )}
+                                            </ContextMenuContent>
+                                          </ContextMenu>
                                         ))
                                       )
                                     )}

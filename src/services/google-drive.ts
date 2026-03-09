@@ -1,3 +1,4 @@
+
 'use server';
 
 import { google } from 'googleapis';
@@ -63,7 +64,7 @@ export async function listFolderContents(folderId: string) {
   try {
     const response = await drive.files.list({
       q: `'${folderId}' in parents and trashed = false`,
-      fields: 'files(id, name, mimeType, webViewLink, iconLink)',
+      fields: 'files(id, name, mimeType, webViewLink, webContentLink, iconLink)',
       orderBy: 'folder,name',
     });
     return response.data.files || [];
