@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   FolderKanban,
@@ -87,8 +87,10 @@ const INITIAL_VIEW_STATE = {
   zoom: 5,
 };
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const cardIdParam = searchParams.get('cardId');
   const { user, loading } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
@@ -163,6 +165,56 @@ export default function Home() {
     }
   }, [user, authorized, fetchUserProjects]);
 
+  const handleCardSelect = useCallback(async (card: TrelloCard | null) => {
+    setSelectedCard(card);
+
+    if (card) {
+      // Actualizar lista de recientes
+      updateRecentProjects(card);
+
+      if (card.desc) {
+        const match = card.desc.match(/^\s*\\?#\s*(.*)$/m);
+        const query = match && match[1] ? match[1].trim() : null;
+        
+        if (query) {
+          try {
+            const location = await searchLocation(query);
+            if (location) {
+              setViewState({
+                center: fromLonLat([parseFloat(location.lon), parseFloat(location.lat)]),
+                zoom: 14,
+              });
+            }
+          } catch (error) {
+            console.error('Error geocoding card description:', error);
+            setViewState(INITIAL_VIEW_STATE);
+          }
+        } else {
+          setViewState(INITIAL_VIEW_STATE);
+        }
+      } else {
+        setViewState(INITIAL_VIEW_STATE);
+      }
+    } else {
+      setViewState(INITIAL_VIEW_STATE);
+    }
+  }, [updateRecentProjects]);
+
+  // Sincronizar selección desde el parámetro de URL (cardId)
+  useEffect(() => {
+    if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
+      const syncCardFromUrl = async () => {
+        try {
+          const card = await getCardById(cardIdParam);
+          handleCardSelect(card);
+        } catch (error) {
+          console.error("Error syncing card from URL:", error);
+        }
+      };
+      syncCardFromUrl();
+    }
+  }, [cardIdParam, selectedCard, handleCardSelect]);
+
   const handleLogin = async () => {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
@@ -224,41 +276,6 @@ export default function Home() {
     return { code: null, nameWithoutCode: name };
   };
 
-  const handleCardSelect = useCallback(async (card: TrelloCard | null) => {
-    setSelectedCard(card);
-
-    if (card) {
-      // Actualizar lista de recientes
-      updateRecentProjects(card);
-
-      if (card.desc) {
-        const match = card.desc.match(/^\s*\\?#\s*(.*)$/m);
-        const query = match && match[1] ? match[1].trim() : null;
-        
-        if (query) {
-          try {
-            const location = await searchLocation(query);
-            if (location) {
-              setViewState({
-                center: fromLonLat([parseFloat(location.lon), parseFloat(location.lat)]),
-                zoom: 14,
-              });
-            }
-          } catch (error) {
-            console.error('Error geocoding card description:', error);
-            setViewState(INITIAL_VIEW_STATE);
-          }
-        } else {
-          setViewState(INITIAL_VIEW_STATE);
-        }
-      } else {
-        setViewState(INITIAL_VIEW_STATE);
-      }
-    } else {
-      setViewState(INITIAL_VIEW_STATE);
-    }
-  }, [updateRecentProjects]);
-
   const handleNotificationClick = useCallback((card: TrelloCard) => {
     handleCardSelect(card);
     // Give time for UI transitions to complete
@@ -300,7 +317,8 @@ export default function Home() {
       setSelectedCard(null);
       setViewState(INITIAL_VIEW_STATE);
       setIsSummaryOpen(false);
-  }, []);
+      router.push('/');
+  }, [router]);
 
   const handleDownloadDuplicatesPdf = async () => {
     if (isDownloading) return;
@@ -346,7 +364,7 @@ export default function Home() {
             doc.text(`Código duplicado: ${code}`, margin, y);
             y += lineHeight;
             doc.setFont('Helvetica', 'normal');
-            cards.sort((a, b) => a.boardName.localeCompare(b.boardName));
+            cards.sort((a, b) => a.name.localeCompare(b.name));
             for (const card of cards) {
                 const { code: cardCode, nameWithoutCode } = getProjectInfo(card.name);
                 doc.text(`${cardCode || ''} - ${nameWithoutCode}`, margin, y);
@@ -853,5 +871,13 @@ export default function Home() {
         />
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="h-screen w-screen flex items-center justify-center bg-primary"><Loader2 className="h-12 w-12 animate-spin text-white" /></div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

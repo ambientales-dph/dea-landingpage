@@ -594,17 +594,12 @@ function HomeContent() {
   }, []);
   
   const handleGoHome = React.useCallback(() => {
-    router.push(pathname);
-    setSelectedCard(null);
-    setSelectedMilestone(null);
-    setCardFromUrl(null);
-    setSearchTerm('');
-    setSelectedBoard('');
-    setSelectedList('');
-    setCardSearchTerm('');
-    setView('timeline');
-    syncPerformedForCard.current = null;
-  }, [router, pathname]);
+    if (selectedCard) {
+      router.push(`/?cardId=${selectedCard.id}`);
+    } else {
+      router.push('/');
+    }
+  }, [router, selectedCard]);
 
   const handleCategoryColorChange = React.useCallback((categoryId: string, color: string) => {
     if (!firestore) return;
