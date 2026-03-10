@@ -33,14 +33,14 @@ export function Header({
 }: HeaderProps) {
   
   return (
-    <header className="flex h-16 items-center border-b bg-card px-4 md:px-6 w-full shrink-0 gap-4 no-print">
+    <header className="flex h-16 items-center border-b border-white/10 bg-[#2d3748] px-4 md:px-6 w-full shrink-0 gap-4 no-print">
       <div className="flex-1">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input
             type="search"
             placeholder={isProjectLoaded ? "Buscar archivos, categorías o etiquetas..." : "Cargá un proyecto para poder buscar"}
-            className="pl-9 w-full md:w-1/2 lg:w-1/3"
+            className="pl-9 w-full md:w-1/2 lg:w-1/3 h-8 text-xs bg-[#1a202c] border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-primary/50"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             disabled={!isProjectLoaded}
@@ -51,7 +51,7 @@ export function Header({
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button size="icon" variant="outline" onClick={onGoHome}>
+                        <Button size="icon" variant="outline" onClick={onGoHome} className="h-8 w-8 border-white/10 bg-[#1a202c] text-white hover:bg-white/10">
                             <Home className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
@@ -61,7 +61,7 @@ export function Header({
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button size="icon" variant="outline" onClick={onToggleView} disabled={!isProjectLoaded}>
+                        <Button size="icon" variant="outline" onClick={onToggleView} disabled={!isProjectLoaded} className="h-8 w-8 border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">
                             {view === 'timeline' ? <List className="h-4 w-4" /> : <GanttChartSquare className="h-4 w-4" />}
                         </Button>
                     </TooltipTrigger>
@@ -79,7 +79,7 @@ export function Header({
                            tabIndex={!trelloCardUrl ? -1 : undefined}
                            className={!trelloCardUrl ? 'pointer-events-none' : ''}
                         >
-                            <Button size="icon" variant="outline" disabled={!trelloCardUrl}>
+                            <Button size="icon" variant="outline" disabled={!trelloCardUrl} className="h-8 w-8 border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">
                                 <ExternalLink className="h-4 w-4" />
                             </Button>
                         </a>
@@ -89,13 +89,12 @@ export function Header({
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
-          <Separator orientation="vertical" className="h-8 mx-1" />
-          <Button size="sm" variant="outline" onClick={() => onSetRange('1D')} disabled={!isProjectLoaded}>Hoy</Button>
-          <Button size="sm" variant="outline" onClick={() => onSetRange('1M')} disabled={!isProjectLoaded}>1M</Button>
-          <Button size="sm" variant="outline" onClick={() => onSetRange('1Y')} disabled={!isProjectLoaded}>1A</Button>
-          <Button size="sm" variant="outline" onClick={() => onSetRange('All')} disabled={!isProjectLoaded}>Todo</Button>
+          <Separator orientation="vertical" className="h-8 mx-1 bg-white/10" />
+          <Button size="sm" variant="outline" onClick={() => onSetRange('1D')} disabled={!isProjectLoaded} className="h-8 text-xs border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">Hoy</Button>
+          <Button size="sm" variant="outline" onClick={() => onSetRange('1M')} disabled={!isProjectLoaded} className="h-8 text-xs border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">1M</Button>
+          <Button size="sm" variant="outline" onClick={() => onSetRange('1Y')} disabled={!isProjectLoaded} className="h-8 text-xs border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">1A</Button>
+          <Button size="sm" variant="outline" onClick={() => onSetRange('All')} disabled={!isProjectLoaded} className="h-8 text-xs border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">Todo</Button>
           
-          {/* Espacio reservado para el botón de feedback flotante que iniciará aquí */}
           <div className="w-10 h-10 ml-2" />
       </div>
     </header>
