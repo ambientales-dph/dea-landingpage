@@ -111,7 +111,6 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                     
                     if (date.getTime() < eightHoursAgo) return null;
                     
-                    // Filtrar estrictamente las descargas para que no aparezcan como notificaciones de edición
                     if (data.actionType === 'export_card') return null;
 
                     let actionText = '';
@@ -131,6 +130,12 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                         actionText = `quitó un adjunto de "${data.projectName}" desde el portal`;
                     } else if (data.actionType === 'status_change') {
                         actionText = `cambió el hito/estado de "${data.projectName}" desde el portal`;
+                    } else if (data.actionType === 'timeline_milestone_created') {
+                        actionText = `creó un hito en la línea de tiempo de "${data.projectName}"`;
+                    } else if (data.actionType === 'milestone_files_added') {
+                        actionText = `subió nuevos archivos al hito de "${data.projectName}"`;
+                    } else if (data.actionType === 'timeline_milestone_deleted') {
+                        actionText = `eliminó un hito de la línea de tiempo de "${data.projectName}"`;
                     } else {
                         actionText = `actualizó el proyecto "${data.projectName}" desde el portal`;
                     }

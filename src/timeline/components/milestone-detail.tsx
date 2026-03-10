@@ -22,6 +22,9 @@ import { Buffer } from 'buffer';
 import { Calendar } from './ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { FileConflictDialog, type ConflictStrategy } from './file-conflict-dialog';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { WHITELIST } from '@/lib/auth-data';
 
 interface MilestoneDetailProps {
   milestone: Milestone;
@@ -34,6 +37,8 @@ interface MilestoneDetailProps {
 }
 
 export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMilestoneDelete, onClose, projectName, cardId }: MilestoneDetailProps) {
+  const { user } = useUser();
+  const db = useFirestore();
   const [newTag, setNewTag] = React.useState('');
   const [isEditingTitle, setIsEditingTitle] = React.useState(false);
   const [editableTitle, setEditableTitle] = React.useState('');
@@ -48,7 +53,6 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
   const [showCalendar, setShowCalendar] = React.useState(false);
   const [manualDateText, setManualDateText] = React.useState('');
 
-  // Conflict state
   const [isConflictDialogOpen, setIsConflictDialogOpen] = React.useState(false);
   const [conflicts, setConflicts] = React.useState<any[]>([]);
   const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
@@ -71,6 +75,31 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
       setShowCalendar(false);
     }
   }, [milestone]);
+
+  const logActivity = React.useCallback(async (actionType: string, detail: string) => {
+    if (user && db && cardId) {
+      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+      const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+      const activityData = {
+        userId: user.uid,
+        userName: realName,
+        userEmail: user.email,
+        userPhoto: user.photoURL || '',
+        actionType: actionType,
+        projectName: projectName,
+        detail: detail,
+        cardId: cardId,
+        timestamp: serverTimestamp(),
+      };
+
+      try {
+        await addDoc(collection(db, 'app_activities'), activityData);
+      } catch (error) {
+        console.error("Error logging activity:", error);
+      }
+    }
+  }, [user, db, cardId, projectName]);
 
   const createLogEntry = (action: string): string => {
     return `${format(new Date(), "PPpp", { locale: es })} - ${action}`;
@@ -251,7 +280,6 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             let currentTryName = file.name;
             let counter = 1;
             
-            // Comprobar exhaustivamente en Drive hasta encontrar un nombre libre
             while (true) {
                const check = await findFileInFolder(folderId, currentTryName);
                if (!check) break;
@@ -271,14 +299,12 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         update({ id: toastId, title: "Actualizando Trello...", description: `Vinculando link de: ${driveResult.name}` });
         let trelloId: string | undefined = undefined;
         if (cardId) {
-            // Cleanup Trello duplicate attachments by name before attaching the new one
             const currentTrelloAttachments = await getCardAttachments(cardId);
             const duplicates = currentTrelloAttachments.filter(a => a.fileName === targetName);
             for (const dup of duplicates) {
                 await deleteAttachmentFromCard(cardId, dup.id);
             }
 
-            // Guardamos SOLO el link en Trello
             const trelloAtt = await attachUrlToCard(cardId, driveResult.name, driveResult.webViewLink);
             if (trelloAtt) trelloId = trelloAtt.id;
         }
@@ -309,6 +335,9 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
           associatedFiles: [...cleanedOldFiles, ...newAssociatedFiles],
           history: [...milestone.history, createLogEntry(`Se añadieron ${newAssociatedFiles.length} archivo(s) a Drive y se vincularon como link en Trello.`)],
         });
+
+        // Registrar carga de archivos en la bitácora
+        logActivity('milestone_files_added', `Subió ${newAssociatedFiles.length} archivo(s) al hito: "${milestone.name}"`);
       }
 
       dismiss(toastId);
@@ -373,6 +402,9 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             associatedFiles: updatedFiles,
             history: [...milestone.history, createLogEntry(`Archivo eliminado: "${fileToRem.name}"`)],
         });
+
+        // Registrar eliminación de archivo en bitácora
+        logActivity('milestone_file_deleted', `Eliminó el archivo "${fileToRem.name}" del hito "${milestone.name}"`);
 
         dismiss(toastId);
         toast({ title: "Archivo eliminado permanentemente" });
@@ -641,7 +673,6 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             </div>
         </ScrollArea>
 
-        {/* Dialogo para borrar Hito */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
             <DialogContent className="sm:max-w-[400px] bg-zinc-100 text-black border-zinc-400">
                 <DialogHeader>
@@ -679,7 +710,6 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             </DialogContent>
         </Dialog>
 
-        {/* Dialogo para borrar Archivo */}
         <Dialog open={!!fileToDelete} onOpenChange={(open) => !open && setFileToDelete(null)}>
             <DialogContent className="sm:max-w-[400px] bg-zinc-100 text-black border-zinc-400">
                 <DialogHeader>

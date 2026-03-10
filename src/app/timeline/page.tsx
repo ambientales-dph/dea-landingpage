@@ -26,8 +26,8 @@ import { WelcomeScreen } from '@/timeline/components/welcome-screen';
 import { RSA060_MILESTONES } from '@/timeline/lib/rsa060-data';
 import { FeedbackButton } from '@/timeline/components/feedback-button';
 import { FeedbackDialog } from '@/timeline/components/feedback-dialog';
-import { useFirestore } from '@/firebase';
-import { collection, doc, setDoc, addDoc, getDocs, writeBatch, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, doc, setDoc, addDoc, getDocs, writeBatch, deleteDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/timeline/services/google-drive';
 import { Buffer } from 'buffer';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
@@ -39,6 +39,7 @@ import {
   } from '@/components/ui/tooltip';
 import { FileConflictDialog, type ConflictStrategy } from '@/timeline/components/file-conflict-dialog';
 import { useProject } from '@/providers/project-provider';
+import { WHITELIST } from '@/lib/auth-data';
 
 function getTrelloObjectCreationDate(trelloId: string): Date {
     const timestampHex = trelloId.substring(0, 8);
@@ -52,10 +53,10 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const cardIdParam = searchParams.get('cardId');
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   
-  // Usar el contexto global
-  const { allCards, selectedCard, setSelectedCard, isLoadingCards } = useProject();
+  const { allCards, selectedCard, setSelectedCard } = useProject();
 
   const [searchTerm, setSearchTerm] = React.useState('');
   const [dateRange, setDateRange] = React.useState<{ start: Date; end: Date } | null>(null);
@@ -81,7 +82,6 @@ function HomeContent() {
   const [milestones, setMilestones] = React.useState<Milestone[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = React.useState(true);
 
-  // Cargar Categorías desde timeline_categories
   React.useEffect(() => {
     if (!firestore) return;
     const unsubscribe = onSnapshot(collection(firestore, 'timeline_categories'), (snapshot) => {
@@ -97,7 +97,6 @@ function HomeContent() {
     return firestoreCategories.length > 0 ? firestoreCategories : CATEGORIES;
   }, [firestoreCategories]);
 
-  // Cargar Hitos cuando cambia el proyecto seleccionado
   React.useEffect(() => {
     if (!firestore || !selectedCard || selectedCard.id === 'training-rsa999') {
         if (!selectedCard) setIsLoadingTimeline(false);
@@ -126,7 +125,6 @@ function HomeContent() {
     return () => unsubscribe();
   }, [firestore, selectedCard, categories]);
 
-  // Sincronización de URL -> Estado Global
   React.useEffect(() => {
     if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
         const cached = allCards.find(c => c.id === cardIdParam);
@@ -185,7 +183,31 @@ function HomeContent() {
     }
   }, [router, pathname, setSelectedCard]);
   
-  // Motor de Sincronización Trello -> Firestore
+  const logTimelineActivity = React.useCallback(async (actionType: string, detail: string) => {
+    if (user && firestore && selectedCard) {
+      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+      const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+      const activityData = {
+        userId: user.uid,
+        userName: realName,
+        userEmail: user.email,
+        userPhoto: user.photoURL || '',
+        actionType: actionType,
+        projectName: selectedCard.name,
+        detail: detail,
+        cardId: selectedCard.id,
+        timestamp: serverTimestamp(),
+      };
+
+      try {
+        await addDoc(collection(firestore, 'app_activities'), activityData);
+      } catch (error) {
+        console.error("Error logging activity:", error);
+      }
+    }
+  }, [user, firestore, selectedCard]);
+
   React.useEffect(() => {
     const syncTrelloToFirestore = async () => {
         if (!selectedCard || !firestore || syncPerformedForCard.current === selectedCard.id) {
@@ -438,8 +460,11 @@ function HomeContent() {
       };
 
       const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
-      addDoc(milestonesRef, newMilestoneData);
+      await addDoc(milestonesRef, newMilestoneData);
       
+      // Registrar actividad en la bitácora
+      logTimelineActivity('timeline_milestone_created', `Creó hito: "${name}" (${category.name})`);
+
       setIsUploadOpen(false);
       dismiss(toastId);
       toast({ title: "Hito creado exitosamente" });
@@ -454,7 +479,7 @@ function HomeContent() {
         setConflicts([]);
         setPendingUploadData(null);
     }
-  }, [categories, selectedCard, firestore, toast, milestones, conflicts]);
+  }, [categories, selectedCard, firestore, toast, milestones, conflicts, logTimelineActivity]);
 
   const handleUpload = React.useCallback(async (data: { files?: File[], categoryId: string, name: string, description: string, occurredAt: Date }) => {
     if (!firestore || !selectedCard) return;
@@ -553,6 +578,9 @@ function HomeContent() {
             await deleteAction(trelloObjectId);
         }
         
+        // Registrar actividad de eliminación
+        logTimelineActivity('timeline_milestone_deleted', `Eliminó hito: "${hitoToDelete.name}"`);
+
         dismiss(toastId);
     } catch (e) {
         dismiss(toastId);
@@ -562,7 +590,7 @@ function HomeContent() {
     deleteDoc(milestoneRef);
     toast({ title: "Hito eliminado" });
     setSelectedMilestone(null);
-  }, [selectedCard, firestore, toast, milestones]);
+  }, [selectedCard, firestore, toast, milestones, logTimelineActivity]);
 
 
   const handleSetRange = React.useCallback((rangeType: '1D' | '1M' | '1Y' | 'All') => {
@@ -591,7 +619,6 @@ function HomeContent() {
     if (selectedCard) {
       path += `?cardId=${selectedCard.id}`;
     }
-    // Navegación de Next.js para preservar el estado del Provider
     router.push(path);
   }, [router, selectedCard]);
 

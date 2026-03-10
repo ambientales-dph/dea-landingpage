@@ -107,6 +107,10 @@ export default function ActivityLogDialog({ isOpen, onOpenChange, onActivityClic
       case 'remove_attachment': return 'ADJUNTO';
       case 'status_change': return 'HITO/ESTADO';
       case 'export_card': return 'DESCARGA';
+      case 'timeline_milestone_created': return 'LT: HITO';
+      case 'milestone_files_added': return 'LT: ARCHIVOS';
+      case 'timeline_milestone_deleted': return 'LT: ELIMINÓ';
+      case 'milestone_file_deleted': return 'LT: QUITÓ';
       default: return type.toUpperCase();
     }
   };
@@ -122,6 +126,10 @@ export default function ActivityLogDialog({ isOpen, onOpenChange, onActivityClic
       case 'remove_attachment': return 'bg-red-500/10 text-red-600 border-red-500/20';
       case 'status_change': return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
       case 'export_card': return 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20';
+      case 'timeline_milestone_created': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+      case 'milestone_files_added': return 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20';
+      case 'timeline_milestone_deleted': return 'bg-rose-500/10 text-rose-600 border-rose-500/20';
+      case 'milestone_file_deleted': return 'bg-stone-500/10 text-stone-600 border-stone-500/20';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
     }
   };
