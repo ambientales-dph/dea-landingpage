@@ -297,7 +297,7 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedPartidos.length > 0 ? `${selectedPartidos.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                        {MUNICIPIES.map(m => <DropdownMenuCheckboxItem key={m} checked={selectedPartidos.includes(m)} onCheckedChange={c => setSelectedPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}
+                        {MUNICIPIOS.map(m => <DropdownMenuCheckboxItem key={m} checked={selectedPartidos.includes(m)} onCheckedChange={c => setSelectedPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
