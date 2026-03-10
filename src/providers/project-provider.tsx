@@ -3,12 +3,22 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { TrelloCard, getAllCardsFromAllBoards } from '@/services/trello';
 
+/**
+ * Estado inicial del mapa (Provincia de Buenos Aires)
+ */
+export const INITIAL_MAP_VIEW = {
+  center: [-6450000, -4150000],
+  zoom: 5,
+};
+
 interface ProjectContextType {
   allCards: TrelloCard[];
   isLoadingCards: boolean;
   selectedCard: TrelloCard | null;
   setSelectedCard: (card: TrelloCard | null) => void;
   refreshCards: () => Promise<void>;
+  viewState: { center: number[]; zoom: number };
+  setViewState: (state: { center: number[]; zoom: number }) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -17,6 +27,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
   const [isLoadingCards, setIsLoadingCards] = useState(false);
   const [selectedCard, setSelectedCard] = useState<TrelloCard | null>(null);
+  const [viewState, setViewState] = useState(INITIAL_MAP_VIEW);
   const initialLoadDone = useRef(false);
 
   const refreshCards = useCallback(async () => {
@@ -50,7 +61,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       isLoadingCards, 
       selectedCard, 
       setSelectedCard, 
-      refreshCards 
+      refreshCards,
+      viewState,
+      setViewState
     }}>
       {children}
     </ProjectContext.Provider>

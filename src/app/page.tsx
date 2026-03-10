@@ -80,12 +80,7 @@ import { useAuth, useUser } from '@/firebase';
 import { loginConGoogle, cerrarSesion, isUserAuthorized, WHITELIST } from '@/services/auth-service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { migrateFirestoreData } from '@/app/actions/migration-actions';
-import { useProject } from '@/providers/project-provider';
-
-const INITIAL_VIEW_STATE = {
-  center: [-6450000, -4150000],
-  zoom: 5,
-};
+import { useProject, INITIAL_MAP_VIEW } from '@/providers/project-provider';
 
 function HomeContent() {
   const router = useRouter();
@@ -94,9 +89,8 @@ function HomeContent() {
   const { user, loading } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
-  const { allCards, selectedCard, setSelectedCard, isLoadingCards } = useProject();
+  const { allCards, selectedCard, setSelectedCard, isLoadingCards, viewState, setViewState } = useProject();
 
-  const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
@@ -183,18 +177,18 @@ function HomeContent() {
             }
           } catch (error) {
             console.error('Error geocoding card description:', error);
-            setViewState(INITIAL_VIEW_STATE);
+            setViewState(INITIAL_MAP_VIEW);
           }
         } else {
-          setViewState(INITIAL_VIEW_STATE);
+          setViewState(INITIAL_MAP_VIEW);
         }
       } else {
-        setViewState(INITIAL_VIEW_STATE);
+        setViewState(INITIAL_MAP_VIEW);
       }
     } else {
-      setViewState(INITIAL_VIEW_STATE);
+      setViewState(INITIAL_MAP_VIEW);
     }
-  }, [updateRecentProjects, setSelectedCard]);
+  }, [updateRecentProjects, setSelectedCard, setViewState]);
 
   // Sincronizar selección desde el parámetro de URL (cardId)
   useEffect(() => {
@@ -241,6 +235,7 @@ function HomeContent() {
     try {
       await cerrarSesion(auth);
       setSelectedCard(null);
+      setViewState(INITIAL_MAP_VIEW);
       toast({ title: 'Sesión cerrada', description: 'Has salido de la aplicación.' });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cerrar la sesión.' });
@@ -323,10 +318,10 @@ function HomeContent() {
   
   const handleClearSelection = useCallback(() => {
       setSelectedCard(null);
-      setViewState(INITIAL_VIEW_STATE);
+      setViewState(INITIAL_MAP_VIEW);
       setIsSummaryOpen(false);
       router.push('/');
-  }, [router, setSelectedCard]);
+  }, [router, setSelectedCard, setViewState]);
 
   const handleDownloadDuplicatesPdf = async () => {
     if (isDownloading) return;
@@ -537,7 +532,7 @@ function HomeContent() {
   if (!user) {
     return (
       <div className="relative h-screen w-screen overflow-hidden">
-        <MapBackground viewState={INITIAL_VIEW_STATE} />
+        <MapBackground viewState={INITIAL_MAP_VIEW} />
         <div className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm" />
         <div className="relative z-10 flex h-full items-center justify-center p-4">
           <div className="w-full max-w-md bg-neutral-800/90 p-8 rounded-2xl shadow-2xl border border-neutral-700 text-center">
@@ -557,7 +552,7 @@ function HomeContent() {
   if (user && !authorized) {
     return (
       <div className="relative h-screen w-screen overflow-hidden">
-        <MapBackground viewState={INITIAL_VIEW_STATE} />
+        <MapBackground viewState={INITIAL_MAP_VIEW} />
         <div className="absolute inset-0 bg-red-950/80 backdrop-blur-md" />
         <div className="relative z-10 flex h-full items-center justify-center p-4">
           <div className="w-full max-w-md bg-neutral-900/90 p-8 rounded-2xl shadow-2xl border border-red-500/50 text-center">
