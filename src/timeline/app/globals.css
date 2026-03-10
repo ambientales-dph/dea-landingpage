@@ -34,10 +34,15 @@
   color: #ffffff;
 }
 
-.timeline-app-root .bg-card, 
-.timeline-app-root header {
+/* Solo las tarjetas mantienen el fondo blanco forzado */
+.timeline-app-root .bg-card {
   background-color: #ffffff !important;
   border-color: #e2e8f0;
+}
+
+/* El Header ahora puede tener su propio color definido en el componente */
+.timeline-app-root header {
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .timeline-app-root .font-headline {
