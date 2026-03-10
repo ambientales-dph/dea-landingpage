@@ -79,7 +79,6 @@ import NotificationsBell from '@/components/notifications-bell';
 import { useAuth, useUser } from '@/firebase';
 import { loginConGoogle, cerrarSesion, isUserAuthorized, WHITELIST } from '@/services/auth-service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { migrateFirestoreData } from '@/app/actions/migration-actions';
 import { useProject, INITIAL_MAP_VIEW } from '@/providers/project-provider';
 
 function HomeContent() {
@@ -98,7 +97,6 @@ function HomeContent() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
-  const [isMigrating, setIsMigrating] = useState(false);
   const [userProjects, setUserProjects] = useState<TrelloCard[]>([]);
   const [recentProjects, setRecentProjects] = useState<TrelloCard[]>([]);
   const [isUserProjectsLoading, setIsUserProjectsLoading] = useState(false);
@@ -239,27 +237,6 @@ function HomeContent() {
       toast({ title: 'Sesión cerrada', description: 'Has salido de la aplicación.' });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cerrar la sesión.' });
-    }
-  };
-
-  const handleMigrate = async () => {
-    if (isMigrating) return;
-    if (!confirm('¿Estás seguro de que deseas iniciar la migración? Esto copiará todos los datos del proyecto original a este nuevo Firestore.')) return;
-    
-    setIsMigrating(true);
-    toast({ title: 'Iniciando migración...', description: 'Este proceso puede tardar unos minutos.' });
-    
-    try {
-      const result = await migrateFirestoreData();
-      if (result.success) {
-        toast({ title: '¡Éxito!', description: result.message });
-      } else {
-        toast({ variant: 'destructive', title: 'Error en la migración', description: result.message });
-      }
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Fallo crítico', description: 'Ocurrió un error inesperado durante el proceso.' });
-    } finally {
-      setIsMigrating(false);
     }
   };
 
@@ -584,11 +561,6 @@ function HomeContent() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={handleDownloadPdf} disabled={isDownloading}><Download className="mr-2 h-4 w-4" /><span>Descargar listado</span></DropdownMenuItem>
                       <DropdownMenuItem onSelect={handleDownloadDuplicatesPdf} disabled={isDownloading}><AlertTriangle className="mr-2 h-4 w-4" /><span>Detectar duplicados</span></DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={handleMigrate} disabled={isMigrating}>
-                          {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
-                          <span>Desplegar Migración</span>
-                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={(e) => {
                           e.preventDefault();
