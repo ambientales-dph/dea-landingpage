@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
 import { 
     getCardAttachments, 
-    type TrelloCardBasic, 
     getCardActions, 
     attachUrlToCard, 
     deleteAttachmentFromCard, 
@@ -48,6 +47,16 @@ function getTrelloObjectCreationDate(trelloId: string): Date {
 }
 
 function HomeContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const cardIdParam = searchParams.get('cardId');
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  // Usar el contexto global
+  const { allCards, selectedCard, setSelectedCard, isLoadingCards } = useProject();
+
   const [searchTerm, setSearchTerm] = React.useState('');
   const [dateRange, setDateRange] = React.useState<{ start: Date; end: Date } | null>(null);
   const [selectedMilestone, setSelectedMilestone] = React.useState<Milestone | null>(null);
@@ -66,15 +75,7 @@ function HomeContent() {
   const [pendingUploadData, setPendingUploadData] = React.useState<any>(null);
   const [conflicts, setConflicts] = React.useState<any[]>([]);
 
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const cardIdParam = searchParams.get('cardId');
-  const firestore = useFirestore();
   const syncPerformedForCard = React.useRef<string | null>(null);
-  const { toast } = useToast();
-
-  const { allCards, selectedCard, setSelectedCard } = useProject();
 
   const [firestoreCategories, setFirestoreCategories] = React.useState<Category[]>([]);
   const [milestones, setMilestones] = React.useState<Milestone[]>([]);
@@ -125,16 +126,9 @@ function HomeContent() {
     return () => unsubscribe();
   }, [firestore, selectedCard, categories]);
 
-  // Sincronización de URL
+  // Sincronización de URL -> Estado Global
   React.useEffect(() => {
-    if (!cardIdParam) {
-        if (selectedCard !== null) setSelectedCard(null);
-        syncPerformedForCard.current = null;
-        return;
-    }
-
     if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
-        // Intentar buscar en memoria
         const cached = allCards.find(c => c.id === cardIdParam);
         if (cached) {
             setSelectedCard(cached);
@@ -181,8 +175,8 @@ function HomeContent() {
   const resizeContainerRef = React.useRef<HTMLDivElement>(null);
   const milestoneDateBounds = React.useRef<{start: string; end: string} | null>(null);
 
-  const handleCardSelect = React.useCallback(async (card: TrelloCardBasic | null) => {
-    setSelectedCard(card as any);
+  const handleCardSelect = React.useCallback(async (card: any | null) => {
+    setSelectedCard(card);
     setSelectedMilestone(null);
     if (card) {
         router.push(`${pathname}?cardId=${card.id}`);
@@ -395,12 +389,6 @@ function HomeContent() {
 
           const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
           
-          const currentTrelloAttachments = await getCardAttachments(selectedCard.id);
-          const duplicates = currentTrelloAttachments.filter(a => a.fileName === targetName);
-          for (const dup of duplicates) {
-              await deleteAttachmentFromCard(selectedCard.id, dup.id);
-          }
-
           const trelloAtt = await attachUrlToCard(selectedCard.id, driveResult.name, driveResult.webViewLink);
           
           associatedFiles.push({
@@ -603,6 +591,7 @@ function HomeContent() {
     if (selectedCard) {
       path += `?cardId=${selectedCard.id}`;
     }
+    // Navegación de Next.js para preservar el estado del Provider
     router.push(path);
   }, [router, selectedCard]);
 

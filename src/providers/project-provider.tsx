@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { TrelloCard, getAllCardsFromAllBoards } from '@/services/trello';
 
 interface ProjectContextType {
@@ -17,9 +17,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [allCards, setAllCards] = useState<TrelloCard[]>([]);
   const [isLoadingCards, setIsLoadingCards] = useState(false);
   const [selectedCard, setSelectedCard] = useState<TrelloCard | null>(null);
+  const initialLoadDone = useRef(false);
 
   const refreshCards = useCallback(async () => {
-    // Si ya estamos cargando o ya tenemos las tarjetas, evitamos duplicar la carga pesada
+    // Evitar múltiples cargas simultáneas
     if (isLoadingCards) return;
     
     setIsLoadingCards(true);
@@ -28,6 +29,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       // Filtrar solo las tarjetas que parecen proyectos (tienen código entre paréntesis)
       const projectCards = cards.filter(card => card.name.match(/\(([A-Z]{3}\d{3})\)$/));
       setAllCards(projectCards);
+      initialLoadDone.current = true;
     } catch (e) {
       console.error("Error loading cards in ProjectProvider:", e);
     } finally {
@@ -35,9 +37,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoadingCards]);
 
-  // Carga inicial de la lista completa de proyectos al entrar al portal
+  // Carga inicial única al montar la aplicación
   useEffect(() => {
-    if (allCards.length === 0) {
+    if (!initialLoadDone.current && allCards.length === 0) {
       refreshCards();
     }
   }, [refreshCards, allCards.length]);
