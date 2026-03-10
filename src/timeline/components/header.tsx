@@ -1,6 +1,6 @@
 
 import { Input } from './ui/input';
-import { Search, List, ExternalLink, Home, GanttChartSquare, GraduationCap } from 'lucide-react';
+import { Search, List, ExternalLink, Home, GanttChartSquare } from 'lucide-react';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
 import {
@@ -19,7 +19,6 @@ interface HeaderProps {
   onGoHome: () => void;
   trelloCardUrl: string | null;
   isProjectLoaded: boolean;
-  onSelectTrainingProject: () => void;
 }
 
 export function Header({ 
@@ -30,8 +29,7 @@ export function Header({
   view, 
   onGoHome, 
   trelloCardUrl, 
-  isProjectLoaded, 
-  onSelectTrainingProject
+  isProjectLoaded
 }: HeaderProps) {
   
   return (
@@ -97,23 +95,8 @@ export function Header({
           <Button size="sm" variant="outline" onClick={() => onSetRange('1Y')} disabled={!isProjectLoaded}>1A</Button>
           <Button size="sm" variant="outline" onClick={() => onSetRange('All')} disabled={!isProjectLoaded}>Todo</Button>
           
-          <TooltipProvider>
-              <Tooltip>
-                  <TooltipTrigger asChild>
-                      <Button 
-                        size="icon" 
-                        variant="secondary" 
-                        className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 ml-2"
-                        onClick={onSelectTrainingProject}
-                      >
-                          <GraduationCap className="h-5 w-5" />
-                      </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                      <p>Proyecto de Entrenamiento (RSA999)</p>
-                  </TooltipContent>
-              </Tooltip>
-          </TooltipProvider>
+          {/* Espacio reservado para el botón de feedback flotante que iniciará aquí */}
+          <div className="w-10 h-10 ml-2" />
       </div>
     </header>
   );

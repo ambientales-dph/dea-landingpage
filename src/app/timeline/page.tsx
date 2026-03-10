@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -716,7 +717,6 @@ function HomeContent() {
           onGoHome={handleGoHome}
           trelloCardUrl={selectedCard?.url ?? null}
           isProjectLoaded={!!selectedCard}
-          onSelectTrainingProject={handleSelectTrainingProject}
         />
         <div className="flex-1 flex flex-col overflow-hidden relative">
           {selectedCard && (
