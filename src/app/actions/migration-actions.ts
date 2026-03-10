@@ -15,8 +15,7 @@ const sourceConfig = {
 
 /**
  * Migra datos desde el proyecto original a este nuevo Firestore de forma segura.
- * Utiliza MERGE para no borrar información vital existente en el portal.
- * Ahora apunta correctamente a 'timeline-projects' y 'timeline-categories'.
+ * Ahora apunta correctamente a 'timeline_projects' y 'timeline_categories' (con guion bajo).
  */
 export async function migrateFirestoreData() {
   if (!sourceConfig.apiKey || !sourceConfig.projectId) {
@@ -35,35 +34,33 @@ export async function migrateFirestoreData() {
   const { db: targetDb } = require('@/firebase').initializeFirebase();
 
   try {
-    // 1. MIGRAR CATEGORÍAS (Hacia timeline-categories)
+    // 1. MIGRAR CATEGORÍAS (Hacia timeline_categories)
     const sourceCatsSnap = await getDocs(collection(sourceDb, 'categories'));
     const catBatch = writeBatch(targetDb);
     sourceCatsSnap.forEach((d) => {
-      const targetRef = doc(targetDb, 'timeline-categories', d.id);
+      const targetRef = doc(targetDb, 'timeline_categories', d.id);
       catBatch.set(targetRef, d.data(), { merge: true });
     });
     await catBatch.commit();
 
-    // 2. MIGRAR PROYECTOS E HITOS (Hacia timeline-projects)
+    // 2. MIGRAR PROYECTOS E HITOS (Hacia timeline_projects)
     const sourceProjectsSnap = await getDocs(collection(sourceDb, 'projects'));
     let projectsCount = 0;
     
     for (const projectDoc of sourceProjectsSnap.docs) {
-      const targetProjectRef = doc(targetDb, 'timeline-projects', projectDoc.id);
-      // Fusionamos los datos del proyecto
+      const targetProjectRef = doc(targetDb, 'timeline_projects', projectDoc.id);
       await setDoc(targetProjectRef, projectDoc.data(), { merge: true });
 
       // Migrar hitos de este proyecto
       const sourceMilestonesSnap = await getDocs(collection(sourceDb, 'projects', projectDoc.id, 'milestones'));
       
       const milestones = sourceMilestonesSnap.docs;
-      // Lotes para evitar límites de Firestore
       for (let i = 0; i < milestones.length; i += 400) {
         const batch = writeBatch(targetDb);
         const chunk = milestones.slice(i, i + 400);
         
         chunk.forEach((mDoc) => {
-          const targetMilestoneRef = doc(targetDb, 'timeline-projects', projectDoc.id, 'milestones', mDoc.id);
+          const targetMilestoneRef = doc(targetDb, 'timeline_projects', projectDoc.id, 'milestones', mDoc.id);
           batch.set(targetMilestoneRef, mDoc.data(), { merge: true });
         });
         
@@ -76,7 +73,7 @@ export async function migrateFirestoreData() {
     
     return { 
       success: true, 
-      message: `Migración segura completada: Se fusionaron ${projectsCount} proyectos y sus categorías en 'timeline-projects' y 'timeline-categories'.` 
+      message: `Migración segura completada: Se fusionaron ${projectsCount} proyectos y sus categorías en 'timeline_projects' y 'timeline_categories'.` 
     };
 
   } catch (error: any) {

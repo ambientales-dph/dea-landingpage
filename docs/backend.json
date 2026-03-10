@@ -78,15 +78,15 @@
       "schema": { "$ref": "#/backend/entities/Proyectista" },
       "description": "Directorio de proyectistas."
     },
-    "/timeline-projects/{projectId}": {
+    "/timeline_projects/{projectId}": {
       "schema": { "$ref": "#/backend/entities/TimelineProject" },
       "description": "Proyectos de la Línea de Tiempo."
     },
-    "/timeline-projects/{projectId}/milestones/{milestoneId}": {
+    "/timeline_projects/{projectId}/milestones/{milestoneId}": {
       "schema": { "$ref": "#/backend/entities/Milestone" },
       "description": "Hitos de la TL."
     },
-    "/timeline-categories/{categoryId}": {
+    "/timeline_categories/{categoryId}": {
       "schema": { "$ref": "#/backend/entities/TimelineCategory" },
       "description": "Categorías de la TL."
     }
