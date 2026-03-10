@@ -774,7 +774,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
             doc.text('COMENTARIOS:', margin, y);
             y += 7;
-            activity.forEach(action => {
+            const commentsOnly = activity.filter(a => a.type === 'commentCard');
+            commentsOnly.forEach(action => {
                 if (y > 260) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
                 const dateStr = format(new Date(action.date), 'dd/MM/yyyy HH:mm', { locale: es });
@@ -805,6 +806,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         setIsExporting(false);
     }
 };
+
+  const commentsOnly = useMemo(() => {
+    return activity.filter(a => a.type === 'commentCard' && a.data?.text);
+  }, [activity]);
 
   return (
     <div className="flex w-full flex-col">
@@ -1038,7 +1043,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
                                     <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80 mb-4">COMENTARIOS <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
                                     <CollapsibleContent className="space-y-4 pb-4 w-full max-w-full overflow-hidden min-w-0 box-border">
-                                        {activity.map(action => (
+                                        {commentsOnly.length > 0 ? commentsOnly.map(action => (
                                             <div key={action.id} className="flex gap-3 text-xs w-full max-w-full min-w-0 overflow-hidden box-border">
                                                 <Avatar className="h-6 w-6 shrink-0 border"><AvatarFallback className="text-[10px]">{action.memberCreator?.fullName?.charAt(0) || 'U'}</AvatarFallback></Avatar>
                                                 <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
@@ -1051,7 +1056,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
+                                        )) : (
+                                          <div className="text-center py-4 text-xs text-muted-foreground italic">No hay comentarios aún.</div>
+                                        )}
                                     </CollapsibleContent>
                                 </Collapsible>
                             </div>
