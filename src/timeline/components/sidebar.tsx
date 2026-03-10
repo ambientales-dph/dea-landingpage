@@ -294,7 +294,7 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
 
 
   return (
-    <aside className="hidden md:flex flex-col w-72 border-r bg-[#2d3748] h-full no-print">
+    <aside className="hidden md:flex flex-col w-72 bg-[#2d3748] h-full no-print">
       <div className="h-16 flex items-center border-b border-white/10 shrink-0">
         <Logo />
       </div>
