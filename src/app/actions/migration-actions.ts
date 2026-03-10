@@ -13,6 +13,10 @@ const sourceConfig = {
   appId: process.env.SOURCE_FIREBASE_APP_ID,
 };
 
+/**
+ * Migra datos desde el proyecto original a este nuevo Firestore.
+ * Mantiene exactamente los mismos nombres de colección: 'projects' y 'categories'.
+ */
 export async function migrateFirestoreData() {
   if (!sourceConfig.apiKey || !sourceConfig.projectId) {
     return { success: false, message: 'Faltan las credenciales del proyecto de origen en el archivo .env' };
@@ -30,7 +34,7 @@ export async function migrateFirestoreData() {
   const { db: targetDb } = require('@/firebase').initializeFirebase();
 
   try {
-    // 1. MIGRAR CATEGORÍAS (Usando nombre original 'categories')
+    // 1. MIGRAR CATEGORÍAS (Colección 'categories')
     const sourceCatsSnap = await getDocs(collection(sourceDb, 'categories'));
     const catBatch = writeBatch(targetDb);
     sourceCatsSnap.forEach((d) => {
@@ -39,7 +43,7 @@ export async function migrateFirestoreData() {
     });
     await catBatch.commit();
 
-    // 2. MIGRAR PROYECTOS E HITOS (Usando nombre original 'projects')
+    // 2. MIGRAR PROYECTOS E HITOS (Colección 'projects')
     const sourceProjectsSnap = await getDocs(collection(sourceDb, 'projects'));
     
     for (const projectDoc of sourceProjectsSnap.docs) {
@@ -47,10 +51,10 @@ export async function migrateFirestoreData() {
       const targetProjectRef = doc(targetDb, 'projects', projectDoc.id);
       await setDoc(targetProjectRef, projectDoc.data(), { merge: true });
 
-      // Migrar hitos de este proyecto
+      // Migrar hitos de este proyecto (subcolección 'milestones')
       const sourceMilestonesSnap = await getDocs(collection(sourceDb, 'projects', projectDoc.id, 'milestones'));
       
-      // Dividimos en lotes de 400 (el límite de Firestore es 500) para evitar errores
+      // Lotes de 400 para evitar límites de Firestore
       const milestones = sourceMilestonesSnap.docs;
       for (let i = 0; i < milestones.length; i += 400) {
         const batch = writeBatch(targetDb);
@@ -69,7 +73,7 @@ export async function migrateFirestoreData() {
     
     return { 
       success: true, 
-      message: `Migración completada: ${sourceCatsSnap.size} categorías y ${sourceProjectsSnap.size} proyectos copiados correctamente.` 
+      message: `Migración completada con éxito: ${sourceCatsSnap.size} categorías y ${sourceProjectsSnap.size} proyectos copiados.` 
     };
 
   } catch (error: any) {
