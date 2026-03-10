@@ -28,6 +28,10 @@ import {
   Map as MapIcon,
   ChevronRight,
   Database,
+  Globe,
+  Zap,
+  MousePointer2,
+  FileSearch,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -104,7 +108,6 @@ function HomeContent() {
   
   const authorized = user ? isUserAuthorized(user.email) : false;
 
-  // Cargar proyectos recientes desde localStorage
   useEffect(() => {
     if (user?.uid) {
       const stored = localStorage.getItem(`recent_projects_${user.uid}`);
@@ -189,15 +192,12 @@ function HomeContent() {
     }
   }, [updateRecentProjects, setSelectedCard, setViewState]);
 
-  // Sincronizar selección desde el parámetro de URL (cardId)
   useEffect(() => {
     if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
-      // Primero intentamos buscarlo en la lista ya cargada en memoria (Contexto)
       const cachedCard = allCards.find(c => c.id === cardIdParam);
       if (cachedCard) {
         handleCardSelect(cachedCard);
       } else {
-        // Si no está (ej: link directo), lo descargamos
         const syncCardFromUrl = async () => {
           try {
             const card = await getCardById(cardIdParam);
@@ -734,109 +734,153 @@ function HomeContent() {
         </main>
 
         <Sheet open={isHelpPanelOpen} onOpenChange={setIsHelpPanelOpen}>
-          <SheetContent className="bg-neutral-800 text-white sm:max-w-md border-l-primary/20">
-            <SheetHeader>
-              <SheetTitle className="text-primary text-xl font-bold flex items-center gap-2">
+          <SheetContent className="bg-neutral-900 text-white sm:max-w-md border-l-primary/20 shadow-2xl p-0 flex flex-col">
+            <SheetHeader className="p-6 bg-primary shrink-0 text-left">
+              <SheetTitle className="text-white text-xl font-bold flex items-center gap-2">
                 <HelpCircle className="h-6 w-6" />
-                Centro de Ayuda
+                Centro de Ayuda DEA
               </SheetTitle>
-              <SheetDescription className="text-neutral-400">
-                Guía rápida de uso del Portal DEA
+              <SheetDescription className="text-white/80 text-xs">
+                Guía completa para el uso del Portal y la Línea de Tiempo.
               </SheetDescription>
             </SheetHeader>
-            <ScrollArea className="h-[calc(100%-8rem)] w-full mt-6 pr-4">
-              <Accordion type="single" collapsible className="w-full space-y-2">
-                <AccordionItem value="busqueda" className="border-neutral-700">
-                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
-                    <div className="flex items-center gap-2">
-                      <Search className="h-4 w-4" />
-                      Búsqueda y Mapa
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-neutral-300 leading-relaxed">
-                    Utilizá el buscador central para filtrar proyectos por nombre o código (ej: MAR001). 
-                    Si la descripción de la tarjeta en Trello contiene un hashtag con una ubicación (ej: #LaPlata), 
-                    el mapa se desplazará automáticamente hacia ese punto al seleccionar la tarjeta.
-                  </AccordionContent>
-                </AccordionItem>
+            
+            <ScrollArea className="flex-1 px-6">
+              <div className="py-6">
+                <div className="flex items-center gap-3 p-4 bg-primary/10 rounded-xl border border-primary/20 mb-6">
+                  <Zap className="h-10 w-10 text-primary shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-primary">Navegación Fluida</p>
+                    <p className="text-[11px] text-neutral-400 leading-tight">Tu proyecto seleccionado y la vista del mapa se mantienen vivos al cambiar de sección.</p>
+                  </div>
+                </div>
 
-                <AccordionItem value="gestion" className="border-neutral-700">
-                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
-                    <div className="flex items-center gap-2">
-                      <FolderKanban className="h-4 w-4" />
-                      Gestión de Proyectos
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-neutral-300 leading-relaxed space-y-2">
-                    <p>Al crear un proyecto nuevo desde el botón central:</p>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li>Se genera un código correlativo único según la cuenca seleccionada.</li>
-                      <li>Se crea una tarjeta en la lista correspondiente del tablero de Trello.</li>
-                      <li>Se crea automáticamente una carpeta en Google Drive dentro de la estructura de la cuenca.</li>
-                      <li>Se otorgan permisos de edición en Drive a los profesionales seleccionados.</li>
-                    </ul>
-                  </AccordionContent>
-                </AccordionItem>
+                <Accordion type="single" collapsible className="w-full space-y-4">
+                  <AccordionItem value="busqueda" className="border-b border-neutral-800">
+                    <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors py-3">
+                      <div className="flex items-center gap-2 font-bold text-sm">
+                        <Search className="h-4 w-4" />
+                        Búsqueda y Mapa
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-2 pb-4">
+                      <p>Localizá proyectos por nombre o código (ej: MAR001) usando el buscador central.</p>
+                      <div className="flex items-start gap-2 bg-neutral-800/50 p-2 rounded">
+                        <MousePointer2 className="h-3 w-3 text-primary mt-0.5" />
+                        <span><strong>Geolocalización:</strong> Si la descripción en Trello contiene un hashtag (ej: #LaPlata), el mapa se centrará automáticamente.</span>
+                      </div>
+                      <p>La aplicación guarda tu nivel de <strong>zoom</strong> y posición del mapa incluso si navegás a la Línea de Tiempo y regresás.</p>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                <AccordionItem value="recursos" className="border-neutral-700">
-                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
-                    <div className="flex items-center gap-2">
-                      <Library className="h-4 w-4" />
-                      Biblioteca de Recursos
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-neutral-300 leading-relaxed">
-                    Podés adjuntar enlaces de interés a cualquier proyecto seleccionado. 
-                    Buscá en repositorios nacionales (SNRD) o bases internacionales (Elsevier, Crossref, PLOS, DOAJ). 
-                    Hacé clic en el ícono del clip para "vincular" el recurso directamente en la tarjeta de Trello.
-                  </AccordionContent>
-                </AccordionItem>
+                  <AccordionItem value="gestion" className="border-b border-neutral-800">
+                    <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors py-3">
+                      <div className="flex items-center gap-2 font-bold text-sm">
+                        <FolderKanban className="h-4 w-4" />
+                        Gestión de Proyectos
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-3 pb-4">
+                      <p>Al crear un proyecto nuevo, el sistema automatiza las tareas administrativas:</p>
+                      <ul className="space-y-2">
+                        <li className="flex items-start gap-2">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                          <span>Genera un código correlativo único por cuenca.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                          <span>Crea la tarjeta de Trello con la ficha técnica estandarizada.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                          <span>Crea la carpeta en Google Drive y otorga permisos de edición a los responsables seleccionados.</span>
+                        </li>
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                <AccordionItem value="notificaciones" className="border-neutral-700">
-                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
-                    <div className="flex items-center gap-2">
-                      <Bell className="h-4 w-4" />
-                      Notificaciones y Bitácora
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-neutral-300 leading-relaxed">
-                    La campana muestra la actividad reciente de todo el equipo. 
-                    Al hacer clic en una notificación, se abrirá la ficha técnica del proyecto. 
-                    La <strong>Bitácora de Actividad</strong> (accesible desde el engranaje) ofrece un registro detallado de todas las acciones del portal.
-                  </AccordionContent>
-                </AccordionItem>
+                  <AccordionItem value="timeline" className="border-b border-neutral-800">
+                    <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors py-3">
+                      <div className="flex items-center gap-2 font-bold text-sm">
+                        <Clock className="h-4 w-4" />
+                        Línea de Tiempo (TL)
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-3 pb-4">
+                      <p>La TL centraliza el historial dinámico de cada intervención ambiental:</p>
+                      <div className="grid grid-cols-1 gap-2">
+                        <div className="p-2 border border-neutral-800 rounded bg-neutral-800/30">
+                          <span className="text-primary font-bold">Sincronización Automática:</span>
+                          <p className="mt-1">Comentarios, archivos adjuntos y cambios de estado en Trello se transforman en hitos de la TL sin intervención manual.</p>
+                        </div>
+                        <div className="p-2 border border-neutral-800 rounded bg-neutral-800/30">
+                          <span className="text-primary font-bold">Hitos Manuales:</span>
+                          <p className="mt-1">Podés registrar eventos específicos subiendo fotos o documentos. Estos archivos se guardan en Drive y se vinculan a Trello automáticamente.</p>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                <AccordionItem value="herramientas" className="border-neutral-700">
-                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
-                    <div className="flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
-                      Herramientas Extra
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-neutral-300 leading-relaxed">
-                    En el menú de configuración (engranaje) podés descargar el listado consolidado del departamento en PDF 
-                    o ejecutar el detector de códigos duplicados para mantener la base de datos limpia.
-                  </AccordionContent>
-                </AccordionItem>
+                  <AccordionItem value="recursos" className="border-b border-neutral-800">
+                    <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors py-3">
+                      <div className="flex items-center gap-2 font-bold text-sm">
+                        <Library className="h-4 w-4" />
+                        Biblioteca de Recursos
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-2 pb-4">
+                      <p>Centralizá la bibliografía de tus proyectos:</p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li><strong>Repositorios:</strong> SNRD (Argentina), Elsevier, Crossref, PLOS, DOAJ.</li>
+                        <li><strong>Recursos Propios:</strong> Atlas de cuencas, digesto normativo y matrices de impacto.</li>
+                        <li><strong>Vinculación:</strong> Usá el icono del clip para adjuntar cualquier recurso a la ficha técnica del proyecto.</li>
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                <AccordionItem value="contacto" className="border-neutral-700">
-                  <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors text-left">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      Soporte Técnico
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-neutral-300 leading-relaxed">
-                    Para problemas de acceso, reporte de errores o sugerencias, comunicate con los administradores del sistema 
-                    según la lista de contactos autorizados del Departamento de Estudios Ambientales.
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+                  <AccordionItem value="actividad" className="border-b border-neutral-800">
+                    <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors py-3">
+                      <div className="flex items-center gap-2 font-bold text-sm">
+                        <History className="h-4 w-4" />
+                        Notificaciones y Bitácora
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-2 pb-4">
+                      <p>Mantenete al tanto de lo que sucede en el departamento:</p>
+                      <ul className="space-y-2">
+                        <li className="flex items-start gap-2">
+                          <Bell className="h-3 w-3 text-primary mt-0.5" />
+                          <span><strong>Campana:</strong> Notificaciones en tiempo real de acciones en Trello y el Portal.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <History className="h-3 w-3 text-primary mt-0.5" />
+                          <span><strong>Bitácora:</strong> Registro histórico detallado de todas las ediciones, creación de hitos y descargas.</span>
+                        </li>
+                      </ul>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="contacto" className="border-b border-neutral-800">
+                    <AccordionTrigger className="hover:no-underline hover:text-primary transition-colors py-3">
+                      <div className="flex items-center gap-2 font-bold text-sm">
+                        <Mail className="h-4 w-4" />
+                        Soporte y Contacto
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed pb-4">
+                      <p>Para errores de sincronización, problemas de acceso o sugerencias, contactá al equipo de administración del Departamento de Estudios Ambientales.</p>
+                      <div className="mt-3 p-3 bg-neutral-800 rounded border border-neutral-700 text-center">
+                        <p className="font-bold text-neutral-200">ambientales.dph@gmail.com</p>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
             </ScrollArea>
-            <div className="absolute bottom-6 left-6 right-6">
-               <Separator className="mb-4 bg-neutral-700" />
+            
+            <div className="p-6 bg-neutral-950 border-t border-neutral-800 shrink-0">
                <p className="text-[10px] text-neutral-500 text-center uppercase tracking-widest font-bold">
-                 Departamento de Estudios Ambientales - 2024
+                 Departamento de Estudios Ambientales &copy; 2024
                </p>
             </div>
           </SheetContent>
