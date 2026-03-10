@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { 
-    getAllCardsFromAllBoards, 
     TrelloCard, 
     updateTrelloCard, 
     getCardActivity, 
@@ -43,6 +42,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import {
+  Dialog as DialogUI,
+} from "@/components/ui/dialog"
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -66,6 +68,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
 import { getDriveResourceName, extractIdFromUrl, listFolderContents } from '@/services/google-drive';
 import { sendProjectEmail } from '@/app/actions/email-actions';
+import { useProject } from '@/providers/project-provider';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -109,25 +112,18 @@ const trelloColorToStyle = (color: string | null | undefined): React.CSSProperti
 const isDriveFolder = (url: string) => url.includes('drive.google.com') && (url.includes('/folders/') || url.includes('id='));
 const isDriveFile = (url: string) => url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('/open?id='));
 
-/**
- * Icono de WhatsApp personalizado (SVG).
- */
 const WhatsAppIcon = ({ className }: { className?: string }) => (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" xmlns="http://www.w3.org/2000/svg">
         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
     </svg>
 );
 
-/**
- * Diálogo para enviar un correo electrónico rápido desde la ficha.
- */
 const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOpen: boolean, onOpenChange: (open: boolean) => void, recipient: AuthorizedUser, userEmail: string | null }) => {
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
     const [isSending, setIsSending] = useState(false);
     const { toast } = useToast();
 
-    // Limpiar campos al abrir
     useEffect(() => {
         if (isOpen) {
             setSubject('');
@@ -161,7 +157,7 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogUI open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-sm font-bold">
@@ -200,13 +196,10 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
                     </Button>
                 </DialogFooter>
             </DialogContent>
-        </Dialog>
+        </DialogUI>
     );
 };
 
-/**
- * Componente para renderizar un participante interactivo minimalista.
- */
 const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedUser, userEmail: string | null }) => {
     const [isEmailOpen, setIsEmailOpen] = useState(false);
 
@@ -270,9 +263,8 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const { user } = useUser();
   const db = useFirestore();
-  const [allCards, setAllCards] = useState<TrelloCard[]>([]);
+  const { allCards, isLoadingCards } = useProject();
   const [query, setQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -293,7 +285,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [editedListId, setEditedListId] = useState('');
   const [driveNames, setDriveNames] = useState<Record<string, { name: string, isFolder: boolean }>>({});
 
-  // Estados para el Inspector de Archivos
   const [inspectionPath, setInspectionPath] = useState<{ id: string, name: string }[]>([]);
   const [folderContents, setFolderContents] = useState<any[]>([]);
   const [isInspecting, setIsInspecting] = useState(false);
@@ -320,14 +311,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
   }, [isSummaryOpen]);
 
-  // Resetear inspector al cambiar de tarjeta o cerrar modal
   useEffect(() => {
     setInspectionPath([]);
     setFolderContents([]);
     setIsInspecting(false);
   }, [selectedCard?.id, isSummaryOpen]);
 
-  // Cargar contenido cuando cambia el path del inspector
   useEffect(() => {
     const fetchContents = async () => {
       if (inspectionPath.length === 0) {
@@ -343,14 +332,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         setFolderContents(files);
       } catch (error) {
         toast({ variant: 'destructive', title: 'Error al leer carpeta', description: 'No se pudieron cargar los archivos.' });
-        handlePopFolder();
+        setInspectionPath(prev => prev.slice(0, -1));
       } finally {
         setIsInspecting(false);
       }
     };
 
     fetchContents();
-  }, [inspectionPath]);
+  }, [inspectionPath, toast]);
 
   const handleEnterFolder = async (id: string, name: string) => {
     setInspectionPath(prev => [...prev, { id, name }]);
@@ -401,7 +390,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         });
       }
     }
-  }, [selectedCard?.desc]);
+  }, [selectedCard?.desc, driveNames]);
 
   const renderDescription = (desc: string) => {
     const parts: (string | JSX.Element)[] = [];
@@ -540,20 +529,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setQuery(selectedCard?.name || '');
   }, [selectedCard?.id]);
 
-  const fetchAllCards = useCallback(async () => {
-    if (isLoading) return;
-    setIsLoading(true);
-    try {
-      const fetchedCards = await getAllCardsFromAllBoards();
-      const projectCards = fetchedCards.filter(card => card.name.match(/\(([A-Z]{3}\d{3})\)$/));
-      setAllCards(projectCards);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading]);
-
   const filteredCards = useMemo(() => {
     if (!query || (selectedCard && query === selectedCard.name)) return [];
     const normalizedQuery = removeAccents(query.toLowerCase());
@@ -604,7 +579,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       };
       fetchLists();
     }
-  }, [isEditing, editedBoardId]);
+  }, [isEditing, editedBoardId, editedListId]);
 
   const handleSaveEdit = async () => {
     if (!selectedCard) return;
@@ -788,7 +763,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 if (y > 270) { doc.addPage(); y = 20; }
                 doc.text(`• ${att.name}`, margin + 2, y);
                 y += 5; doc.setTextColor('#3182ce'); doc.text(att.url, margin + 5, y);
-                doc.link(margin + 5, y - 3, doc.getTextWidth(att.url), 4, { url: seg.link });
+                if (att.url) doc.link(margin + 5, y - 3, doc.getTextWidth(att.url), 4, { url: att.url });
                 doc.setTextColor('#000000'); y += 6;
             });
             y += 5;
@@ -838,13 +813,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             <Textarea
               ref={inputRef}
               value={query}
-              onFocus={() => { fetchAllCards(); if (query && (!selectedCard || query !== selectedCard.name)) setIsOpen(true); }}
+              onFocus={() => { if (query && (!selectedCard || query !== selectedCard.name)) setIsOpen(true); }}
               onChange={(e) => { 
                 setQuery(e.target.value); 
                 if (e.target.value.length > 0 && (!selectedCard || e.target.value !== selectedCard.name)) setIsOpen(true);
                 else setIsOpen(false);
               }}
-              placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'}
+              placeholder={isLoadingCards ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'}
               className="w-full min-h-20 bg-white text-foreground pr-10 text-xs border-2 focus-visible:ring-primary shadow-sm"
               autoComplete="off"
             />
@@ -880,7 +855,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       </div>
 
       {selectedCard && (
-        <Dialog open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
+        <DialogUI open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
             <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] flex flex-col gap-0 box-border shadow-2xl">
                 <div className="bg-white flex flex-col h-full overflow-hidden flex-1 min-h-0 w-full max-w-full box-border">
                     <DialogHeader 
@@ -987,7 +962,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 ) : (
                                   <>
                                     {inspectionPath.length === 0 ? (
-                                      // Render Root Trello Attachments
                                       sortedAttachments.map(att => (
                                         <ContextMenu key={att.id}>
                                           <ContextMenuTrigger asChild>
@@ -1013,7 +987,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                         </ContextMenu>
                                       ))
                                     ) : (
-                                      // Render Google Drive Folder Contents
                                       folderContents.length === 0 ? (
                                         <div className="p-4 text-center text-[10px] text-muted-foreground italic">Carpeta vacía</div>
                                       ) : (
@@ -1114,10 +1087,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     </DialogFooter>
                 )}
             </DialogContent>
-        </Dialog>
+        </DialogUI>
       )}
       
-      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+      <DialogUI open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
         <DialogContent className="sm:max-w-md shadow-2xl">
             <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
@@ -1154,7 +1127,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 </Button>
             </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </DialogUI>
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -40,6 +39,7 @@ import {
     TooltipTrigger,
   } from '@/components/ui/tooltip';
 import { FileConflictDialog, type ConflictStrategy } from '@/timeline/components/file-conflict-dialog';
+import { useProject } from '@/providers/project-provider';
 
 function getTrelloObjectCreationDate(trelloId: string): Date {
     const timestampHex = trelloId.substring(0, 8);
@@ -51,11 +51,9 @@ function HomeContent() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [dateRange, setDateRange] = React.useState<{ start: Date; end: Date } | null>(null);
   const [selectedMilestone, setSelectedMilestone] = React.useState<Milestone | null>(null);
-  const [selectedCard, setSelectedCard] = React.useState<TrelloCardBasic | null>(null);
   const [isUploadOpen, setIsUploadOpen] = React.useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = React.useState(false);
   const [view, setView] = React.useState<'timeline' | 'summary'>('timeline');
-  const [cardFromUrl, setCardFromUrl] = React.useState<TrelloCardBasic | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [uploadText, setUploadText] = React.useState('');
@@ -75,6 +73,8 @@ function HomeContent() {
   const firestore = useFirestore();
   const syncPerformedForCard = React.useRef<string | null>(null);
   const { toast } = useToast();
+
+  const { allCards, selectedCard, setSelectedCard } = useProject();
 
   const [firestoreCategories, setFirestoreCategories] = React.useState<Category[]>([]);
   const [milestones, setMilestones] = React.useState<Milestone[]>([]);
@@ -134,20 +134,25 @@ function HomeContent() {
     }
 
     if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
-        const fetchCard = async () => {
-            try {
-                const card = await getCardById(cardIdParam);
-                if (card) {
-                    setSelectedCard(card);
-                    setCardFromUrl(card);
+        // Intentar buscar en memoria
+        const cached = allCards.find(c => c.id === cardIdParam);
+        if (cached) {
+            setSelectedCard(cached);
+        } else {
+            const fetchCard = async () => {
+                try {
+                    const card = await getCardById(cardIdParam);
+                    if (card) {
+                        setSelectedCard(card as any);
+                    }
+                } catch (error) {
+                    console.error("Error fetching card from URL param:", error);
                 }
-            } catch (error) {
-                console.error("Error fetching card from URL param:", error);
-            }
-        };
-        fetchCard();
+            };
+            fetchCard();
+        }
     }
-  }, [cardIdParam]);
+  }, [cardIdParam, allCards, selectedCard, setSelectedCard]);
 
   const displayedMilestones = React.useMemo(() => {
     if (selectedCard?.id === 'training-rsa999') {
@@ -177,14 +182,14 @@ function HomeContent() {
   const milestoneDateBounds = React.useRef<{start: string; end: string} | null>(null);
 
   const handleCardSelect = React.useCallback(async (card: TrelloCardBasic | null) => {
-    setSelectedCard(card);
+    setSelectedCard(card as any);
     setSelectedMilestone(null);
     if (card) {
         router.push(`${pathname}?cardId=${card.id}`);
     } else {
         router.push(pathname);
     }
-  }, [router, pathname]);
+  }, [router, pathname, setSelectedCard]);
   
   // Motor de Sincronización Trello -> Firestore
   React.useEffect(() => {
@@ -377,7 +382,6 @@ function HomeContent() {
              let currentTryName = file.name;
              let counter = 1;
              
-             // Comprobar exhaustivamente en Drive hasta encontrar un nombre libre
              while (true) {
                 const check = await findFileInFolder(folderId, currentTryName);
                 if (!check) break;
@@ -389,10 +393,8 @@ function HomeContent() {
 
           setUploadText(`Subiendo a Drive: ${targetName}`);
 
-          // PASO 1: Subida física a Google Drive
           const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
           
-          // PASO 2: Vinculación en Trello (Solo guardamos el link para no duplicar almacenamiento)
           const currentTrelloAttachments = await getCardAttachments(selectedCard.id);
           const duplicates = currentTrelloAttachments.filter(a => a.fileName === targetName);
           for (const dup of duplicates) {
@@ -447,7 +449,6 @@ function HomeContent() {
           history: [`${format(new Date(), "PPpp", { locale: es })} - Creación de hito con ${associatedFiles.length} archivo(s) guardados en Drive.`],
       };
 
-      // PASO 3: Registro en Firestore
       const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
       addDoc(milestonesRef, newMilestoneData);
       
@@ -598,11 +599,11 @@ function HomeContent() {
   }, []);
   
   const handleGoHome = React.useCallback(() => {
+    let path = '/';
     if (selectedCard) {
-      router.push(`/?cardId=${selectedCard.id}`);
-    } else {
-      router.push('/');
+      path += `?cardId=${selectedCard.id}`;
     }
+    router.push(path);
   }, [router, selectedCard]);
 
   const handleCategoryColorChange = React.useCallback((categoryId: string, color: string) => {
@@ -679,15 +680,6 @@ function HomeContent() {
 
   const handleToggleView = () => setView(prev => prev === 'timeline' ? 'summary' : 'timeline');
 
-  const handleSelectTrainingProject = () => {
-    handleCardSelect({
-        id: 'training-rsa999',
-        name: 'Proyecto de Entrenamiento Maestro - RSA999',
-        url: '',
-        desc: 'Proyecto de ejemplo maestro con hitos de referencia para capacitación.'
-    });
-  };
-
   return (
     <div className="timeline-app-root flex h-screen w-full bg-background font-sans text-foreground">
       <Sidebar 
@@ -697,9 +689,9 @@ function HomeContent() {
         onCategoryUpdate={handleCategoryUpdate}
         onCategoryDelete={handleCategoryDelete}
         onCardSelect={handleCardSelect}
-        selectedCard={selectedCard}
+        selectedCard={selectedCard as any}
         onGoHome={handleGoHome}
-        cardFromUrl={cardFromUrl}
+        cardFromUrl={null}
         selectedBoard={selectedBoard}
         onBoardSelect={setSelectedBoard}
         selectedList={selectedList}

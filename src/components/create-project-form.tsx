@@ -6,12 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createProject, updateProject, type ProjectState } from '@/app/actions/project-actions';
-import { CUENCAS, DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
+import { CUENCAS } from '@/lib/cuencas';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { getAllCardsFromAllBoards, TrelloCard } from '@/services/trello';
+import { TrelloCard } from '@/services/trello';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Pencil, Search, Plus, ChevronDown, Loader2, ArrowLeft } from 'lucide-react';
@@ -26,6 +26,7 @@ import { WHITELIST } from '@/lib/auth-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
+import { useProject } from '@/providers/project-provider';
 
 const initialState: ProjectState = { message: undefined, success: false };
 
@@ -48,9 +49,8 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  const { allCards, isLoadingCards: isLoading, refreshCards } = useProject();
   
-  const [projects, setProjects] = useState<TrelloCard[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<TrelloCard | null>(null);
@@ -71,24 +71,6 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
   const [selectedSig, setSelectedSig] = useState<string[]>([]);
   const [selectedDron, setSelectedDron] = useState<string[]>([]);
 
-  const fetchProjects = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const allCards = await getAllCardsFromAllBoards();
-      const projectCards = allCards
-        .filter(card => card.name.match(/\(([A-Z]{3}\d{3})\)$/))
-        .sort((a, b) => {
-          const codeA = a.name.match(/\(([^)]+)\)$/)?.[1] || "";
-          const codeB = b.name.match(/\(([^)]+)\)$/)?.[1] || "";
-          return codeA.localeCompare(codeB);
-        });
-      setProjects(projectCards);
-    } catch (e) { console.error(e); }
-    finally { setIsLoading(false); }
-  }, []);
-
-  useEffect(() => { fetchProjects(); }, [fetchProjects]);
-
   const extractFieldFromDesc = (desc: string, field: string): string => {
     if (!desc) return '';
     const lines = desc.split('\n');
@@ -98,7 +80,6 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
         const trimmedLine = line.trim();
         if (trimmedLine.toLowerCase().startsWith(fieldLower + ':')) {
             let val = trimmedLine.substring(fieldLower.length + 1).trim();
-            // Limpiar asteriscos de negrita si existen
             val = val.replace(/^\*\*|\*\*$/g, '').trim();
             if (val === '****' || val === '') return '';
             return val;
@@ -186,11 +167,19 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
 
       setIsFormOpen(false);
       resetForm();
-      fetchProjects();
+      refreshCards(); // Actualizar la lista global tras un cambio
     } else if (!currentStatus.success && currentStatus.message) {
       toast({ variant: 'destructive', title: 'Error', description: currentStatus.message });
     }
-  }, [currentStatus, toast, fetchProjects, user, db, editingCard]);
+  }, [currentStatus, toast, refreshCards, user, db, editingCard]);
+
+  const sortedCards = useMemo(() => {
+    return [...allCards].sort((a, b) => {
+      const codeA = a.name.match(/\(([^)]+)\)$/)?.[1] || "";
+      const codeB = b.name.match(/\(([^)]+)\)$/)?.[1] || "";
+      return codeA.localeCompare(codeB);
+    });
+  }, [allCards]);
 
   return (
     <>
@@ -218,10 +207,10 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
         </CardHeader>
         <CardContent className="flex-grow p-0 overflow-hidden">
           <ScrollArea className="h-full">
-            {isLoading ? <p className="p-4 text-sm">Cargando...</p> : (
+            {isLoading && sortedCards.length === 0 ? <p className="p-4 text-sm">Cargando...</p> : (
               <Table className="text-xs">
                 <TableBody>
-                  {projects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((project, idx) => (
+                  {sortedCards.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((project, idx) => (
                     <TableRow 
                       key={project.id} 
                       className={cn(

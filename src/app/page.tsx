@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
@@ -33,7 +32,7 @@ import {
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
 import CardSearch from '@/components/card-search';
-import { type TrelloCard, getAllCardsFromAllBoards, getCardById } from '@/services/trello';
+import { type TrelloCard, getCardById } from '@/services/trello';
 import { searchLocation } from '@/services/nominatim';
 import { fromLonLat } from 'ol/proj';
 import { useToast } from '@/hooks/use-toast';
@@ -81,6 +80,7 @@ import { useAuth, useUser } from '@/firebase';
 import { loginConGoogle, cerrarSesion, isUserAuthorized, WHITELIST } from '@/services/auth-service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { migrateFirestoreData } from '@/app/actions/migration-actions';
+import { useProject } from '@/providers/project-provider';
 
 const INITIAL_VIEW_STATE = {
   center: [-6450000, -4150000],
@@ -94,8 +94,8 @@ function HomeContent() {
   const { user, loading } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
+  const { allCards, selectedCard, setSelectedCard, isLoadingCards } = useProject();
 
-  const [selectedCard, setSelectedCard] = useState<TrelloCard | null>(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
@@ -136,28 +136,25 @@ function HomeContent() {
   }, [user?.uid]);
 
   const fetchUserProjects = useCallback(async () => {
-    if (!user?.email) return;
+    if (!user?.email || allCards.length === 0) return;
     setIsUserProjectsLoading(true);
     try {
       const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
       if (!authorizedUser?.name) return;
       
-      const allCards = await getAllCardsFromAllBoards();
       const myName = authorizedUser.name.toLowerCase();
       
       const filtered = allCards.filter(card => {
-        const hasCode = card.name.match(/\(([A-Z]{3}\d{3})\)$/);
-        const isMine = card.desc?.toLowerCase().includes(myName);
-        return hasCode && isMine;
+        return card.desc?.toLowerCase().includes(myName);
       }).sort((a, b) => a.name.localeCompare(b.name));
       
       setUserProjects(filtered);
     } catch (error) {
-      console.error("Error fetching user projects:", error);
+      console.error("Error filtering user projects:", error);
     } finally {
       setIsUserProjectsLoading(false);
     }
-  }, [user?.email]);
+  }, [user?.email, allCards]);
 
   useEffect(() => {
     if (user && authorized) {
@@ -169,7 +166,6 @@ function HomeContent() {
     setSelectedCard(card);
 
     if (card) {
-      // Actualizar lista de recientes
       updateRecentProjects(card);
 
       if (card.desc) {
@@ -198,22 +194,29 @@ function HomeContent() {
     } else {
       setViewState(INITIAL_VIEW_STATE);
     }
-  }, [updateRecentProjects]);
+  }, [updateRecentProjects, setSelectedCard]);
 
   // Sincronizar selección desde el parámetro de URL (cardId)
   useEffect(() => {
     if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
-      const syncCardFromUrl = async () => {
-        try {
-          const card = await getCardById(cardIdParam);
-          handleCardSelect(card);
-        } catch (error) {
-          console.error("Error syncing card from URL:", error);
-        }
-      };
-      syncCardFromUrl();
+      // Primero intentamos buscarlo en la lista ya cargada en memoria (Contexto)
+      const cachedCard = allCards.find(c => c.id === cardIdParam);
+      if (cachedCard) {
+        handleCardSelect(cachedCard);
+      } else {
+        // Si no está (ej: link directo), lo descargamos
+        const syncCardFromUrl = async () => {
+          try {
+            const card = await getCardById(cardIdParam);
+            handleCardSelect(card);
+          } catch (error) {
+            console.error("Error syncing card from URL:", error);
+          }
+        };
+        syncCardFromUrl();
+      }
     }
-  }, [cardIdParam, selectedCard, handleCardSelect]);
+  }, [cardIdParam, selectedCard, handleCardSelect, allCards]);
 
   const handleLogin = async () => {
     if (isLoggingIn) return;
@@ -237,6 +240,7 @@ function HomeContent() {
   const handleLogout = async () => {
     try {
       await cerrarSesion(auth);
+      setSelectedCard(null);
       toast({ title: 'Sesión cerrada', description: 'Has salido de la aplicación.' });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cerrar la sesión.' });
@@ -278,24 +282,28 @@ function HomeContent() {
 
   const handleNotificationClick = useCallback((card: TrelloCard) => {
     handleCardSelect(card);
-    // Give time for UI transitions to complete
     setTimeout(() => {
       setIsSummaryOpen(true);
     }, 150);
   }, [handleCardSelect]);
 
   const handleActivityLogClick = useCallback(async (cardId: string) => {
-    try {
-      const card = await getCardById(cardId);
-      handleNotificationClick(card);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error al abrir proyecto',
-        description: 'No se pudo cargar la información desde Trello.',
-      });
+    const cached = allCards.find(c => c.id === cardId);
+    if (cached) {
+      handleNotificationClick(cached);
+    } else {
+      try {
+        const card = await getCardById(cardId);
+        handleNotificationClick(card);
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Error al abrir proyecto',
+          description: 'No se pudo cargar la información desde Trello.',
+        });
+      }
     }
-  }, [handleNotificationClick, toast]);
+  }, [handleNotificationClick, toast, allCards]);
 
   const handleCardOrBoardButtonClick = () => {
     if (selectedCard) {
@@ -318,7 +326,7 @@ function HomeContent() {
       setViewState(INITIAL_VIEW_STATE);
       setIsSummaryOpen(false);
       router.push('/');
-  }, [router]);
+  }, [router, setSelectedCard]);
 
   const handleDownloadDuplicatesPdf = async () => {
     if (isDownloading) return;
@@ -332,10 +340,9 @@ function HomeContent() {
         const title = 'Lista de Proyectos Duplicados';
         doc.text(title, 10, 10);
 
-        const cardsFromTrello = await getAllCardsFromAllBoards();
         const cardsByCode: Record<string, TrelloCard[]> = {};
 
-        for (const card of cardsFromTrello) {
+        for (const card of allCards) {
           if (card.name.includes('(XXX000)')) continue;
           const { code } = getProjectInfo(card.name);
           if (code) {
@@ -385,7 +392,7 @@ function HomeContent() {
   const handleDownloadPdf = async () => {
     if (isDownloading) return;
     setIsDownloading(true);
-    toast({ title: 'Generando PDF...', description: 'Obteniendo los datos de Trello.' });
+    toast({ title: 'Generando PDF...', description: 'Procesando datos en memoria.' });
     
     try {
         const doc = new jsPDF('l', 'mm', 'a4');
@@ -410,9 +417,7 @@ function HomeContent() {
             return '';
         };
 
-        const allCardsFromTrello = await getAllCardsFromAllBoards();
-        const cardsToProcess = allCardsFromTrello.filter(card => getProjectInfo(card.name).code && !card.name.includes('(XXX000)'));
-        const groupedByBoard: Record<string, TrelloCard[]> = cardsToProcess.reduce((acc, card) => {
+        const groupedByBoard: Record<string, TrelloCard[]> = allCards.reduce((acc, card) => {
             const boardName = card.boardName || 'Sin tablero';
             if (!acc[boardName]) acc[boardName] = [];
             acc[boardName].push(card);
@@ -435,7 +440,6 @@ function HomeContent() {
         for (const boardName of Object.keys(groupedByBoard).sort()) {
             if (y > pageHeight - 40) { doc.addPage(); y = 20; }
             
-            // Título del Tablero
             doc.setFontSize(9);
             doc.setFillColor(230, 230, 230);
             doc.rect(margin, y - 5, pageWidth - (2 * margin), 7, 'F');
@@ -444,7 +448,6 @@ function HomeContent() {
             doc.text(boardName, margin + 2, y);
             y += 8;
 
-            // Encabezado de Tabla
             doc.setFontSize(7);
             doc.setFillColor(70, 70, 70);
             doc.rect(margin, y - 4, pageWidth - (2 * margin), 6, 'F');
@@ -484,11 +487,10 @@ function HomeContent() {
                     y = 20; 
                 }
 
-                // Alternating row colors
                 if (rowIndex % 2 === 0) {
-                    doc.setFillColor(204, 238, 255); // Celeste
+                    doc.setFillColor(204, 238, 255); 
                 } else {
-                    doc.setFillColor(245, 245, 245); // Gris claro
+                    doc.setFillColor(245, 245, 245);
                 }
                 doc.rect(margin, y - 4, pageWidth - (2 * margin), rowHeight, 'F');
 
@@ -516,7 +518,6 @@ function HomeContent() {
 
   const handleMyProjectClick = (card: TrelloCard) => {
     handleCardSelect(card);
-    // Add small delay to let dropdown menu close properly
     setTimeout(() => {
       setIsSummaryOpen(true);
     }, 150);
