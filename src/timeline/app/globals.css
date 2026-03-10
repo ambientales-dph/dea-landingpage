@@ -1,29 +1,37 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Encode+Sans+Condensed:wght@500&family=Encode+Sans:wght@400;700&display=swap');
 
-/* Aislamos los estilos de la Línea de Tiempo bajo una clase específica para evitar conflictos con el Portal */
+/* Aislamiento TOTAL de la estética original de la Línea de Tiempo */
 .timeline-app-root {
-  --background: 206 33% 95%;
-  --foreground: 224 71.4% 4.1%;
-  --card: 220 9% 25%;
+  --background: 222 47% 11%; /* Fondo muy oscuro original */
+  --foreground: 210 20% 98%;
+  --card: 217 33% 17%;
   --card-foreground: 210 20% 98%;
-  --popover: 220 9% 25%;
+  --popover: 222 47% 11%;
   --popover-foreground: 210 20% 98%;
-  --primary: 202 43% 35%;
+  --primary: 201 19% 52%;
   --primary-foreground: 210 20% 98%;
-  --secondary: 220 9% 35%;
+  --secondary: 217 33% 17%;
   --secondary-foreground: 210 20% 98%;
-  --muted: 220 9% 35%;
-  --muted-foreground: 215 20% 75%;
-  --accent: 220 9% 45%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 217 33% 17%;
   --accent-foreground: 210 20% 98%;
-  --destructive: 0 72% 51%;
+  --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 210 20% 98%;
-  --border: 220 9% 30%;
-  --input: 220 9% 30%;
-  --ring: 202 43% 40%;
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 201 19% 52%;
   
+  background-color: #1a202c !important; /* Fuerza el fondo oscuro de la TL original */
+  color: #e2e8f0;
   font-family: 'Encode Sans', sans-serif;
+}
+
+.timeline-app-root .bg-card, 
+.timeline-app-root aside,
+.timeline-app-root header {
+  background-color: #2d3748 !important; /* Color gris azulado de la TL original */
 }
 
 .timeline-app-root .font-headline {
@@ -31,6 +39,7 @@
   font-weight: 500;
 }
 
+/* Estilos para impresión */
 @media print {
   .timeline-app-root body * {
     visibility: hidden;
@@ -43,14 +52,10 @@
     left: 0;
     top: 0;
     width: 100%;
-    padding: 0;
-    margin: 0;
+    background: white !important;
+    color: black !important;
   }
   .timeline-app-root .no-print {
     display: none !important;
-  }
-  @page {
-    size: A4 landscape;
-    margin: 0.5in;
   }
 }

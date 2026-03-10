@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -293,14 +294,14 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
 
 
   return (
-    <aside className="hidden md:flex flex-col w-72 border-r bg-card h-full no-print">
-      <div className="h-16 flex items-center border-b shrink-0">
+    <aside className="hidden md:flex flex-col w-72 border-r bg-[#2d3748] h-full no-print">
+      <div className="h-16 flex items-center border-b border-white/10 shrink-0">
         <Logo />
       </div>
       <div className="flex-1 p-3 flex flex-col gap-4 min-h-0">
         
           <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 px-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 px-1">
                 Proyectos Trello
             </p>
             {isTrelloAvailable === false ? (
@@ -308,22 +309,22 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
                     <CardContent className="pt-4 text-xs text-amber-200/80 flex items-start gap-3">
                         <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                         <div>
-                            <p className="font-semibold text-amber-200">Integración con Trello no configurada</p>
+                            <p className="font-semibold text-amber-200">Integración no configurada</p>
                         </div>
                     </CardContent>
                 </Card>
             ) : (
                 <>
                     <Select onValueChange={onBoardSelect} value={selectedBoard} disabled={isLoadingBoards || isTrelloAvailable === null}>
-                    <SelectTrigger className="w-full h-8 text-xs">
+                    <SelectTrigger className="w-full h-8 text-xs bg-[#1a202c] border-white/10 text-white">
                         <SelectValue placeholder={
-                            isTrelloAvailable === null ? "Verificando Trello..." :
-                            isLoadingBoards ? "Cargando tableros..." : "Seleccionar tablero"
+                            isTrelloAvailable === null ? "Verificando..." :
+                            isLoadingBoards ? "Cargando..." : "Seleccionar tablero"
                         } />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-[#2d3748] border-white/10 text-white">
                         {boards.map(board => (
-                        <SelectItem key={board.id} value={board.id} className="text-xs">{board.name}</SelectItem>
+                        <SelectItem key={board.id} value={board.id} className="text-xs focus:bg-primary/20 focus:text-white">{board.name}</SelectItem>
                         ))}
                     </SelectContent>
                     </Select>
@@ -333,32 +334,32 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
                       value={selectedList} 
                       disabled={!selectedBoard || isLoadingLists}
                     >
-                    <SelectTrigger className="w-full h-8 text-xs">
-                        <SelectValue placeholder={isLoadingLists ? "Cargando listas..." : "Seleccionar lista"} />
+                    <SelectTrigger className="w-full h-8 text-xs bg-[#1a202c] border-white/10 text-white">
+                        <SelectValue placeholder={isLoadingLists ? "Cargando..." : "Seleccionar lista"} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-[#2d3748] border-white/10 text-white">
                         {lists.map(list => (
-                        <SelectItem key={list.id} value={list.id} className="text-xs">{list.name}</SelectItem>
+                        <SelectItem key={list.id} value={list.id} className="text-xs focus:bg-primary/20 focus:text-white">{list.name}</SelectItem>
                         ))}
                     </SelectContent>
                     </Select>
 
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                         <Input
-                            placeholder="Buscar tarjeta y presionar Enter..."
-                            className="pl-9 pr-9 h-8 text-xs"
+                            placeholder="Buscar..."
+                            className="pl-9 pr-9 h-8 text-xs bg-[#1a202c] border-white/10 text-white placeholder:text-zinc-600"
                             value={cardSearchTerm}
                             onChange={(e) => onCardSearchChange(e.target.value)}
                             onKeyDown={handleGlobalSearch}
                             disabled={isTrelloAvailable === null}
                         />
                         {isSearching ? (
-                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-zinc-500" />
                         ) : cardSearchTerm && (
                             <button
                                 onClick={handleClearSearch}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:bg-accent"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-zinc-500 hover:bg-white/10"
                                 aria-label="Limpiar búsqueda"
                             >
                                 <X className="h-4 w-4" />
@@ -370,9 +371,9 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
           </div>
           
           {(selectedList || isSearching || (!selectedBoard && cardSearchTerm)) && (
-              <div className="flex-1 flex flex-col min-h-0 border rounded-md">
-                  <div className="p-2 border-b shrink-0">
-                      <p className="text-xs font-semibold text-muted-foreground">
+              <div className="flex-1 flex flex-col min-h-0 border border-white/10 rounded-md bg-[#1a202c]">
+                  <div className="p-2 border-b border-white/10 shrink-0">
+                      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
                           {cardListTitle}
                       </p>
                   </div>
@@ -380,9 +381,8 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
                       <div className="p-1 space-y-1">
                       {isLoadingCards || isSearching ? (
                           <div className="p-2 space-y-2">
-                          <Skeleton className="h-6 w-full" />
-                          <Skeleton className="h-6 w-full" />
-                          <Skeleton className="h-6 w-5/6" />
+                          <Skeleton className="h-6 w-full bg-white/5" />
+                          <Skeleton className="h-6 w-full bg-white/5" />
                           </div>
                       ) : filteredCards.length > 0 ? (
                           filteredCards.map(card => (
@@ -390,16 +390,18 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
                                   key={card.id}
                                   onClick={() => handleCardClick(card)}
                                   className={cn(
-                                      "w-full text-left text-xs p-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors text-card-foreground",
-                                      selectedCard?.id === card.id && "bg-primary text-primary-foreground hover:bg-primary/90"
+                                      "w-full text-left text-xs p-2 rounded-md transition-colors",
+                                      selectedCard?.id === card.id 
+                                        ? "bg-primary text-white font-bold" 
+                                        : "text-zinc-400 hover:bg-white/5 hover:text-white"
                                   )}
                               >
                                   {card.name}
                               </button>
                           ))
                       ) : (
-                          <p className="p-4 text-xs text-muted-foreground text-center">
-                              No se encontraron tarjetas.
+                          <p className="p-4 text-xs text-zinc-600 text-center italic">
+                              No hay tarjetas.
                           </p>
                       )}
                       </div>
@@ -407,50 +409,48 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
               </div>
           )}
         
-        <div className="mt-auto shrink-0 border-t pt-2">
+        <div className="mt-auto shrink-0 border-t border-white/10 pt-2">
             <Accordion type="single" collapsible className="w-full" defaultValue="categories">
                 <AccordionItem value="categories" className="border-b-0">
                     <div className="flex items-center justify-between pr-2 pl-1">
-                        <AccordionTrigger className="flex-1 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:no-underline">
+                        <AccordionTrigger className="flex-1 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:no-underline">
                             Categorías
                         </AccordionTrigger>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setIsAdding(true)} disabled={isAdding}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-white" onClick={() => setIsAdding(true)} disabled={isAdding}>
                             <Plus className="h-4 w-4" />
-                            <span className="sr-only">Añadir Categoría</span>
                         </Button>
                     </div>
                     <AccordionContent className="pt-1 pb-0">
                         <ScrollArea className="h-48">
                             <div className="pr-3 space-y-1">
                                 {isAdding && (
-                                    <div className="p-2 mb-2 space-y-2 border rounded-md bg-secondary/30">
+                                    <div className="p-2 mb-2 space-y-2 border border-white/10 rounded-md bg-white/5">
                                         <Input
-                                        placeholder="Nombre de la categoría"
+                                        placeholder="Nueva categoría..."
                                         value={newCategoryName}
                                         onChange={(e) => setNewCategoryName(e.target.value)}
                                         onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategoryConfirm() }}
                                         autoFocus
-                                        className="h-8 text-xs"
+                                        className="h-8 text-xs bg-[#1a202c] border-white/10 text-white"
                                         />
                                         <div className="flex justify-end gap-1">
-                                        <Button variant="ghost" size="sm" className="h-7" onClick={handleAddCategoryCancel}>Cancelar</Button>
+                                        <Button variant="ghost" size="sm" className="h-7 text-zinc-400" onClick={handleAddCategoryCancel}>Cerrar</Button>
                                         <Button size="sm" onClick={handleAddCategoryConfirm} disabled={!newCategoryName.trim()} className="h-7">Añadir</Button>
                                         </div>
                                     </div>
                                 )}
                                 <div className="space-y-0.5">
                                     {categories.map((category) => (
-                                        <div key={category.id} className="group relative flex items-center w-full justify-start rounded-md text-xs font-medium h-8 px-3 hover:bg-accent">
+                                        <div key={category.id} className="group relative flex items-center w-full justify-start rounded-md text-xs font-medium h-8 px-3 hover:bg-white/5 transition-colors">
                                             <Popover border-none open={openPopoverId === category.id} onOpenChange={(isOpen) => setOpenPopoverId(isOpen ? category.id : null)}>
                                                 <PopoverTrigger asChild>
                                                     <button
-                                                    className="w-2.5 h-2.5 rounded-full shrink-0 transition-transform hover:scale-125 focus:outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                    className="w-2.5 h-2.5 rounded-full shrink-0 transition-transform hover:scale-125 focus:outline-none ring-offset-[#2d3748] focus:ring-2 focus:ring-primary"
                                                     style={{ backgroundColor: category.color }}
-                                                    aria-label={`Cambiar color de la categoría ${category.name}`}
                                                     disabled={!!editingCategoryId}
                                                     />
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <PopoverContent className="w-auto p-0 bg-[#2d3748] border-white/10" align="start">
                                                     <ColorPicker onColorSelect={(color) => handleColorSelect(category.id, color)} />
                                                 </PopoverContent>
                                             </Popover>
@@ -464,17 +464,17 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
                                                 if (e.key === 'Enter') handleEditConfirm();
                                                 if (e.key === 'Escape') handleEditCancel();
                                                 }}
-                                                className="h-6 ml-3 text-xs"
+                                                className="h-6 ml-3 text-xs bg-[#1a202c] border-white/10 text-white"
                                             />
                                             ) : (
                                             <>
-                                                <span className="ml-3 text-muted-foreground truncate" title={category.name}>{category.name}</span>
+                                                <span className="ml-3 text-zinc-400 truncate group-hover:text-white" title={category.name}>{category.name}</span>
                                                 <div className="absolute right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditStart(category)} disabled={!!editingCategoryId}>
-                                                    <Pencil className="h-3.5 w-3.5" />
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-white" onClick={() => handleEditStart(category)} disabled={!!editingCategoryId}>
+                                                    <Pencil className="h-3 w-3" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10 text-destructive" onClick={() => setCategoryToDelete(category)} disabled={!!editingCategoryId}>
-                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-destructive" onClick={() => setCategoryToDelete(category)} disabled={!!editingCategoryId}>
+                                                    <Trash2 className="h-3 w-3" />
                                                 </Button>
                                                 </div>
                                             </>
@@ -489,26 +489,26 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
             </Accordion>
         </div>
       </div>
-      <div className="p-4 border-t shrink-0">
-        <p className="text-xs text-muted-foreground">&copy; 2024 DEA TL</p>
+      <div className="p-4 border-t border-white/10 shrink-0">
+        <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center">&copy; 2024 DEA TL</p>
       </div>
 
        <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-[#2d3748] border-white/10 text-white">
         <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-            <AlertDialogDescription>
-            Esta acción no se puede deshacer. Se eliminará la categoría <span className="font-semibold text-foreground">{categoryToDelete?.name}</span>. 
-            No podrás eliminarla si está en uso por algún hito.
+            <AlertDialogTitle>¿Borrar categoría?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+            Se eliminará <span className="font-semibold text-white">{categoryToDelete?.name}</span>. 
+            Esta acción no se puede deshacer.
             </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setCategoryToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5" onClick={() => setCategoryToDelete(null)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
             onClick={handleDeleteConfirm}
             className={cn(buttonVariants({ variant: "destructive" }))}
             >
-            Eliminar
+            Borrar
             </AlertDialogAction>
         </AlertDialogFooter>
         </AlertDialogContent>

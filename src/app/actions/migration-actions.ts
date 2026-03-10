@@ -14,8 +14,8 @@ const sourceConfig = {
 };
 
 /**
- * Migra datos desde el proyecto original a este nuevo Firestore.
- * Mantiene exactamente los mismos nombres de colección: 'projects' y 'categories'.
+ * Migra datos desde el proyecto original a este nuevo Firestore de forma segura.
+ * Utiliza MERGE para no borrar información vital existente en el portal.
  */
 export async function migrateFirestoreData() {
   if (!sourceConfig.apiKey || !sourceConfig.projectId) {
@@ -34,28 +34,29 @@ export async function migrateFirestoreData() {
   const { db: targetDb } = require('@/firebase').initializeFirebase();
 
   try {
-    // 1. MIGRAR CATEGORÍAS (Colección 'categories')
+    // 1. MIGRAR CATEGORÍAS (Usando merge: true)
     const sourceCatsSnap = await getDocs(collection(sourceDb, 'categories'));
     const catBatch = writeBatch(targetDb);
     sourceCatsSnap.forEach((d) => {
       const targetRef = doc(targetDb, 'categories', d.id);
-      catBatch.set(targetRef, d.data());
+      catBatch.set(targetRef, d.data(), { merge: true });
     });
     await catBatch.commit();
 
-    // 2. MIGRAR PROYECTOS E HITOS (Colección 'projects')
+    // 2. MIGRAR PROYECTOS E HITOS
     const sourceProjectsSnap = await getDocs(collection(sourceDb, 'projects'));
+    let projectsCount = 0;
     
     for (const projectDoc of sourceProjectsSnap.docs) {
-      // Guardar el proyecto en el destino
       const targetProjectRef = doc(targetDb, 'projects', projectDoc.id);
+      // Fusionamos los datos, nunca sobrescribimos el documento entero
       await setDoc(targetProjectRef, projectDoc.data(), { merge: true });
 
-      // Migrar hitos de este proyecto (subcolección 'milestones')
+      // Migrar hitos de este proyecto
       const sourceMilestonesSnap = await getDocs(collection(sourceDb, 'projects', projectDoc.id, 'milestones'));
       
-      // Lotes de 400 para evitar límites de Firestore
       const milestones = sourceMilestonesSnap.docs;
+      // Lotes para evitar límites de Firestore
       for (let i = 0; i < milestones.length; i += 400) {
         const batch = writeBatch(targetDb);
         const chunk = milestones.slice(i, i + 400);
@@ -67,13 +68,14 @@ export async function migrateFirestoreData() {
         
         await batch.commit();
       }
+      projectsCount++;
     }
 
     await deleteApp(sourceApp);
     
     return { 
       success: true, 
-      message: `Migración completada con éxito: ${sourceCatsSnap.size} categorías y ${sourceProjectsSnap.size} proyectos copiados.` 
+      message: `Migración segura completada: Se fusionaron datos de ${projectsCount} proyectos y sus hitos históricos sin afectar la información actual.` 
     };
 
   } catch (error: any) {
