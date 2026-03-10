@@ -80,7 +80,7 @@ function HomeContent() {
   const [milestones, setMilestones] = React.useState<Milestone[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = React.useState(true);
 
-  // Cargar Categorías desde timeline_categories (Con guion bajo)
+  // Cargar Categorías desde timeline_categories
   React.useEffect(() => {
     if (!firestore) return;
     const unsubscribe = onSnapshot(collection(firestore, 'timeline_categories'), (snapshot) => {
@@ -96,7 +96,7 @@ function HomeContent() {
     return firestoreCategories.length > 0 ? firestoreCategories : CATEGORIES;
   }, [firestoreCategories]);
 
-  // Cargar Hitos cuando cambia el proyecto seleccionado (Con guion bajo)
+  // Cargar Hitos cuando cambia el proyecto seleccionado
   React.useEffect(() => {
     if (!firestore || !selectedCard || selectedCard.id === 'training-rsa999') {
         if (!selectedCard) setIsLoadingTimeline(false);
@@ -186,7 +186,7 @@ function HomeContent() {
     }
   }, [router, pathname]);
   
-  // Motor de Sincronización Trello -> Firestore (Con guion bajo)
+  // Motor de Sincronización Trello -> Firestore
   React.useEffect(() => {
     const syncTrelloToFirestore = async () => {
         if (!selectedCard || !firestore || syncPerformedForCard.current === selectedCard.id) {
@@ -361,7 +361,7 @@ function HomeContent() {
           const strategy = resolutions[file.name] || 'rename';
           if (strategy === 'omit') continue;
 
-          setUploadText(`Subiendo: ${file.name}`);
+          setUploadText(`Subiendo a Drive: ${file.name}`);
           setUploadProgress(((index) / totalFiles) * 100);
           
           const arrayBuffer = await file.arrayBuffer();
@@ -388,8 +388,10 @@ function HomeContent() {
              targetName = currentTryName;
           }
 
+          // PASO 1: Subida física a Google Drive
           const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
           
+          // PASO 2: Vinculación en Trello (Solo guardamos el link para no duplicar almacenamiento)
           const currentTrelloAttachments = await getCardAttachments(selectedCard.id);
           const duplicates = currentTrelloAttachments.filter(a => a.fileName === targetName);
           for (const dup of duplicates) {
@@ -441,15 +443,16 @@ function HomeContent() {
           tags: ['manual'],
           associatedFiles: associatedFiles,
           isImportant: false,
-          history: [`${format(new Date(), "PPpp", { locale: es })} - Creación de hito con ${associatedFiles.length} archivo(s).`],
+          history: [`${format(new Date(), "PPpp", { locale: es })} - Creación de hito con ${associatedFiles.length} archivo(s) guardados en Drive.`],
       };
 
+      // PASO 3: Registro en Firestore
       const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
       addDoc(milestonesRef, newMilestoneData);
       
       setIsUploadOpen(false);
       dismiss(toastId);
-      toast({ title: "Hito creado" });
+      toast({ title: "Hito creado exitosamente" });
     } catch (error: any) {
         console.error("Upload error:", error);
         dismiss(toastId);
@@ -480,7 +483,7 @@ function HomeContent() {
 
     if (files && files.length > 0) {
         setIsUploading(true);
-        setUploadText("Escaneando Drive...");
+        setUploadText("Buscando carpeta del proyecto en Drive...");
         try {
             const folderId = await getOrCreateProjectFolder(projectCode);
             const foundConflicts = [];
@@ -501,7 +504,7 @@ function HomeContent() {
             }
         } catch (error: any) {
             setIsUploading(false);
-            toast({ variant: "destructive", title: "Error al verificar Drive", description: error.message });
+            toast({ variant: "destructive", title: "Error en Drive", description: error.message });
         }
     } else {
         executeFinalUpload(data, null, {});

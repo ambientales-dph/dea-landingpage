@@ -27,19 +27,24 @@ async function getDriveClient() {
         await oauth2Client.getAccessToken();
     } catch (error: any) {
         console.error('ERROR CRÍTICO DE AUTENTICACIÓN GOOGLE:', error.response?.data || error.message);
-        throw new Error(`Error de autenticación Google: ${error.response?.data?.error_description || error.message}. Verifica que el Refresh Token sea válido para este Client ID.`);
+        throw new Error(`Error de autenticación Google: ${error.response?.data?.error_description || error.message}. Verifica que el Refresh Token sea válido.`);
     }
 
     return google.drive({ version: 'v3', auth: oauth2Client });
 }
 
+/**
+ * Obtiene o crea la carpeta del proyecto dentro de la RAÍZ ESPECÍFICA de la Línea de Tiempo.
+ */
 export async function getOrCreateProjectFolder(projectCode: string | null) {
     const drive = await getDriveClient();
     const folderName = projectCode || 'OTROS_PROYECTOS';
-    const rootFolderId = (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '').trim();
+    
+    // IMPORTANTE: Se utiliza la raíz específica de la Línea de Tiempo solicitada
+    const rootFolderId = (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID_TL || '').trim();
     
     if (!rootFolderId) {
-        throw new Error('ID de carpeta raíz no configurado (GOOGLE_DRIVE_ROOT_FOLDER_ID).');
+        throw new Error('ID de carpeta raíz de la TL no configurado (GOOGLE_DRIVE_ROOT_FOLDER_ID_TL).');
     }
 
     try {
@@ -56,6 +61,7 @@ export async function getOrCreateProjectFolder(projectCode: string | null) {
             return response.data.files[0].id;
         }
 
+        // Si no existe, la creamos dentro de la raíz de la TL
         const fileMetadata = {
             name: folderName,
             mimeType: 'application/vnd.google-apps.folder',
@@ -63,7 +69,7 @@ export async function getOrCreateProjectFolder(projectCode: string | null) {
         };
 
         const folder = await drive.files.create({
-            resource: fileMetadata as any,
+            requestBody: fileMetadata,
             fields: 'id',
         });
 
@@ -160,7 +166,7 @@ export async function uploadFileToDrive(
             throw new Error('La subida a Drive falló.');
         }
 
-        // Aseguramos acceso de lectura pública (opcional, según necesidad)
+        // Aseguramos que cualquier persona con el link pueda verlo (política de la app)
         await drive.permissions.create({
             fileId: file.data.id,
             requestBody: { role: 'reader', type: 'anyone' },

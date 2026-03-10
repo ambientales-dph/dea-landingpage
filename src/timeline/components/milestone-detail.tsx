@@ -195,8 +195,8 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
 
     const { id: toastId, dismiss } = toast({
-      title: "Escaneando Drive...",
-      description: "Buscando archivos duplicados.",
+      title: "Accediendo a Drive...",
+      description: "Buscando carpeta del proyecto.",
       duration: Infinity,
     });
 
@@ -229,7 +229,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     if (!milestone) return;
 
     const { id: toastId, update, dismiss } = toast({
-      title: "Subiendo archivos...",
+      title: "Subiendo archivos a Drive...",
       description: "Iniciando proceso.",
       duration: Infinity,
     });
@@ -241,7 +241,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         const strategy = resolutions[file.name] || 'rename';
         if (strategy === 'omit') continue;
 
-        update({ id: toastId, description: `Procesando "${file.name}"...` });
+        update({ id: toastId, description: `Guardando en Drive: "${file.name}"...` });
 
         const arrayBuffer = await file.arrayBuffer();
         const base64Data = Buffer.from(arrayBuffer).toString('base64');
@@ -251,7 +251,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
 
         const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
         
-        update({ id: toastId, title: "Vinculando con Trello...", description: driveResult.name });
+        update({ id: toastId, title: "Actualizando Trello...", description: `Vinculando link de: ${driveResult.name}` });
         let trelloId: string | undefined = undefined;
         if (cardId) {
             // Cleanup Trello duplicate attachments by name before attaching the new one
@@ -261,6 +261,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                 await deleteAttachmentFromCard(cardId, dup.id);
             }
 
+            // Guardamos SOLO el link en Trello
             const trelloAtt = await attachUrlToCard(cardId, driveResult.name, driveResult.webViewLink);
             if (trelloAtt) trelloId = trelloAtt.id;
         }
@@ -280,7 +281,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         const newFileNames = new Set(newAssociatedFiles.map(f => f.name));
         const newDriveIds = new Set(newAssociatedFiles.map(f => f.driveId).filter(Boolean));
 
-        const cleanedOldFiles = milestone.associatedFiles.filter(f => {
+        const cleanedOldFiles = (milestone.associatedFiles || []).filter(f => {
             const fid = f.driveId || f.id;
             const isDuplicate = newFileNames.has(f.name) || newDriveIds.has(fid);
             return !isDuplicate;
@@ -289,12 +290,12 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         onMilestoneUpdate({
           ...milestone,
           associatedFiles: [...cleanedOldFiles, ...newAssociatedFiles],
-          history: [...milestone.history, createLogEntry(`Se gestionaron ${newAssociatedFiles.length} archivo(s) (añadidos o actualizados)`)],
+          history: [...milestone.history, createLogEntry(`Se añadieron ${newAssociatedFiles.length} archivo(s) a Drive y se vincularon como link en Trello.`)],
         });
       }
 
       dismiss(toastId);
-      toast({ title: "Archivos actualizados", description: "Proceso de carga finalizado." });
+      toast({ title: "Archivos guardados correctamente" });
     } catch (error: any) {
       console.error("Error adding files:", error);
       dismiss(toastId);
@@ -339,13 +340,13 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
 
     try {
         if (cardId && fileToRem.trelloId) {
-            update({ id: toastId, description: `Eliminando de Trello: ${fileToRem.name}` });
+            update({ id: toastId, description: `Eliminando link de Trello: ${fileToRem.name}` });
             await deleteAttachmentFromCard(cardId, fileToRem.trelloId);
         }
 
         const driveId = fileToRem.driveId || fileToRem.id;
         if (driveId) {
-            update({ id: toastId, description: `Eliminando de Google Drive: ${fileToRem.name}` });
+            update({ id: toastId, description: `Eliminando archivo de Drive: ${fileToRem.name}` });
             await deleteFileFromDrive(driveId);
         }
 
@@ -357,7 +358,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         });
 
         dismiss(toastId);
-        toast({ title: "Archivo eliminado", description: `"${fileToRem.name}" fue removido.` });
+        toast({ title: "Archivo eliminado permanentemente" });
     } catch (error: any) {
         console.error("Error deleting file:", error);
         dismiss(toastId);
@@ -367,7 +368,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
 
   const uniqueFiles = React.useMemo(() => {
     const seen = new Set();
-    return milestone.associatedFiles.filter(file => {
+    return (milestone.associatedFiles || []).filter(file => {
       if (seen.has(file.id)) return false;
       seen.add(file.id);
       return true;
@@ -549,11 +550,11 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                 <div className="space-y-2">
                     <h3 className="font-semibold flex items-center justify-between gap-2 text-sm text-black">
                         <div className="flex items-center gap-2">
-                            <Paperclip className="h-4 w-4" /> Archivos Adjuntos
+                            <Paperclip className="h-4 w-4" /> Archivos en Drive
                         </div>
                         <Button variant="outline" size="sm" className="h-7 text-black border-zinc-400 hover:bg-zinc-200" onClick={() => fileInputRef.current?.click()}>
                             <UploadCloud className="mr-2 h-3 w-3"/>
-                            Añadir
+                            Subir a Drive
                         </Button>
                         <input
                             type="file"
@@ -580,7 +581,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                                                     target="_blank" 
                                                     rel="noopener noreferrer" 
                                                     className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors"
-                                                    title="Abrir archivo"
+                                                    title="Abrir en Drive"
                                                 >
                                                     <ExternalLink className="h-3.5 w-3.5" />
                                                 </a>
@@ -588,7 +589,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                                             <button 
                                                 onClick={() => handleFileDeleteRequest(file)}
                                                 className="p-1 rounded-md hover:bg-destructive/10 text-zinc-500 hover:text-destructive transition-colors"
-                                                title="Eliminar archivo"
+                                                title="Eliminar de Drive y Trello"
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </button>
@@ -598,7 +599,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                             ))}
                         </ul>
                     ) : (
-                        <p className="text-xs text-zinc-700 italic">No hay archivos adjuntos para este hito.</p>
+                        <p className="text-xs text-zinc-700 italic">No hay archivos guardados en Drive para este hito.</p>
                     )}
                 </div>
                 
@@ -669,7 +670,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                         <Trash2 className="h-5 w-5" /> Confirmar Eliminación de Archivo
                     </DialogTitle>
                     <DialogDescription className="text-zinc-700 pt-2">
-                        Se eliminará el archivo <span className="font-bold text-black">{fileToDelete?.name}</span> de este hito (y de Trello si corresponde).
+                        Se eliminará el archivo <span className="font-bold text-black">{fileToDelete?.name}</span> de Drive y el link de Trello.
                         Para confirmar, escribí <span className="font-bold text-black select-none">borralo</span> a continuación:
                     </DialogDescription>
                 </DialogHeader>
