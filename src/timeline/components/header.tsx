@@ -22,6 +22,7 @@ interface HeaderProps {
   onGoHome: () => void;
   trelloCardUrl: string | null;
   isProjectLoaded: boolean;
+  onSelectTrainingProject?: () => void;
 }
 
 export function Header({ 
@@ -32,13 +33,14 @@ export function Header({
   view, 
   onGoHome, 
   trelloCardUrl, 
-  isProjectLoaded
+  isProjectLoaded,
+  onSelectTrainingProject
 }: HeaderProps) {
   
-  // Clases para los botones de icono (Home, Vista, Trello)
+  // Clases para los botones claros (gris zinc-200)
   const iconButtonClasses = "h-8 w-8 border-none bg-zinc-200 text-zinc-800 hover:bg-zinc-300 hover:text-zinc-900 shadow-sm transition-all duration-200";
   
-  // Clases para los botones de texto (Hoy, 1M, etc)
+  // Clases para los botones de texto claros
   const textButtonClasses = "h-8 px-3 text-[10px] font-bold uppercase tracking-wider border-none bg-zinc-200 text-zinc-800 hover:bg-zinc-300 hover:text-zinc-900 shadow-sm transition-all duration-200 disabled:opacity-30";
 
   return (
@@ -49,7 +51,7 @@ export function Header({
           <Input
             type="search"
             placeholder={isProjectLoaded ? "Buscar archivos, categorías o etiquetas..." : "Cargá un proyecto para poder buscar"}
-            className="pl-9 w-full md:w-1/2 lg:w-1/3 h-8 text-xs bg-zinc-200 border-none text-zinc-900 placeholder:text-zinc-500 focus-visible:ring-primary/50 shadow-sm"
+            className="pl-9 w-full md:w-3/4 lg:w-1/2 h-8 text-xs bg-zinc-200 border-none text-zinc-900 placeholder:text-zinc-500 focus-visible:ring-primary/50 shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             disabled={!isProjectLoaded}
