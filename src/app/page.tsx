@@ -97,6 +97,7 @@ function HomeContent() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [userProjects, setUserProjects] = useState<TrelloCard[]>([]);
   const [recentProjects, setRecentProjects] = useState<TrelloCard[]>([]);
   const [isUserProjectsLoading, setIsUserProjectsLoading] = useState(false);
@@ -286,6 +287,7 @@ function HomeContent() {
   };
 
   const handleTimelineButtonClick = () => {
+    setIsNavigating(true);
     let path = '/timeline';
     if (selectedCard) {
       path += `?cardId=${selectedCard.id}`;
@@ -548,6 +550,14 @@ function HomeContent() {
       <TrelloConnectionToast />
       <MapBackground viewState={viewState} />
       <div className="absolute inset-0 -z-10 bg-background/40" />
+      {isNavigating && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-primary/20 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4 bg-white/90 p-8 rounded-2xl shadow-2xl border border-primary/20">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-primary font-bold text-lg">Cargando línea de tiempo...</p>
+          </div>
+        </div>
+      )}
       <div className="relative z-10 flex h-full flex-col font-body text-foreground">
         <header className="bg-primary shadow-md h-16 flex-shrink-0">
           <div className="container mx-auto flex h-full items-center justify-between px-4">
