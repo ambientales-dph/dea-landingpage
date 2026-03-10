@@ -1,7 +1,7 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Encode+Sans+Condensed:wght@500&family=Encode+Sans:wght@400;700&display=swap');
 
-/* Aislamiento de estética original de la Línea de Tiempo - Restaurado a Fondo Claro */
+/* Aislamiento de estética original de la Línea de Tiempo - Fondo Claro Restaurado */
 .timeline-app-root {
   --background: 0 0% 95%; /* Fondo claro original */
   --foreground: 222 47% 11%;
@@ -28,17 +28,16 @@
   font-family: 'Encode Sans', sans-serif;
 }
 
+/* Forzar Sidebar oscuro original */
+.timeline-app-root aside {
+  background-color: #2d3748 !important;
+  color: #ffffff;
+}
+
 .timeline-app-root .bg-card, 
-.timeline-app-root aside,
 .timeline-app-root header {
   background-color: #ffffff !important;
   border-color: #e2e8f0;
-}
-
-/* Sidebar original oscuro si es necesario, o blanco según archivos originales */
-.timeline-app-root aside {
-  background-color: #2d3748 !important; /* El sidebar solía ser oscuro incluso en tema claro */
-  color: #ffffff;
 }
 
 .timeline-app-root .font-headline {

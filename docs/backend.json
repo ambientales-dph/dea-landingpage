@@ -71,23 +71,23 @@
   },
   "firestore": {
     "/app_activities/{activityId}": {
-      "schema": { "$ref": "#/entities/AppActivity" },
+      "schema": { "$ref": "#/backend/entities/AppActivity" },
       "description": "Actividades del portal."
     },
     "/proyectistas/{proyectistaId}": {
-      "schema": { "$ref": "#/entities/Proyectista" },
+      "schema": { "$ref": "#/backend/entities/Proyectista" },
       "description": "Directorio de proyectistas."
     },
     "/timeline-projects/{projectId}": {
-      "schema": { "$ref": "#/entities/TimelineProject" },
+      "schema": { "$ref": "#/backend/entities/TimelineProject" },
       "description": "Proyectos de la Línea de Tiempo."
     },
     "/timeline-projects/{projectId}/milestones/{milestoneId}": {
-      "schema": { "$ref": "#/entities/Milestone" },
+      "schema": { "$ref": "#/backend/entities/Milestone" },
       "description": "Hitos de la TL."
     },
     "/timeline-categories/{categoryId}": {
-      "schema": { "$ref": "#/entities/TimelineCategory" },
+      "schema": { "$ref": "#/backend/entities/TimelineCategory" },
       "description": "Categorías de la TL."
     }
   }

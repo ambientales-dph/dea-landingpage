@@ -635,17 +635,17 @@ function HomeContent() {
     deleteDoc(catRef);
   }, [firestore]);
 
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleResizeMouseDown = (event: React.MouseEvent) => {
+    event.preventDefault();
     setIsResizing(true);
   };
   
   React.useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (event: MouseEvent) => {
       if (!isResizing || !resizeContainerRef.current) return;
       const container = resizeContainerRef.current;
       const rect = container.getBoundingClientRect();
-      const newHeight = e.clientY - rect.top;
+      const newHeight = event.clientY - rect.top;
       let newHeightPercent = (newHeight / rect.height) * 100;
       if (newHeightPercent < 20) newHeightPercent = 20;
       if (newHeightPercent > 80) newHeightPercent = 80;
