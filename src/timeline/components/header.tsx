@@ -45,11 +45,11 @@ export function Header({
     <header className="flex h-16 items-center border-b border-white/10 bg-[#2d3748] px-4 md:px-6 w-full shrink-0 gap-4 no-print">
       <div className="flex-1">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600 z-10" />
           <Input
             type="search"
             placeholder={isProjectLoaded ? "Buscar archivos, categorías o etiquetas..." : "Cargá un proyecto para poder buscar"}
-            className="pl-9 w-full md:w-1/2 lg:w-1/3 h-8 text-xs bg-[#1a202c] border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-primary/50"
+            className="pl-9 w-full md:w-1/2 lg:w-1/3 h-8 text-xs bg-zinc-200 border-none text-zinc-900 placeholder:text-zinc-500 focus-visible:ring-primary/50 shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             disabled={!isProjectLoaded}
