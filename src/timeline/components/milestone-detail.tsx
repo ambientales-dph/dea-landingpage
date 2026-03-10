@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -241,14 +240,32 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         const strategy = resolutions[file.name] || 'rename';
         if (strategy === 'omit') continue;
 
-        update({ id: toastId, description: `Guardando en Drive: "${file.name}"...` });
+        let targetName = file.name;
+        let existingId = strategy === 'overwrite' ? conflicts.find(c => c.name === file.name)?.existingId : undefined;
+
+        if (strategy === 'rename') {
+            const nameParts = file.name.split('.');
+            const ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
+            const baseName = nameParts.join('.');
+            
+            let currentTryName = file.name;
+            let counter = 1;
+            
+            // Comprobar exhaustivamente en Drive hasta encontrar un nombre libre
+            while (true) {
+               const check = await findFileInFolder(folderId, currentTryName);
+               if (!check) break;
+               currentTryName = `${baseName} (${counter})${ext}`;
+               counter++;
+            }
+            targetName = currentTryName;
+        }
+
+        update({ id: toastId, description: `Guardando en Drive: "${targetName}"...` });
 
         const arrayBuffer = await file.arrayBuffer();
         const base64Data = Buffer.from(arrayBuffer).toString('base64');
         
-        let targetName = file.name;
-        let existingId = strategy === 'overwrite' ? conflicts.find(c => c.name === file.name)?.existingId : undefined;
-
         const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
         
         update({ id: toastId, title: "Actualizando Trello...", description: `Vinculando link de: ${driveResult.name}` });

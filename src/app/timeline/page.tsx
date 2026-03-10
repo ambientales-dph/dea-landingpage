@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -361,7 +360,6 @@ function HomeContent() {
           const strategy = resolutions[file.name] || 'rename';
           if (strategy === 'omit') continue;
 
-          setUploadText(`Subiendo a Drive: ${file.name}`);
           setUploadProgress(((index) / totalFiles) * 100);
           
           const arrayBuffer = await file.arrayBuffer();
@@ -371,22 +369,24 @@ function HomeContent() {
           let existingId = strategy === 'overwrite' ? conflicts.find(c => c.name === file.name)?.existingId : undefined;
 
           if (strategy === 'rename') {
-             let counter = 1;
-             let nameParts = file.name.split('.');
-             let ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
-             let baseName = nameParts.join('.');
+             const nameParts = file.name.split('.');
+             const ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
+             const baseName = nameParts.join('.');
              
              let currentTryName = file.name;
-             let alreadyExists = conflicts.some(c => c.name === currentTryName);
+             let counter = 1;
              
-             while (alreadyExists) {
-                currentTryName = `${baseName} (${counter})${ext}`;
+             // Comprobar exhaustivamente en Drive hasta encontrar un nombre libre
+             while (true) {
                 const check = await findFileInFolder(folderId, currentTryName);
                 if (!check) break;
+                currentTryName = `${baseName} (${counter})${ext}`;
                 counter++;
              }
              targetName = currentTryName;
           }
+
+          setUploadText(`Subiendo a Drive: ${targetName}`);
 
           // PASO 1: Subida física a Google Drive
           const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);

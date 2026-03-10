@@ -1,4 +1,3 @@
-
 'use server';
 
 import { google } from 'googleapis';
@@ -146,6 +145,9 @@ export async function uploadFileToDrive(
             // Sobrescribir archivo existente
             file = await drive.files.update({
                 fileId: existingFileId,
+                requestBody: {
+                    name: fileName
+                },
                 media: media,
                 fields: 'id, webViewLink, name',
             } as any);
