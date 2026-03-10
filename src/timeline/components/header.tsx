@@ -1,8 +1,11 @@
 
+'use client';
+
 import { Input } from './ui/input';
 import { Search, List, ExternalLink, Home, GanttChartSquare } from 'lucide-react';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
+import { cn } from '@/lib/utils';
 import {
     Tooltip,
     TooltipContent,
@@ -32,6 +35,12 @@ export function Header({
   isProjectLoaded
 }: HeaderProps) {
   
+  // Clases para los botones de icono (Home, Vista, Trello)
+  const iconButtonClasses = "h-8 w-8 border-none bg-zinc-200 text-zinc-800 hover:bg-zinc-300 hover:text-zinc-900 shadow-sm transition-all duration-200";
+  
+  // Clases para los botones de texto (Hoy, 1M, etc)
+  const textButtonClasses = "h-8 px-3 text-[10px] font-bold uppercase tracking-wider border-none bg-zinc-200 text-zinc-800 hover:bg-zinc-300 hover:text-zinc-900 shadow-sm transition-all duration-200 disabled:opacity-30";
+
   return (
     <header className="flex h-16 items-center border-b border-white/10 bg-[#2d3748] px-4 md:px-6 w-full shrink-0 gap-4 no-print">
       <div className="flex-1">
@@ -51,7 +60,7 @@ export function Header({
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button size="icon" variant="outline" onClick={onGoHome} className="h-8 w-8 border-white/10 bg-[#1a202c] text-white hover:bg-white/10">
+                        <Button size="icon" variant="ghost" onClick={onGoHome} className={iconButtonClasses}>
                             <Home className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
@@ -61,7 +70,7 @@ export function Header({
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button size="icon" variant="outline" onClick={onToggleView} disabled={!isProjectLoaded} className="h-8 w-8 border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">
+                        <Button size="icon" variant="ghost" onClick={onToggleView} disabled={!isProjectLoaded} className={cn(iconButtonClasses, "disabled:opacity-30")}>
                             {view === 'timeline' ? <List className="h-4 w-4" /> : <GanttChartSquare className="h-4 w-4" />}
                         </Button>
                     </TooltipTrigger>
@@ -79,7 +88,7 @@ export function Header({
                            tabIndex={!trelloCardUrl ? -1 : undefined}
                            className={!trelloCardUrl ? 'pointer-events-none' : ''}
                         >
-                            <Button size="icon" variant="outline" disabled={!trelloCardUrl} className="h-8 w-8 border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">
+                            <Button size="icon" variant="ghost" disabled={!trelloCardUrl} className={cn(iconButtonClasses, "disabled:opacity-30")}>
                                 <ExternalLink className="h-4 w-4" />
                             </Button>
                         </a>
@@ -90,10 +99,10 @@ export function Header({
                 </Tooltip>
             </TooltipProvider>
           <Separator orientation="vertical" className="h-8 mx-1 bg-white/10" />
-          <Button size="sm" variant="outline" onClick={() => onSetRange('1D')} disabled={!isProjectLoaded} className="h-8 text-xs border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">Hoy</Button>
-          <Button size="sm" variant="outline" onClick={() => onSetRange('1M')} disabled={!isProjectLoaded} className="h-8 text-xs border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">1M</Button>
-          <Button size="sm" variant="outline" onClick={() => onSetRange('1Y')} disabled={!isProjectLoaded} className="h-8 text-xs border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">1A</Button>
-          <Button size="sm" variant="outline" onClick={() => onSetRange('All')} disabled={!isProjectLoaded} className="h-8 text-xs border-white/10 bg-[#1a202c] text-white hover:bg-white/10 disabled:opacity-30">Todo</Button>
+          <Button size="sm" variant="ghost" onClick={() => onSetRange('1D')} disabled={!isProjectLoaded} className={textButtonClasses}>Hoy</Button>
+          <Button size="sm" variant="ghost" onClick={() => onSetRange('1M')} disabled={!isProjectLoaded} className={textButtonClasses}>1M</Button>
+          <Button size="sm" variant="ghost" onClick={() => onSetRange('1Y')} disabled={!isProjectLoaded} className={textButtonClasses}>1A</Button>
+          <Button size="sm" variant="ghost" onClick={() => onSetRange('All')} disabled={!isProjectLoaded} className={textButtonClasses}>Todo</Button>
           
           <div className="w-10 h-10 ml-2" />
       </div>
