@@ -778,7 +778,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 if (y > 260) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
                 const dateStr = format(new Date(action.date), 'dd/MM/yyyy HH:mm', { locale: es });
-                doc.text(`${action.memberCreator.fullName} - ${dateStr}`, margin, y);
+                const authorName = action.memberCreator?.fullName || 'Usuario';
+                doc.text(`${authorName} - ${dateStr}`, margin, y);
                 y += 4;
                 doc.setFont('helvetica', 'normal');
                 const commentLines = doc.splitTextToSize(action.data.text || '', pageWidth - (margin * 2) - 5);
@@ -1039,10 +1040,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <CollapsibleContent className="space-y-4 pb-4 w-full max-w-full overflow-hidden min-w-0 box-border">
                                         {activity.map(action => (
                                             <div key={action.id} className="flex gap-3 text-xs w-full max-w-full min-w-0 overflow-hidden box-border">
-                                                <Avatar className="h-6 w-6 shrink-0 border"><AvatarFallback className="text-[10px]">{action.memberCreator.fullName.charAt(0)}</AvatarFallback></Avatar>
+                                                <Avatar className="h-6 w-6 shrink-0 border"><AvatarFallback className="text-[10px]">{action.memberCreator?.fullName?.charAt(0) || 'U'}</AvatarFallback></Avatar>
                                                 <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
                                                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                      <span className="font-semibold truncate max-w-[120px]">{action.memberCreator.fullName}</span>
+                                                      <span className="font-semibold truncate max-w-[120px]">{action.memberCreator?.fullName || 'Usuario'}</span>
                                                       <span className="text-[10px] text-muted-foreground shrink-0">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span>
                                                     </div>
                                                     <div className="bg-muted p-2 rounded-md border whitespace-pre-wrap break-words text-xs leading-relaxed max-w-full overflow-hidden box-border min-w-0 text-left">
