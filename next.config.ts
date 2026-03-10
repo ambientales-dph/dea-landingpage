@@ -2,6 +2,11 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb', // Límite ampliado para subir archivos pesados a Drive
+    },
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
