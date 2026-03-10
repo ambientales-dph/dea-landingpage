@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -11,11 +10,9 @@ export default function TrelloConnectionToast() {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const userName = await verifyTrelloConnection();
-        toast({
-          title: '¡Conexión con Trello exitosa!',
-          description: `Conectado como: ${userName}`,
-        });
+        // Se realiza la verificación silenciosa para asegurar que el token es válido
+        // pero se elimina el toast de éxito para no interrumpir la navegación del usuario.
+        await verifyTrelloConnection();
       } catch (error) {
         toast({
           variant: 'destructive',
