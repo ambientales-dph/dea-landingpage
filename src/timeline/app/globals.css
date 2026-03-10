@@ -1,37 +1,44 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Encode+Sans+Condensed:wght@500&family=Encode+Sans:wght@400;700&display=swap');
 
-/* Aislamiento TOTAL de la estética original de la Línea de Tiempo */
+/* Aislamiento de estética original de la Línea de Tiempo - Restaurado a Fondo Claro */
 .timeline-app-root {
-  --background: 222 47% 11%; /* Fondo muy oscuro original */
-  --foreground: 210 20% 98%;
-  --card: 217 33% 17%;
-  --card-foreground: 210 20% 98%;
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 20% 98%;
+  --background: 0 0% 95%; /* Fondo claro original */
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
   --primary: 201 19% 52%;
-  --primary-foreground: 210 20% 98%;
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 20% 98%;
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
-  --accent: 217 33% 17%;
-  --accent-foreground: 210 20% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 20% 98%;
-  --border: 217 33% 17%;
-  --input: 217 33% 17%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 0 0% 90%;
+  --muted-foreground: 222 47% 25%;
+  --accent: 141 14% 65%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 85%;
+  --input: 0 0% 85%;
   --ring: 201 19% 52%;
   
-  background-color: #1a202c !important; /* Fuerza el fondo oscuro de la TL original */
-  color: #e2e8f0;
+  background-color: #f4f4f5 !important;
+  color: #1a202c;
   font-family: 'Encode Sans', sans-serif;
 }
 
 .timeline-app-root .bg-card, 
 .timeline-app-root aside,
 .timeline-app-root header {
-  background-color: #2d3748 !important; /* Color gris azulado de la TL original */
+  background-color: #ffffff !important;
+  border-color: #e2e8f0;
+}
+
+/* Sidebar original oscuro si es necesario, o blanco según archivos originales */
+.timeline-app-root aside {
+  background-color: #2d3748 !important; /* El sidebar solía ser oscuro incluso en tema claro */
+  color: #ffffff;
 }
 
 .timeline-app-root .font-headline {

@@ -34,40 +34,35 @@
     },
     "TimelineProject": {
       "title": "TimelineProject",
-      "description": "Datos extendidos de proyectos para la línea de tiempo.",
+      "description": "Datos de proyectos migrados de la Línea de Tiempo.",
       "type": "object",
       "properties": {
-        "trelloCardId": { "type": "string" },
         "name": { "type": "string" },
-        "driveFolderId": { "type": "string" },
-        "customCategories": { "type": "array", "items": { "type": "string" } },
-        "lastSync": { "type": "string", "format": "date-time" }
+        "code": { "type": "string" }
       }
     },
     "Milestone": {
       "title": "Milestone",
-      "description": "Hito o evento histórico de un proyecto.",
-      "type": "object",
-      "properties": {
-        "projectId": { "type": "string" },
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" },
-        "category": { "type": "string" },
-        "type": { "type": "string", "enum": ["manual", "automatic", "trello", "drive"] },
-        "attachments": { "type": "array", "items": { "type": "object" } },
-        "metadata": { "type": "object" }
-      },
-      "required": ["projectId", "title", "date", "type"]
-    },
-    "TimelineCategory": {
-      "title": "TimelineCategory",
-      "description": "Categorías personalizadas para clasificar hitos.",
+      "description": "Hito o evento histórico de un proyecto de la TL.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "color": { "type": "string" },
-        "icon": { "type": "string" }
+        "description": { "type": "string" },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "category": { "type": "object" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "associatedFiles": { "type": "array", "items": { "type": "object" } },
+        "isImportant": { "type": "boolean" },
+        "history": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "TimelineCategory": {
+      "title": "TimelineCategory",
+      "description": "Categorías de hitos de la TL.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "color": { "type": "string" }
       }
     }
   },
@@ -77,23 +72,23 @@
   "firestore": {
     "/app_activities/{activityId}": {
       "schema": { "$ref": "#/entities/AppActivity" },
-      "description": "Colección global de actividades realizadas en la aplicación."
+      "description": "Actividades del portal."
     },
     "/proyectistas/{proyectistaId}": {
       "schema": { "$ref": "#/entities/Proyectista" },
-      "description": "Colección de profesionales proyectistas."
+      "description": "Directorio de proyectistas."
     },
-    "/projects/{projectId}": {
+    "/timeline-projects/{projectId}": {
       "schema": { "$ref": "#/entities/TimelineProject" },
-      "description": "Configuración extendida de proyectos en la TL."
+      "description": "Proyectos de la Línea de Tiempo."
     },
-    "/projects/{projectId}/milestones/{milestoneId}": {
+    "/timeline-projects/{projectId}/milestones/{milestoneId}": {
       "schema": { "$ref": "#/entities/Milestone" },
-      "description": "Hitos específicos de un proyecto."
+      "description": "Hitos de la TL."
     },
-    "/categories/{categoryId}": {
+    "/timeline-categories/{categoryId}": {
       "schema": { "$ref": "#/entities/TimelineCategory" },
-      "description": "Diccionario de categorías de hitos."
+      "description": "Categorías de la TL."
     }
   }
 }
