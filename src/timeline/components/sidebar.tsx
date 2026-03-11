@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -390,35 +389,35 @@ const handleEmailClick = (email: string) => {
                                         <ChevronDown className="h-3 w-3 opacity-50" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-[264px] bg-[#2d3748] border-white/10 shadow-2xl">
-                                    <DropdownMenuLabel className="text-[10px] text-zinc-400 uppercase tracking-widest">Nominados DEA</DropdownMenuLabel>
-                                    <DropdownMenuSeparator className="bg-white/5" />
-                                    <ScrollArea className="max-h-[300px]">
+                                <DropdownMenuContent align="start" className="w-[264px] bg-[#2d3748] border-white/10 shadow-2xl p-0 overflow-hidden">
+                                    <DropdownMenuLabel className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5">Nominados DEA</DropdownMenuLabel>
+                                    <DropdownMenuSeparator className="bg-white/5 m-0" />
+                                    <ScrollArea className="max-h-[250px]">
                                         {nominatedParticipants.length > 0 ? (
                                             nominatedParticipants.map((person, idx) => (
-                                                <div key={idx} className="flex items-center justify-between px-3 py-2 hover:bg-white/5 transition-colors group">
-                                                    <span className="text-xs text-white font-medium truncate flex-1 pr-2">{person.name}</span>
-                                                    <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                <div key={idx} className="flex items-center justify-between px-3 py-1 hover:bg-white/5 transition-colors group border-b border-white/5 last:border-0">
+                                                    <span className="text-[11px] text-white font-medium truncate flex-1 pr-2">{person.name}</span>
+                                                    <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
                                                         {person.email && person.email.includes('@') && (
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="icon" 
-                                                                className="h-7 w-7 text-zinc-400 hover:text-primary hover:bg-primary/10"
+                                                                className="h-6 w-6 text-zinc-400 hover:text-primary hover:bg-primary/10"
                                                                 onClick={() => handleEmailClick(person.email)}
                                                                 title={`Enviar mail a ${person.name}`}
                                                             >
-                                                                <Mail className="h-3.5 w-3.5" />
+                                                                <Mail className="h-3 w-3" />
                                                             </Button>
                                                         )}
                                                         {person.phone && (
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="icon" 
-                                                                className="h-7 w-7 text-zinc-400 hover:text-green-500 hover:bg-green-500/10"
+                                                                className="h-6 w-6 text-zinc-400 hover:text-green-500 hover:bg-green-500/10"
                                                                 onClick={() => handleWhatsAppClick(person.phone!)}
                                                                 title={`WhatsApp a ${person.name}`}
                                                             >
-                                                                <WhatsAppIcon className="h-3.5 w-3.5" />
+                                                                <WhatsAppIcon className="h-3 w-3" />
                                                             </Button>
                                                         )}
                                                     </div>
