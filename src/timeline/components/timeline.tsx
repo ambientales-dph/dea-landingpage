@@ -313,7 +313,7 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
         {/* Barra de Estado Evolutiva - Posicionada arriba o abajo según si hay hito abierto */}
         <div className={cn(
             "absolute inset-x-0 h-8 pointer-events-none z-30 transition-all duration-500 ease-in-out",
-            isDetailOpen ? "bottom-[-45px]" : "top-[-40px]"
+            isDetailOpen ? "bottom-[-45px]" : "top-[-5px]"
         )}>
             {statusSegments.map((seg, i) => {
                 const nextStart = statusSegments[i+1]?.start || endTime;
