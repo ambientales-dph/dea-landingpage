@@ -50,6 +50,29 @@ interface TimelineData {
   endTime: number;
 }
 
+const STATUS_COLORS_MAP: Record<string, string> = {
+    'Sin iniciar': 'red',
+    'Iniciado': 'orange',
+    'Neutralizado': 'pink',
+    'Terminado': 'yellow',
+    'Con DIA': 'green',
+    'Rescindido': 'black',
+    'En seguimiento': 'sky',
+};
+
+const TRELLO_HEX_MAP: Record<string, string> = {
+    'green': '#4bce97',
+    'yellow': '#eed12b',
+    'red': '#f87168',
+    'orange': '#ff9f1a',
+    'purple': '#9f8fef',
+    'blue': '#579dff',
+    'sky': '#6cc3e0',
+    'lime': '#94c748',
+    'pink': '#e774bb',
+    'black': '#44546f',
+};
+
 export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: TimelineProps) {
   const [timelineData, setTimelineData] = React.useState<TimelineData | null>(null);
   const heights = React.useRef(new Map<string, number>());
@@ -86,6 +109,52 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
       return { time: pointTime, count: sum };
     });
   }, [milestones, viewRange]);
+
+  // Reconstruir la historia de estados a partir de los hitos
+  const statusSegments = React.useMemo(() => {
+    const segments: { start: number; status: string; color: string }[] = [];
+    
+    const creationMilestone = milestones.find(m => m.id.startsWith('hito-creacion-'));
+    const projectStartTime = creationMilestone ? parseISO(creationMilestone.occurredAt).getTime() : 0;
+
+    const changeMilestones = milestones
+      .filter(m => m.description?.includes('📍 HITO DE PROYECTO: El estado ha cambiado'))
+      .sort((a, b) => parseISO(a.occurredAt).getTime() - parseISO(b.occurredAt).getTime());
+
+    if (changeMilestones.length > 0) {
+      // Definir el primer segmento (antes del primer cambio registrado)
+      const firstMatch = changeMilestones[0].description.match(/El estado ha cambiado de "(.*?)" a "(.*?)". Fecha/);
+      if (firstMatch) {
+        const oldStatus = firstMatch[1] === '---' ? 'Sin iniciar' : firstMatch[1];
+        segments.push({
+          start: projectStartTime || parseISO(changeMilestones[0].occurredAt).getTime() - 86400000,
+          status: oldStatus,
+          color: TRELLO_HEX_MAP[STATUS_COLORS_MAP[oldStatus] || 'red'] || '#f87168'
+        });
+      }
+
+      // Añadir todos los cambios de estado detectados
+      changeMilestones.forEach(m => {
+        const match = m.description.match(/a "(.*?)". Fecha/);
+        if (match && match[1]) {
+          const newStatus = match[1];
+          segments.push({
+            start: parseISO(m.occurredAt).getTime(),
+            status: newStatus,
+            color: TRELLO_HEX_MAP[STATUS_COLORS_MAP[newStatus] || 'red'] || '#f87168'
+          });
+        }
+      });
+    } else if (milestones.length > 0) {
+      // Si no hay cambios de estado, empezar con "Sin iniciar" por defecto
+      segments.push({
+        start: projectStartTime || Date.now() - 31536000000,
+        status: 'Sin iniciar',
+        color: TRELLO_HEX_MAP['red']
+      });
+    }
+    return segments;
+  }, [milestones]);
 
   React.useEffect(() => {
     const currentMilestoneIds = milestones.map(m => m.id).sort().join(',');
@@ -237,6 +306,44 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
       className={cn("relative w-full h-full flex items-end p-4 sm:p-8 pb-16 touch-none cursor-grab", isPanning && "cursor-grabbing")}
     >
       <div className="relative h-full w-full">
+        
+        {/* Barra de Estado Evolutiva */}
+        <div className="absolute inset-x-0 top-0 h-full pointer-events-none z-30">
+            {statusSegments.map((seg, i) => {
+                const nextStart = statusSegments[i+1]?.start || endTime;
+                const duration = endTime - startTime;
+                
+                const left = ((seg.start - startTime) / duration) * 100;
+                const right = ((nextStart - startTime) / duration) * 100;
+                
+                const visibleLeft = Math.max(0, left);
+                const visibleRight = Math.min(100, right);
+                
+                if (visibleRight <= visibleLeft) return null;
+
+                return (
+                    <div 
+                        key={i} 
+                        className="absolute" 
+                        style={{ 
+                            left: `${visibleLeft}%`, 
+                            width: `${visibleRight - visibleLeft}%`, 
+                            bottom: '220px', 
+                            borderBottom: `1.5px solid ${seg.color}`,
+                            opacity: 0.7
+                        }}
+                    >
+                        <span 
+                            className="absolute bottom-1.5 left-0 text-[9px] uppercase tracking-[0.1em] font-semibold whitespace-nowrap"
+                            style={{ color: seg.color }}
+                        >
+                            {seg.status}
+                        </span>
+                    </div>
+                );
+            })}
+        </div>
+
         <div className="absolute inset-x-0 bottom-7 h-32 z-0 pointer-events-none opacity-40">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={activityData} margin={{ left: 0, right: 0, top: 0, bottom: 0 }}>
@@ -270,7 +377,7 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
             const position = filePositions.get(milestone.id) ?? 0;
             const height = heights.current.get(milestone.id) ?? 60;
             return (
-              <div key={milestone.id} className={cn("absolute bottom-7 flex flex-col items-center", activeMilestoneId === milestone.id ? 'z-30' : 'z-20')} style={{ left: `${position}%`, transform: 'translateX(-50%)' }}>
+              <div key={milestone.id} className={cn("absolute bottom-7 flex flex-col items-center", activeMilestoneId === milestone.id ? 'z-40' : 'z-20')} style={{ left: `${position}%`, transform: 'translateX(-50%)' }}>
                 <Tooltip delayDuration={100} onOpenChange={o => setActiveMilestoneId(o ? milestone.id : null)}>
                   <TooltipTrigger asChild>
                     <div className="relative flex flex-col-reverse items-center cursor-pointer group" onClick={() => onMilestoneClick(milestone)}>
