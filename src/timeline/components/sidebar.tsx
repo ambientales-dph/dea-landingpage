@@ -310,7 +310,6 @@ const handleClearSearch = () => {
 
 const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Resultados (${filteredCards.length})` : `Tarjetas (${filteredCards.length})`;
 
-// Lógica para extraer participantes nominados del proyecto actual
 const nominatedParticipants = React.useMemo(() => {
     if (!selectedCard?.desc) return [];
     const desc = selectedCard.desc.toLowerCase();
@@ -392,17 +391,17 @@ const handleEmailClick = (email: string) => {
                                 <DropdownMenuContent align="start" className="w-[264px] bg-[#2d3748] border-white/10 shadow-2xl p-0 overflow-hidden">
                                     <DropdownMenuLabel className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5">Nominados DEA</DropdownMenuLabel>
                                     <DropdownMenuSeparator className="bg-white/5 m-0" />
-                                    <ScrollArea className="max-h-[250px]">
+                                    <ScrollArea className="h-[200px] w-full">
                                         {nominatedParticipants.length > 0 ? (
                                             nominatedParticipants.map((person, idx) => (
-                                                <div key={idx} className="flex items-center justify-between px-3 py-1 hover:bg-white/5 transition-colors group border-b border-white/5 last:border-0">
+                                                <div key={idx} className="flex items-center justify-between px-3 py-0.5 hover:bg-white/5 transition-colors group border-b border-white/5 last:border-0 h-7">
                                                     <span className="text-[11px] text-white font-medium truncate flex-1 pr-2">{person.name}</span>
                                                     <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
                                                         {person.email && person.email.includes('@') && (
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="icon" 
-                                                                className="h-6 w-6 text-zinc-400 hover:text-primary hover:bg-primary/10"
+                                                                className="h-5 w-5 text-zinc-400 hover:text-primary hover:bg-primary/10"
                                                                 onClick={() => handleEmailClick(person.email)}
                                                                 title={`Enviar mail a ${person.name}`}
                                                             >
@@ -413,7 +412,7 @@ const handleEmailClick = (email: string) => {
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="icon" 
-                                                                className="h-6 w-6 text-zinc-400 hover:text-green-500 hover:bg-green-500/10"
+                                                                className="h-5 w-5 text-zinc-400 hover:text-green-500 hover:bg-green-500/10"
                                                                 onClick={() => handleWhatsAppClick(person.phone!)}
                                                                 title={`WhatsApp a ${person.name}`}
                                                             >
