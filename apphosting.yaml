@@ -1,11 +1,25 @@
-# Settings to manage and configure a Firebase App Hosting backend.
-# https://firebase.google.com/docs/app-hosting/configure
-
 runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.
   maxInstances: 1
 env:
+  # Variables originales de la app
+  - variable: TRELLO_API_KEY
+    secret: TRELLO_API_KEY
+  - variable: NEXT_PUBLIC_TRELLO_BOARD_ID_1
+    value: "5ffc801cf3f43446ad22e1b0"
+  - variable: NEXT_PUBLIC_TRELLO_BOARD_ID_2
+    value: "6182b5b73b68da8f804d5d82"
+  - variable: GEMINI_API_KEY
+    secret: GEMINI_API_KEY
+  - variable: TRELLO_API_TOKEN
+    secret: TRELLO_API_TOKEN
+  - variable: ELSEVIER_API_KEY
+    secret: ELSEVIER_API_KEY
+  - variable: GOOGLE_DRIVE_ROOT_FOLDER_ID
+    secret: GOOGLE_DRIVE_ROOT_FOLDER_ID
+    
+  # Variables nuevas de la línea de tiempo
   - variable: RESEND_API_KEY
     secret: RESEND_API_KEY
   - variable: GOOGLE_DRIVE_ROOT_FOLDER_ID_TL
