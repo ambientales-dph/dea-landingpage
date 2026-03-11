@@ -310,10 +310,10 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
     >
       <div className="relative h-full w-full">
         
-        {/* Barra de Estado Evolutiva - Posicionada arriba o abajo según si hay hito abierto */}
+        {/* Barra de Estado Evolutiva - Posicionamiento Dinámico */}
         <div className={cn(
             "absolute inset-x-0 h-8 pointer-events-none z-30 transition-all duration-500 ease-in-out",
-            isDetailOpen ? "bottom-[-45px]" : "top-[-5px]"
+            isDetailOpen ? "bottom-[-45px]" : "top-[15px]"
         )}>
             {statusSegments.map((seg, i) => {
                 const nextStart = statusSegments[i+1]?.start || endTime;
@@ -350,12 +350,24 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
                                 opacity: 0.8
                             }}
                         >
-                            <span 
-                                className="absolute bottom-1.5 left-1 text-[8px] uppercase tracking-wider font-bold whitespace-nowrap"
-                                style={{ color: seg.color }}
-                            >
-                                {seg.status}
-                            </span>
+                            <TooltipProvider>
+                                <Tooltip delayDuration={300}>
+                                    <TooltipTrigger asChild>
+                                        <span 
+                                            className="absolute bottom-1.5 left-1 text-[8px] uppercase tracking-wider font-bold whitespace-nowrap pointer-events-auto cursor-help"
+                                            style={{ color: seg.color }}
+                                        >
+                                            {seg.status}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="bg-white text-black border-zinc-200 shadow-xl">
+                                        <div className="flex flex-col gap-0.5">
+                                            <p className="text-[10px] font-bold">Estado: {seg.status}</p>
+                                            <p className="text-[9px] text-zinc-500">Desde: {format(new Date(seg.start), "PPPp", { locale: es })}</p>
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     </React.Fragment>
                 );
