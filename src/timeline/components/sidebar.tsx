@@ -4,7 +4,20 @@ import * as React from 'react';
 import { Logo } from './logo';
 import { Button, buttonVariants } from './ui/button';
 import { Input } from './ui/input';
-import { Plus, Search, Loader2, X, Pencil, Trash2, Info, Users, Mail, MessageCircle, ChevronDown } from 'lucide-react';
+import { 
+    Plus, 
+    Search, 
+    Loader2, 
+    X, 
+    Pencil, 
+    Trash2, 
+    Info, 
+    Users, 
+    Mail, 
+    MessageCircle, 
+    ChevronDown,
+    Send
+} from 'lucide-react';
 import type { Category } from '@/timeline/types';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { ColorPicker } from './color-picker';
@@ -23,6 +36,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Card, CardContent } from './ui/card';
 import {
   Accordion,
@@ -39,6 +60,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from '@/components/ui/label';
+import { Textarea } from './ui/textarea';
+import { useUser } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { sendProjectEmail } from '@/app/actions/email-actions';
 
 interface SidebarProps {
   categories: Category[];
@@ -72,6 +98,100 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
+const QuickEmailDialog = ({ 
+    isOpen, 
+    onOpenChange, 
+    recipient, 
+    userEmail 
+}: { 
+    isOpen: boolean, 
+    onOpenChange: (open: boolean) => void, 
+    recipient: AuthorizedUser | null, 
+    userEmail: string | null 
+}) => {
+    const [subject, setSubject] = React.useState('');
+    const [body, setBody] = React.useState('');
+    const [isSending, setIsSending] = React.useState(false);
+    const { toast } = useToast();
+
+    React.useEffect(() => {
+        if (isOpen) {
+            setSubject('');
+            setBody('');
+        }
+    }, [isOpen]);
+
+    const handleSend = async () => {
+        if (!userEmail || !recipient) return;
+        setIsSending(true);
+
+        try {
+            const result = await sendProjectEmail({
+                to: recipient.email,
+                subject: subject || '(Sin asunto) - Portal DEA',
+                body: body,
+                replyTo: userEmail
+            });
+
+            if (result.success) {
+                toast({ title: 'Correo enviado', description: `Se ha enviado tu consulta a ${recipient.name}.` });
+                onOpenChange(false);
+            } else {
+                toast({ variant: 'destructive', title: 'Error al enviar', description: result.error });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error de red', description: 'No se pudo contactar con el servidor de correo.' });
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    if (!recipient) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md shadow-2xl bg-zinc-100 text-black border-zinc-300">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-sm font-bold font-headline">
+                        <Mail className="h-5 w-5 text-primary" />
+                        Enviar consulta a {recipient.name}
+                    </DialogTitle>
+                    <DialogDescription className="text-[10px] text-zinc-600">
+                        Tu mensaje será enviado desde ambientales.dph@gmail.com. Las respuestas llegarán directamente a <strong>{userEmail}</strong>.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-zinc-500">Asunto</Label>
+                        <Input 
+                            placeholder="Escribí el asunto aquí..." 
+                            value={subject} 
+                            onChange={(e) => setSubject(e.target.value)}
+                            className="text-xs bg-white border-zinc-300"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-bold text-zinc-500">Mensaje</Label>
+                        <Textarea 
+                            placeholder="Escribí tu mensaje aquí..." 
+                            value={body} 
+                            onChange={(e) => setBody(e.target.value)}
+                            className="min-h-[150px] text-xs bg-white border-zinc-300"
+                        />
+                    </div>
+                </div>
+                <DialogFooter className="gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={isSending} className="text-zinc-600">Cancelar</Button>
+                    <Button size="sm" onClick={handleSend} disabled={(!subject.trim() && !body.trim()) || isSending} className="gap-2">
+                        {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        {isSending ? 'Enviando...' : 'Enviar Mail'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 export function Sidebar({ 
     categories, 
     onCategoryColorChange, 
@@ -89,6 +209,7 @@ export function Sidebar({
     cardSearchTerm,
     onCardSearchChange,
 }: SidebarProps) {
+  const { user } = useUser();
   const [openPopoverId, setOpenPopoverId] = React.useState<string | null>(null);
   const [isAdding, setIsAdding] = React.useState(false);
   const [newCategoryName, setNewCategoryName] = React.useState('');
@@ -108,6 +229,9 @@ export function Sidebar({
   const [isLoadingLists, setIsLoadingLists] = React.useState(false);
   const [isLoadingCards, setIsLoadingCards] = React.useState(false);
   const [isSearching, setIsSearching] = React.useState(false);
+
+  const [selectedRecipient, setSelectedRecipient] = React.useState<AuthorizedUser | null>(null);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = React.useState(false);
 
   const sortedCategories = React.useMemo(() => {
     return [...categories].sort((a, b) => a.name.localeCompare(b.name));
@@ -328,8 +452,9 @@ const handleWhatsAppClick = (phone: string) => {
     window.open(`https://wa.me/${cleanPhone}`, '_blank');
 };
 
-const handleEmailClick = (email: string) => {
-    window.location.href = `mailto:${email}`;
+const handleEmailClick = (person: AuthorizedUser) => {
+    setSelectedRecipient(person);
+    setIsEmailDialogOpen(true);
 };
 
   return (
@@ -406,7 +531,7 @@ const handleEmailClick = (email: string) => {
                                                                 variant="ghost" 
                                                                 size="icon" 
                                                                 className="h-5 w-5 text-zinc-400 hover:text-primary hover:bg-primary/10"
-                                                                onClick={() => handleEmailClick(person.email)}
+                                                                onClick={() => handleEmailClick(person)}
                                                                 title={`Enviar mail a ${person.name}`}
                                                             >
                                                                 <Mail className="h-3 w-3" />
@@ -583,6 +708,13 @@ const handleEmailClick = (email: string) => {
         </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <QuickEmailDialog 
+        isOpen={isEmailDialogOpen} 
+        onOpenChange={setIsEmailDialogOpen} 
+        recipient={selectedRecipient} 
+        userEmail={user?.email || null} 
+      />
     </aside>
   );
 }
