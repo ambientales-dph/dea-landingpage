@@ -110,7 +110,6 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
     });
   }, [milestones, viewRange]);
 
-  // Reconstruir la historia de estados a partir de los hitos
   const statusSegments = React.useMemo(() => {
     const segments: { start: number; status: string; color: string }[] = [];
     
@@ -122,7 +121,6 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
       .sort((a, b) => parseISO(a.occurredAt).getTime() - parseISO(b.occurredAt).getTime());
 
     if (changeMilestones.length > 0) {
-      // Definir el primer segmento (antes del primer cambio registrado)
       const firstMatch = changeMilestones[0].description.match(/El estado ha cambiado de "(.*?)" a "(.*?)". Fecha/);
       if (firstMatch) {
         const oldStatus = firstMatch[1] === '---' ? 'Sin iniciar' : firstMatch[1];
@@ -133,7 +131,6 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
         });
       }
 
-      // Añadir todos los cambios de estado detectados
       changeMilestones.forEach(m => {
         const match = m.description.match(/a "(.*?)". Fecha/);
         if (match && match[1]) {
@@ -146,7 +143,6 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
         }
       });
     } else if (milestones.length > 0) {
-      // Si no hay cambios de estado, empezar con "Sin iniciar" por defecto
       segments.push({
         start: projectStartTime || Date.now() - 31536000000,
         status: 'Sin iniciar',
@@ -307,8 +303,8 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
     >
       <div className="relative h-full w-full">
         
-        {/* Barra de Estado Evolutiva */}
-        <div className="absolute inset-x-0 top-0 h-full pointer-events-none z-30">
+        {/* Barra de Estado Evolutiva - Posicionada debajo de las fechas */}
+        <div className="absolute inset-x-0 bottom-[-45px] h-8 pointer-events-none z-30">
             {statusSegments.map((seg, i) => {
                 const nextStart = statusSegments[i+1]?.start || endTime;
                 const duration = endTime - startTime;
@@ -322,24 +318,33 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
                 if (visibleRight <= visibleLeft) return null;
 
                 return (
-                    <div 
-                        key={i} 
-                        className="absolute" 
-                        style={{ 
-                            left: `${visibleLeft}%`, 
-                            width: `${visibleRight - visibleLeft}%`, 
-                            bottom: '220px', 
-                            borderBottom: `1.5px solid ${seg.color}`,
-                            opacity: 0.7
-                        }}
-                    >
-                        <span 
-                            className="absolute bottom-1.5 left-0 text-[9px] uppercase tracking-[0.1em] font-semibold whitespace-nowrap"
-                            style={{ color: seg.color }}
+                    <React.Fragment key={i}>
+                        {/* Separador Vertical de Cambio de Estado */}
+                        {i > 0 && left >= 0 && left <= 100 && (
+                            <div 
+                                className="absolute bottom-[-5px] w-px h-10 bg-gray-400/50"
+                                style={{ left: `${left}%` }}
+                            />
+                        )}
+                        
+                        <div 
+                            className="absolute" 
+                            style={{ 
+                                left: `${visibleLeft}%`, 
+                                width: `${visibleRight - visibleLeft}%`, 
+                                bottom: '2px', 
+                                borderBottom: `1.5px solid ${seg.color}`,
+                                opacity: 0.8
+                            }}
                         >
-                            {seg.status}
-                        </span>
-                    </div>
+                            <span 
+                                className="absolute bottom-1.5 left-1 text-[8px] uppercase tracking-wider font-bold whitespace-nowrap"
+                                style={{ color: seg.color }}
+                            >
+                                {seg.status}
+                            </span>
+                        </div>
+                    </React.Fragment>
                 );
             })}
         </div>
