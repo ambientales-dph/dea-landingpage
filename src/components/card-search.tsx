@@ -683,11 +683,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
         doc.setTextColor('#333333');
         doc.setFontSize(8);
-        if (selectedCard.labels.length > 0) {
+        const labels = selectedCard.labels || [];
+        if (labels.length > 0) {
             doc.text('ETIQUETAS:', margin, y);
             y += 5;
             let lx = margin;
-            selectedCard.labels.forEach(label => {
+            labels.forEach(label => {
                 const labelColor = label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc';
                 doc.setFillColor(labelColor);
                 const labelWidth = doc.getTextWidth(label.name) + 4;
@@ -753,13 +754,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         });
         y += 5;
 
-        if (exportOptions.includeAttachments && selectedCard.attachments.length > 0) {
+        const attachments = selectedCard.attachments || [];
+        if (exportOptions.includeAttachments && attachments.length > 0) {
             if (y > 250) { doc.addPage(); y = 20; }
             doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor('#000000');
-            doc.text(`ADJUNTOS (${selectedCard.attachments.length}):`, margin, y);
+            doc.text(`ADJUNTOS (${attachments.length}):`, margin, y);
             y += 7;
             doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-            selectedCard.attachments.forEach(att => {
+            attachments.forEach(att => {
                 if (y > 270) { doc.addPage(); y = 20; }
                 doc.text(`• ${att.name}`, margin + 2, y);
                 y += 5; doc.setTextColor('#3182ce'); doc.text(att.url, margin + 5, y);
@@ -888,7 +890,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         
                         <div className="flex flex-col gap-2 w-full max-w-full overflow-hidden box-border">
                             <div className="flex flex-wrap gap-1.5 max-w-full overflow-hidden box-border">
-                                {selectedCard.labels.map(label => (
+                                {(selectedCard.labels || []).map(label => (
                                     <Badge key={label.id} className="text-[10px] group cursor-default h-5 px-2 break-words whitespace-normal max-w-full" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
                                       {label.name}
                                       {isEditing && <X className="ml-1 h-2 w-2 cursor-pointer hover:text-red-200 shrink-0" onClick={() => handleToggleLabel(label.id, true)} />}
@@ -899,7 +901,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-white/20 shrink-0"><Plus className="h-3 w-3" /></Button></DropdownMenuTrigger>
                                     <DropdownMenuContent className="max-h-48 overflow-y-auto">
                                       {boardLabels.map(l => (
-                                        <DropdownMenuCheckboxItem key={l.id} checked={selectedCard.labels.some(sl => sl.id === l.id)} onCheckedChange={() => handleToggleLabel(l.id, selectedCard.labels.some(sl => sl.id === l.id))}>
+                                        <DropdownMenuCheckboxItem key={l.id} checked={(selectedCard.labels || []).some(sl => sl.id === l.id)} onCheckedChange={() => handleToggleLabel(l.id, (selectedCard.labels || []).some(sl => sl.id === l.id))}>
                                           <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: trelloCoverColors.find(c => l.color === c.name)?.hex || '#ccc' }} />{l.name}</div>
                                         </DropdownMenuCheckboxItem>
                                       ))}
@@ -933,7 +935,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden leading-relaxed text-left">{renderDescription(selectedCard.desc)}</div>}
                         </div>
 
-                        {selectedCard.attachments?.length > 0 && !isEditing && (
+                        {(selectedCard.attachments || []).length > 0 && !isEditing && (
                           <div className="p-6 pt-0 w-full max-w-full overflow-hidden box-border min-w-0">
                             <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
                               <div className="flex items-center justify-between mb-4">
@@ -950,7 +952,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                         {inspectionPath[inspectionPath.length - 1].name}
                                       </span>
                                     ) : (
-                                      `Adjuntos (${selectedCard.attachments.length})`
+                                      `Adjuntos (${(selectedCard.attachments || []).length})`
                                     )}
                                     <ChevronDown className="h-3 w-3" />
                                   </CollapsibleTrigger>
