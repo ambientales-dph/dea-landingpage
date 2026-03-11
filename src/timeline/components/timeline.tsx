@@ -14,8 +14,6 @@ import {
   differenceInMilliseconds,
   eachMonthOfInterval,
   differenceInMonths,
-  getMonth,
-  getYear,
   differenceInDays,
   eachDayOfInterval,
   eachHourOfInterval,
@@ -31,6 +29,7 @@ interface TimelineProps {
   startDate: Date;
   endDate: Date;
   onMilestoneClick: (milestone: Milestone) => void;
+  isDetailOpen?: boolean;
 }
 
 interface DateMarker {
@@ -73,7 +72,7 @@ const TRELLO_HEX_MAP: Record<string, string> = {
     'black': '#44546f',
 };
 
-export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: TimelineProps) {
+export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isDetailOpen = false }: TimelineProps) {
   const [timelineData, setTimelineData] = React.useState<TimelineData | null>(null);
   const heights = React.useRef(new Map<string, number>());
   const timelineContainerRef = React.useRef<HTMLDivElement>(null);
@@ -261,10 +260,18 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
         .filter((_, i) => i % 2 === 0)
         .map(d => ({ date: d, label: format(d, 'HH:mm') }));
     } else if (durationInMonths < 1) {
-      dateMarkers = eachDayOfInterval({ start: timelineStart, end: timelineEnd }).map(d => ({ date: d, label: '', dayLabel: format(d, 'd') }));
+      const allDays = eachDayOfInterval({ start: timelineStart, end: timelineEnd });
+      const step = durationInDays > 14 ? 3 : durationInDays > 7 ? 2 : 1;
+      dateMarkers = allDays
+        .filter((_, i) => i % step === 0)
+        .map(d => ({ date: d, label: '', dayLabel: format(d, 'd') }));
       centralMonthLabel = format(new Date(timelineStart.getTime() + totalTimelineDuration/2), 'MMMM yyyy', { locale: es });
     } else {
-      dateMarkers = eachMonthOfInterval({ start: timelineStart, end: timelineEnd }).map(d => ({ date: d, label: format(d, 'MMM yy', { locale: es }) }));
+      const allMonths = eachMonthOfInterval({ start: timelineStart, end: timelineEnd });
+      const step = durationInMonths > 24 ? 4 : durationInMonths > 12 ? 2 : 1;
+      dateMarkers = allMonths
+        .filter((_, i) => i % step === 0)
+        .map(d => ({ date: d, label: format(d, 'MMM yy', { locale: es }) }));
     }
     
     const filePositions = new Map<string, number>();
@@ -303,8 +310,11 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
     >
       <div className="relative h-full w-full">
         
-        {/* Barra de Estado Evolutiva - Posicionada debajo de las fechas */}
-        <div className="absolute inset-x-0 bottom-[-45px] h-8 pointer-events-none z-30">
+        {/* Barra de Estado Evolutiva - Posicionada arriba o abajo según si hay hito abierto */}
+        <div className={cn(
+            "absolute inset-x-0 h-8 pointer-events-none z-30 transition-all duration-500 ease-in-out",
+            isDetailOpen ? "bottom-[-45px]" : "top-[-40px]"
+        )}>
             {statusSegments.map((seg, i) => {
                 const nextStart = statusSegments[i+1]?.start || endTime;
                 const duration = endTime - startTime;
@@ -322,7 +332,10 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick }: T
                         {/* Separador Vertical de Cambio de Estado */}
                         {i > 0 && left >= 0 && left <= 100 && (
                             <div 
-                                className="absolute bottom-[-5px] w-px h-10 bg-gray-400/50"
+                                className={cn(
+                                    "absolute w-px h-10 bg-gray-400/50 transition-all duration-500",
+                                    isDetailOpen ? "bottom-[-5px]" : "top-[-5px]"
+                                )}
                                 style={{ left: `${left}%` }}
                             />
                         )}

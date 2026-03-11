@@ -775,6 +775,7 @@ function HomeContent() {
                             startDate={dateRange?.start || subMonths(new Date(), 6)}
                             endDate={dateRange?.end || addMonths(new Date(), 6)}
                             onMilestoneClick={handleMilestoneClick}
+                            isDetailOpen={!!selectedMilestone}
                         />
                     </div>
                 ) : (
