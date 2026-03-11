@@ -109,6 +109,10 @@ export function Sidebar({
   const [isLoadingCards, setIsLoadingCards] = React.useState(false);
   const [isSearching, setIsSearching] = React.useState(false);
 
+  const sortedCategories = React.useMemo(() => {
+    return [...categories].sort((a, b) => a.name.localeCompare(b.name));
+  }, [categories]);
+
   React.useEffect(() => {
     const fetchInitialData = async () => {
       setIsLoadingBoards(true);
@@ -506,7 +510,7 @@ const handleEmailClick = (email: string) => {
                                     </div>
                                 )}
                                 <div className="space-y-0.5">
-                                    {categories.map((category) => (
+                                    {sortedCategories.map((category) => (
                                         <div key={category.id} className="group relative flex items-center w-full justify-start rounded-md text-xs font-medium h-8 px-3 hover:bg-white/5 transition-colors">
                                             <Popover border-none open={openPopoverId === category.id} onOpenChange={(isOpen) => setOpenPopoverId(isOpen ? category.id : null)}>
                                                 <PopoverTrigger asChild>
