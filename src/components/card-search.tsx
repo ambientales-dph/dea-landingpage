@@ -124,6 +124,19 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
     const [isSending, setIsSending] = useState(false);
     const { toast } = useToast();
 
+    // Asegurar que el body recupere interactividad al cerrar o abrir modales
+    useEffect(() => {
+        if (!isOpen) {
+            const cleanup = () => {
+                document.body.style.pointerEvents = '';
+                document.body.style.overflow = '';
+            };
+            cleanup();
+            const timer = setTimeout(cleanup, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen]);
+
     useEffect(() => {
         if (isOpen) {
             setSubject('');
@@ -228,7 +241,11 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-primary/20 hover:text-primary transition-colors"
-                                onClick={(e) => { e.stopPropagation(); setIsEmailOpen(true); }}
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    // Pequeño delay para asegurar que cualquier otro UI state se asiente
+                                    setTimeout(() => setIsEmailOpen(true), 100);
+                                }}
                                 title={`Enviar mail a ${participant.name}`}
                             >
                                 <Mail className="h-full w-full" />
@@ -510,7 +527,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         ]);
         onCardSelect(refreshedCard);
         setActivity(cardActivity);
-        setBoardLabels(labels);
+        setBoardLabels(labels || []);
     } catch (error) {
         console.error('Error refreshing card data:', error);
     } finally {
@@ -647,8 +664,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   };
 
   const sortedAttachments = useMemo(() => {
-    if (!selectedCard?.attachments) return [];
-    return [...selectedCard.attachments].sort((a, b) => {
+    const attachments = selectedCard?.attachments || [];
+    return [...attachments].sort((a, b) => {
       if (attachmentSort === 'name') return a.name.localeCompare(b.name);
       const extA = a.url.split('.').pop() || '';
       const extB = b.url.split('.').pop() || '';
@@ -900,7 +917,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-white/20 shrink-0"><Plus className="h-3 w-3" /></Button></DropdownMenuTrigger>
                                     <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                      {boardLabels.map(l => (
+                                      {(boardLabels || []).map(l => (
                                         <DropdownMenuCheckboxItem key={l.id} checked={(selectedCard.labels || []).some(sl => sl.id === l.id)} onCheckedChange={() => handleToggleLabel(l.id, (selectedCard.labels || []).some(sl => sl.id === l.id))}>
                                           <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: trelloCoverColors.find(c => l.color === c.name)?.hex || '#ccc' }} />{l.name}</div>
                                         </DropdownMenuCheckboxItem>

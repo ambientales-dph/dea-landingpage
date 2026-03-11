@@ -114,6 +114,19 @@ const QuickEmailDialog = ({
     const [isSending, setIsSending] = React.useState(false);
     const { toast } = useToast();
 
+    // Asegurar que el body recupere interactividad al cerrar o abrir modales
+    React.useEffect(() => {
+        if (!isOpen) {
+            const cleanup = () => {
+                document.body.style.pointerEvents = '';
+                document.body.style.overflow = '';
+            };
+            cleanup();
+            const timer = setTimeout(cleanup, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen]);
+
     React.useEffect(() => {
         if (isOpen) {
             setSubject('');
@@ -454,7 +467,11 @@ const handleWhatsAppClick = (phone: string) => {
 
 const handleEmailClick = (person: AuthorizedUser) => {
     setSelectedRecipient(person);
-    setIsEmailDialogOpen(true);
+    // Usar un pequeño delay para permitir que el DropdownMenu se cierre
+    // y evitar conflictos de foco/bloqueo de body de Radix UI
+    setTimeout(() => {
+        setIsEmailDialogOpen(true);
+    }, 100);
 };
 
   return (
