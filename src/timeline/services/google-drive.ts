@@ -9,9 +9,9 @@ import { Readable } from 'stream';
  */
 
 async function getDriveClient() {
-    const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
-    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
-    const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN || '').trim();
+    const clientId = (process.env.GOOGLE_CLIENT_ID_TL || '').trim();
+    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET_TL || '').trim();
+    const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN_TL || '').trim();
 
     if (!clientId || !clientSecret || !refreshToken) {
         throw new Error('Faltan variables de entorno: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET o GOOGLE_REFRESH_TOKEN.');

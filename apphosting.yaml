@@ -23,4 +23,14 @@ env:
   - variable: RESEND_API_KEY
     secret: RESEND_API_KEY
   - variable: GOOGLE_DRIVE_ROOT_FOLDER_ID_TL
-    secret: GOOGLE_DRIVE_ROOT_FOLDER_ID_TL
+    value: "1bVPCahKwkaC5d41Zi6tYDyRolljIG1KZ"
+  - variable: GOOGLE_SERVICE_ACCOUNT_EMAIL
+    secret: GOOGLE_SERVICE_ACCOUNT_EMAIL
+  - variable: GOOGLE_PRIVATE_KEY
+    secret: GOOGLE_PRIVATE_KEY
+  - variable: GOOGLE_CLIENT_ID_TL
+    secret: GOOGLE_CLIENT_ID_TL
+  - variable: GOOGLE_CLIENT_SECRET_TL
+    secret: GOOGLE_CLIENT_SECRET_TL
+  - variable: GOOGLE_REFRESH_TOKEN_TL
+    secret: GOOGLE_REFRESH_TOKEN_TL
