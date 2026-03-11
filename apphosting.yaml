@@ -18,9 +18,9 @@ env:
     secret: ELSEVIER_API_KEY
   - variable: GOOGLE_DRIVE_ROOT_FOLDER_ID
     secret: GOOGLE_DRIVE_ROOT_FOLDER_ID
-    
+
   # Variables nuevas de la línea de tiempo
   - variable: RESEND_API_KEY
     secret: RESEND_API_KEY
   - variable: GOOGLE_DRIVE_ROOT_FOLDER_ID_TL
-    value: "1bVPCahKwkaC5d41Zi6tYDyRolljIG1KZ"
+    secret: GOOGLE_DRIVE_ROOT_FOLDER_ID_TL
