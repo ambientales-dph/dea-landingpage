@@ -328,8 +328,9 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
                 
                 if (visibleRight <= visibleLeft) return null;
 
-                // Umbral de visibilidad: si el tramo es menor al 8% del total, ocultamos el texto para evitar solapamientos
-                const isLabelVisible = segmentWidth > 8;
+                // Las etiquetas ahora se escalonan verticalmente para evitar solapamientos
+                // i % 2 determina si la etiqueta va más arriba o más abajo
+                const labelOffset = i % 2 === 0 ? '6px' : '18px';
 
                 return (
                     <React.Fragment key={i}>
@@ -345,7 +346,7 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
                         )}
                         
                         <div 
-                            className="absolute flex items-end overflow-hidden" 
+                            className="absolute flex items-end" 
                             style={{ 
                                 left: `${visibleLeft}%`, 
                                 width: `${segmentWidth}%`, 
@@ -358,11 +359,12 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
                                 <Tooltip delayDuration={300}>
                                     <TooltipTrigger asChild>
                                         <span 
-                                            className={cn(
-                                                "absolute bottom-1.5 left-1 text-[8px] uppercase tracking-wider font-bold truncate pointer-events-auto cursor-help transition-opacity duration-300",
-                                                isLabelVisible ? "opacity-100" : "opacity-0"
-                                            )}
-                                            style={{ color: seg.color, maxWidth: 'calc(100% - 4px)' }}
+                                            className="absolute left-1 text-[8px] uppercase tracking-wider font-bold truncate pointer-events-auto cursor-help transition-all duration-300"
+                                            style={{ 
+                                                color: seg.color, 
+                                                maxWidth: 'calc(100% - 4px)',
+                                                bottom: labelOffset 
+                                            }}
                                         >
                                             {seg.status}
                                         </span>
