@@ -310,7 +310,7 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
     >
       <div className="relative h-full w-full">
         
-        {/* Barra de Estado Evolutiva - Posicionamiento Dinámico */}
+        {/* Barra de Estado Evolutiva - Posicionamiento Dinámico e Inteligente */}
         <div className={cn(
             "absolute inset-x-0 h-8 pointer-events-none z-30 transition-all duration-500 ease-in-out",
             isDetailOpen ? "bottom-[-45px]" : "top-[15px]"
@@ -324,8 +324,12 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
                 
                 const visibleLeft = Math.max(0, left);
                 const visibleRight = Math.min(100, right);
+                const segmentWidth = visibleRight - visibleLeft;
                 
                 if (visibleRight <= visibleLeft) return null;
+
+                // Umbral de visibilidad: si el tramo es menor al 8% del total, ocultamos el texto para evitar solapamientos
+                const isLabelVisible = segmentWidth > 8;
 
                 return (
                     <React.Fragment key={i}>
@@ -341,10 +345,10 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
                         )}
                         
                         <div 
-                            className="absolute" 
+                            className="absolute flex items-end overflow-hidden" 
                             style={{ 
                                 left: `${visibleLeft}%`, 
-                                width: `${visibleRight - visibleLeft}%`, 
+                                width: `${segmentWidth}%`, 
                                 bottom: '2px', 
                                 borderBottom: `1.5px solid ${seg.color}`,
                                 opacity: 0.8
@@ -354,8 +358,11 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
                                 <Tooltip delayDuration={300}>
                                     <TooltipTrigger asChild>
                                         <span 
-                                            className="absolute bottom-1.5 left-1 text-[8px] uppercase tracking-wider font-bold whitespace-nowrap pointer-events-auto cursor-help"
-                                            style={{ color: seg.color }}
+                                            className={cn(
+                                                "absolute bottom-1.5 left-1 text-[8px] uppercase tracking-wider font-bold truncate pointer-events-auto cursor-help transition-opacity duration-300",
+                                                isLabelVisible ? "opacity-100" : "opacity-0"
+                                            )}
+                                            style={{ color: seg.color, maxWidth: 'calc(100% - 4px)' }}
                                         >
                                             {seg.status}
                                         </span>
