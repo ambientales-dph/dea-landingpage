@@ -9,7 +9,6 @@ import { Plus, Search, Loader2, X, Pencil, Trash2, Info } from 'lucide-react';
 import type { Category } from '@/timeline/types';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { ColorPicker } from './color-picker';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { getMemberBoards, getBoardLists, getCardsInList, searchTrelloCards } from '@/timeline/services/trello';
 import type { TrelloBoard, TrelloListBasic, TrelloCardBasic } from '@/timeline/services/trello';
 import { ScrollArea } from './ui/scroll-area';
@@ -250,6 +249,7 @@ export function Sidebar({
 
     e.preventDefault();
     onCardSelect(null);
+    setIsSearching(true);
 
     try {
         const results = await searchTrelloCards(cardSearchTerm.trim());
@@ -288,6 +288,10 @@ export function Sidebar({
 
 const handleClearSearch = () => {
   onCardSearchChange('');
+  setCards([]);
+  setFilteredCards([]);
+  onBoardSelect('');
+  onListSelect('');
 };
 
 const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Resultados (${filteredCards.length})` : `Tarjetas (${filteredCards.length})`;
@@ -314,59 +318,28 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
                     </CardContent>
                 </Card>
             ) : (
-                <>
-                    <Select onValueChange={onBoardSelect} value={selectedBoard} disabled={isLoadingBoards || isTrelloAvailable === null}>
-                    <SelectTrigger className="w-full h-8 text-xs bg-[#1a202c] border-white/10 text-white">
-                        <SelectValue placeholder={
-                            isTrelloAvailable === null ? "Verificando..." :
-                            isLoadingBoards ? "Cargando..." : "Seleccionar tablero"
-                        } />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#2d3748] border-white/10 text-white">
-                        {boards.map(board => (
-                        <SelectItem key={board.id} value={board.id} className="text-xs focus:bg-primary/20 focus:text-white">{board.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                    </Select>
-
-                    <Select 
-                      onValueChange={(value) => { onListSelect(value); onCardSelect(null); }} 
-                      value={selectedList} 
-                      disabled={!selectedBoard || isLoadingLists}
-                    >
-                    <SelectTrigger className="w-full h-8 text-xs bg-[#1a202c] border-white/10 text-white">
-                        <SelectValue placeholder={isLoadingLists ? "Cargando..." : "Seleccionar lista"} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#2d3748] border-white/10 text-white">
-                        {lists.map(list => (
-                        <SelectItem key={list.id} value={list.id} className="text-xs focus:bg-primary/20 focus:text-white">{list.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                    </Select>
-
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                        <Input
-                            placeholder="Buscar..."
-                            className="pl-9 pr-9 h-8 text-xs bg-[#1a202c] border-white/10 text-white placeholder:text-zinc-600"
-                            value={cardSearchTerm}
-                            onChange={(e) => onCardSearchChange(e.target.value)}
-                            onKeyDown={handleGlobalSearch}
-                            disabled={isTrelloAvailable === null}
-                        />
-                        {isSearching ? (
-                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-zinc-500" />
-                        ) : cardSearchTerm && (
-                            <button
-                                onClick={handleClearSearch}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-zinc-500 hover:bg-white/10"
-                                aria-label="Limpiar búsqueda"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        )}
-                    </div>
-                </>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                    <Input
+                        placeholder="Buscar proyecto..."
+                        className="pl-9 pr-9 h-9 text-xs bg-[#1a202c] border-white/10 text-white placeholder:text-zinc-600"
+                        value={cardSearchTerm}
+                        onChange={(e) => onCardSearchChange(e.target.value)}
+                        onKeyDown={handleGlobalSearch}
+                        disabled={isTrelloAvailable === null}
+                    />
+                    {isSearching ? (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-zinc-500" />
+                    ) : cardSearchTerm && (
+                        <button
+                            onClick={handleClearSearch}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-zinc-500 hover:bg-white/10"
+                            aria-label="Limpiar búsqueda"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
             )}
           </div>
           
@@ -410,7 +383,7 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
           )}
         
         <div className="mt-auto shrink-0 border-t border-white/10 pt-2">
-            <Accordion type="single" collapsible className="w-full" defaultValue="categories">
+            <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="categories" className="border-b-0">
                     <div className="flex items-center justify-between pr-2 pl-1">
                         <AccordionTrigger className="flex-1 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:no-underline">
