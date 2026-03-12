@@ -313,6 +313,7 @@ function HomeContent() {
             });
             
             const commentsCategory = categories.find(c => c.id === 'cat-10') || { id: 'cat-10', name: 'Comentarios', color: '#607D8B' };
+            const statusChangeCategory = categories.find(c => c.name.toLowerCase().includes('cambio de estado')) || { id: 'cat-status', name: 'Cambio de Estado', color: '#f59e0b' };
             const activityCategory = categories.find(c => c.id === 'cat-11') || { id: 'cat-11', name: 'Actividad de Tarjeta', color: '#9E9E9E' };
 
             const actionMilestones: Milestone[] = actions
@@ -320,7 +321,18 @@ function HomeContent() {
               .map(action => {
                 let milestone: Milestone | null = null;
                 if (action.type === 'commentCard' && action.data.text) {
-                    milestone = { id: `hito-${action.id}`, name: `Comentario de ${action.memberCreator.fullName}`, description: action.data.text, occurredAt: action.date, category: commentsCategory, tags: ['comentario'], associatedFiles: [], isImportant: false, history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] };
+                    const isStatusUpdate = action.data.text.includes('📍 HITO DE PROYECTO');
+                    milestone = { 
+                        id: `hito-${action.id}`, 
+                        name: isStatusUpdate ? 'Actualización de Estado' : `Comentario de ${action.memberCreator.fullName}`, 
+                        description: action.data.text, 
+                        occurredAt: action.date, 
+                        category: isStatusUpdate ? statusChangeCategory : commentsCategory, 
+                        tags: isStatusUpdate ? ['estado', 'sistema'] : ['comentario'], 
+                        associatedFiles: [], 
+                        isImportant: false, 
+                        history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] 
+                    };
                 } else if (action.type === 'updateCard' && action.data.listAfter && action.data.listBefore) {
                     milestone = { id: `hito-${action.id}`, name: `Tarjeta movida`, description: `Movida de "${action.data.listBefore.name}" a "${action.data.listAfter.name}" por ${action.memberCreator.fullName}.`, occurredAt: action.date, category: activityCategory, tags: ['actividad', 'movimiento'], associatedFiles: [], isImportant: false, history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] };
                 }
