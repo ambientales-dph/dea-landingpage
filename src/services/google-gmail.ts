@@ -26,8 +26,8 @@ async function getGmailClient() {
     } catch (error: any) {
         console.error('ERROR OAUTH GMAIL:', error.message);
         // Error común: el token no tiene el scope de gmail
-        if (error.message.includes('invalid_grant') || error.message.includes('scope')) {
-            throw new Error('AUTH_SCOPE_ERROR: El Refresh Token es inválido o no tiene permisos para Gmail. Generá uno nuevo incluyendo el scope https://www.googleapis.com/auth/gmail.readonly');
+        if (error.message.includes('invalid_grant') || error.message.includes('scope') || error.message.includes('insufficient')) {
+            throw new Error('AUTH_SCOPE_ERROR: El Refresh Token no tiene permisos suficientes. Generá uno nuevo incluyendo los scopes de Drive, Gmail y Contactos.');
         }
         throw new Error(`AUTH_FAILED: ${error.message}`);
     }
@@ -122,6 +122,14 @@ export async function setupGmailWatch(topicName: string) {
     } catch (error: any) {
         console.error('Error setting up Gmail watch:', error.message);
         const detail = error.response?.data?.error?.message || error.message;
+        
+        if (detail.includes('insufficient')) {
+            return { 
+                success: false, 
+                error: 'Error de Scopes: Tu Refresh Token no tiene permiso para ejecutar "watch". Generá uno nuevo incluyendo el scope gmail.readonly.' 
+            };
+        }
+        
         return { 
             success: false, 
             error: detail.includes('403') 
