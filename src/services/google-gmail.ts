@@ -51,6 +51,7 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
     try {
         const gmail = await getGmailClient();
         
+        console.log('--- Iniciando escaneo manual de Gmail ---');
         const response = await gmail.users.messages.list({
             userId: 'me',
             maxResults: 10,
@@ -58,6 +59,8 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
         });
 
         const messages = response.data.messages || [];
+        console.log(`Se encontraron ${messages.length} mensajes en el INBOX.`);
+        
         const summaries: GmailMessageSummary[] = [];
 
         // Procesamos mensajes en paralelo para mayor velocidad
@@ -105,6 +108,7 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
  */
 export async function setupGmailWatch(topicName: string) {
     try {
+        console.log(`Intentando registrar Watch en Gmail para el topic: ${topicName}`);
         const gmail = await getGmailClient();
         const response = await gmail.users.watch({
             userId: 'me',
@@ -113,14 +117,16 @@ export async function setupGmailWatch(topicName: string) {
                 labelIds: ['INBOX']
             }
         });
+        console.log('Respuesta de Gmail Watch:', response.data);
         return { success: true, data: response.data };
     } catch (error: any) {
         console.error('Error setting up Gmail watch:', error.message);
+        const detail = error.response?.data?.error?.message || error.message;
         return { 
             success: false, 
-            error: error.message.includes('403') 
-                ? 'Error 403: Verificá que el topic tenga permisos para gmail-api-push@system.gserviceaccount.com' 
-                : error.message 
+            error: detail.includes('403') 
+                ? 'Error 403: Verificá que el topic tenga permisos para gmail-api-push@system.gserviceaccount.com como Publisher.' 
+                : detail 
         };
     }
 }
