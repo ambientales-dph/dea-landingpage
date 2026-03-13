@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -22,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useProject } from '@/providers/project-provider';
 import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { cn } from '@/lib/utils';
 
 export default function MailRadar() {
     const [alerts, setAlerts] = useState<any[]>([]);
