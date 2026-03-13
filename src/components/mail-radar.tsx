@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, ShieldAlert, Zap, Info } from 'lucide-react';
+import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, ShieldAlert, Zap, Info, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -27,6 +27,7 @@ export default function MailRadar() {
     const [alerts, setAlerts] = useState<any[]>([]);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isActivatingPush, setIsActivatingPush] = useState(false);
+    const [pushIsActive, setPushIsActive] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
     const [errorState, setErrorState] = useState<string | null>(null);
@@ -104,6 +105,7 @@ export default function MailRadar() {
         try {
             const result = await activateRealTimeRadar();
             if (result.success) {
+                setPushIsActive(true);
                 toast({ title: 'Push Activado', description: 'Gmail notificará a la app cada vez que entre un mail.' });
             } else {
                 toast({ variant: 'destructive', title: 'Error al activar Push', description: result.error });
@@ -145,7 +147,7 @@ export default function MailRadar() {
                     )}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 md:w-[400px] max-h-[70vh] overflow-hidden flex flex-col p-0 shadow-2xl border-primary/20">
+            <DropdownMenuContent align="end" className="w-80 md:w-[400px] max-h-[70vh] overflow-hidden flex flex-col p-0 shadow-2xl border-primary/20 bg-white">
                 <DropdownMenuLabel className="flex flex-col gap-3 p-4 bg-muted/30">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -157,11 +159,14 @@ export default function MailRadar() {
                                 variant="outline" 
                                 size="sm" 
                                 onClick={handleActivatePush}
-                                disabled={isActivatingPush}
-                                title="Suscribir a notificaciones instantáneas"
-                                className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
+                                disabled={isActivatingPush || pushIsActive}
+                                title={pushIsActive ? "Modo Push Activo" : "Suscribir a notificaciones instantáneas"}
+                                className={cn(
+                                    "h-8 w-8 p-0 border-primary/30 transition-all",
+                                    pushIsActive ? "bg-green-500 border-green-600 text-white" : "text-primary hover:bg-primary/10"
+                                )}
                             >
-                                {isActivatingPush ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                                {isActivatingPush ? <Loader2 className="h-3 w-3 animate-spin" /> : pushIsActive ? <CheckCircle2 className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
                             </Button>
                             <Button 
                                 variant="outline" 
@@ -275,7 +280,11 @@ export default function MailRadar() {
                 <DropdownMenuSeparator className="m-0" />
                 <div className="p-3 bg-muted/10 text-center">
                     <p className="text-[9px] text-muted-foreground italic flex items-center justify-center gap-1">
-                        <Zap className="h-2.5 w-2.5 text-primary" /> El modo Push está activado para recibir alertas instantáneas.
+                        {pushIsActive ? (
+                            <><CheckCircle2 className="h-2.5 w-2.5 text-green-600" /> El sistema está escuchando Gmail en tiempo real.</>
+                        ) : (
+                            <><Zap className="h-2.5 w-2.5 text-primary" /> Suscribite al modo Push para recibir alertas instantáneas.</>
+                        )}
                     </p>
                 </div>
             </DropdownMenuContent>
