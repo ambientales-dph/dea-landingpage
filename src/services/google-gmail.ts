@@ -3,19 +3,33 @@
 
 import { google } from 'googleapis';
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-);
+/**
+ * Servicio para interactuar con la API de Gmail.
+ * Requiere que las variables de entorno de Google (TL) estén configuradas
+ * y que el Refresh Token tenga el scope 'https://www.googleapis.com/auth/gmail.readonly'.
+ */
+async function getGmailClient() {
+    const clientId = (process.env.GOOGLE_CLIENT_ID_TL || '').trim();
+    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET_TL || '').trim();
+    const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN_TL || '').trim();
 
-oauth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-});
+    if (!clientId || !clientSecret || !refreshToken) {
+        throw new Error('CONFIG_MISSING: Faltan credenciales de Google TL en el servidor (.env).');
+    }
 
-const gmail = google.gmail({
-  version: 'v1',
-  auth: oauth2Client,
-});
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+    try {
+        // Validar token
+        await oauth2Client.getAccessToken();
+    } catch (error: any) {
+        console.error('ERROR OAUTH GMAIL:', error.message);
+        throw new Error('AUTH_FAILED: El token de Google ha expirado o no tiene permisos para Gmail.');
+    }
+
+    return google.gmail({ version: 'v1', auth: oauth2Client });
+}
 
 export interface GmailMessageSummary {
     id: string;
@@ -31,6 +45,8 @@ export interface GmailMessageSummary {
  */
 export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
     try {
+        const gmail = await getGmailClient();
+        
         const response = await gmail.users.messages.list({
             userId: 'me',
             maxResults: 20,
@@ -68,6 +84,8 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
         return summaries;
     } catch (error: any) {
         console.error('Error fetching Gmail messages:', error.message);
-        throw new Error('No se pudieron obtener los correos de Gmail.');
+        if (error.message.includes('CONFIG_MISSING')) throw error;
+        if (error.message.includes('AUTH_FAILED')) throw error;
+        throw new Error('API_ERROR: Asegurate de que la "Gmail API" esté habilitada en Google Cloud Console.');
     }
 }

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Mail, Loader2, AlertCircle, ExternalLink, Trash2, CheckCircle2, RefreshCw, Sparkles } from 'lucide-react';
+import { Mail, Loader2, AlertCircle, ExternalLink, Trash2, CheckCircle2, RefreshCw, Sparkles, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore } from '@/firebase';
-import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { syncGmailAlerts, updateAlertStatus } from '@/app/actions/gmail-actions';
@@ -27,6 +27,7 @@ export default function MailRadar() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
+    const [errorState, setErrorState] = useState<string | null>(null);
     const db = useFirestore();
     const { toast } = useToast();
     const { allCards, setSelectedCard } = useProject();
@@ -35,8 +36,6 @@ export default function MailRadar() {
 
     useEffect(() => {
         setIsLoading(true);
-        // Simplificamos la consulta para evitar la necesidad de un índice compuesto manual en Firestore.
-        // Obtenemos los últimos registros por fecha de procesamiento y filtramos/ordenamos en memoria.
         const q = query(
             collection(db, 'mail_alerts'), 
             orderBy('processedAt', 'desc'), 
@@ -48,7 +47,6 @@ export default function MailRadar() {
                 .map(doc => ({ id: doc.id, ...doc.data() }))
                 .filter((alert: any) => alert.status !== 'dismissed')
                 .sort((a: any, b: any) => {
-                    // Priorizar los 'new' sobre los 'read'
                     if (a.status === b.status) {
                         const dateA = a.processedAt?.toMillis?.() || 0;
                         const dateB = b.processedAt?.toMillis?.() || 0;
@@ -74,6 +72,7 @@ export default function MailRadar() {
         if (isSyncing) return;
 
         setIsSyncing(true);
+        setErrorState(null);
         toast({ title: 'Escaneando Gmail...', description: 'La IA está analizando nuevos correos vinculados a obras.' });
 
         try {
@@ -91,12 +90,14 @@ export default function MailRadar() {
                 if (result.newAlerts > 0) {
                     toast({ title: 'Escaneo finalizado', description: `Se detectaron ${result.newAlerts} correos nuevos relacionados con proyectos.` });
                 } else {
-                    toast({ title: 'Sin novedades', description: 'No se detectaron nuevos correos vinculados a obras en la bandeja de entrada.' });
+                    toast({ title: 'Sin novedades', description: 'No se detectaron nuevos correos vinculados a obras.' });
                 }
             } else {
+                setErrorState(result.error);
                 toast({ variant: 'destructive', title: 'Error de escaneo', description: result.error });
             }
-        } catch (error) {
+        } catch (error: any) {
+            setErrorState('Error de conexión con el servidor.');
             toast({ variant: 'destructive', title: 'Error de conexión', description: 'No se pudo contactar con el servicio de Gmail.' });
         } finally {
             setIsSyncing(false);
@@ -153,10 +154,26 @@ export default function MailRadar() {
                 <DropdownMenuSeparator className="m-0" />
                 
                 <ScrollArea className="flex-1 overflow-y-auto">
-                    {isLoading && alerts.length === 0 && (
+                    {isLoading && alerts.length === 0 && !errorState && (
                         <div className="p-12 flex flex-col items-center justify-center text-muted-foreground gap-3">
                             <Loader2 className="h-8 w-8 animate-spin opacity-20" />
                             <p className="text-xs italic">Cargando alertas de mail...</p>
+                        </div>
+                    )}
+
+                    {errorState && (
+                        <div className="p-8 text-center flex flex-col items-center gap-3">
+                            <ShieldAlert className="h-8 w-8 text-destructive opacity-50" />
+                            <div className="space-y-1">
+                                <p className="text-xs font-bold text-destructive">Error de configuración</p>
+                                <p className="text-[10px] text-muted-foreground px-4 leading-relaxed">
+                                    {errorState.includes('CONFIG_MISSING') 
+                                        ? 'Faltan credenciales en el servidor. Revisá las variables de entorno de Google.' 
+                                        : errorState.includes('AUTH_FAILED')
+                                        ? 'El token de Google no tiene permisos de Gmail. Es necesario re-autorizar con el scope gmail.readonly.'
+                                        : errorState}
+                                </p>
+                            </div>
                         </div>
                     )}
                     
@@ -204,14 +221,14 @@ export default function MailRadar() {
                                 </DropdownMenuItem>
                             ))}
                         </div>
-                    ) : !isLoading && (
+                    ) : !isLoading && !errorState && (
                         <div className="p-12 text-center flex flex-col items-center gap-4">
                             <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
                                 <Mail className="h-6 w-6 text-muted-foreground/40" />
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium">Bandeja de radar limpia</p>
-                                <p className="text-[10px] text-muted-foreground px-8">No hay correos detectados para tus obras. Usá el botón sincronizar para escanear de nuevo.</p>
+                                <p className="text-sm font-medium">Radar sin novedades</p>
+                                <p className="text-[10px] text-muted-foreground px-8">No hay correos detectados. Usá el botón sincronizar para escanear la bandeja de entrada.</p>
                             </div>
                         </div>
                     )}
@@ -220,7 +237,7 @@ export default function MailRadar() {
                 <DropdownMenuSeparator className="m-0" />
                 <div className="p-3 bg-muted/10 text-center">
                     <p className="text-[9px] text-muted-foreground italic flex items-center justify-center gap-1">
-                        <Sparkles className="h-2.5 w-2.5" /> El Radar analiza el lenguaje natural para ahorrarte tiempo de carga.
+                        <Sparkles className="h-2.5 w-2.5" /> El Radar analiza lenguaje natural para ahorrarte tiempo.
                     </p>
                 </div>
             </DropdownMenuContent>
