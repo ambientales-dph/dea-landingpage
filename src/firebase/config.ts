@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Configuración de Firebase.
  * Se utilizan los valores proporcionados directamente para asegurar la conexión.

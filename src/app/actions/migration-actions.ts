@@ -1,8 +1,8 @@
-
 'use server';
 
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, setDoc, writeBatch } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 
 const sourceConfig = {
   apiKey: process.env.SOURCE_FIREBASE_API_KEY,
@@ -31,7 +31,7 @@ export async function migrateFirestoreData() {
   }
 
   const sourceDb = getFirestore(sourceApp);
-  const { db: targetDb } = require('@/firebase').initializeFirebase();
+  const { db: targetDb } = initializeFirebase();
 
   try {
     // 1. MIGRAR CATEGORÍAS (Hacia timeline_categories)
