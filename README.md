@@ -12,12 +12,22 @@ Para que Google pueda avisarle a tu PC que entró un mail, necesitás ngrok corr
 3. Tu URL actual es: `https://torquate-hoodlike-mariann.ngrok-free.dev`
 
 ### 2. Generar Refresh Token con Scopes Correctos (CRUCIAL)
-Si ves el error "insufficient scopes", tenés que ir al [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) y generar un token que incluya estos 3 scopes exactos:
-- `https://www.googleapis.com/auth/drive`
-- `https://www.googleapis.com/auth/gmail.readonly`
-- `https://www.googleapis.com/auth/contacts.readonly`
+Si ves el error "insufficient scopes" o errores de autenticación, tenés que generar el token **vinculado a tu propio Client ID**.
 
-Copiá el nuevo `Refresh Token` resultante en tu archivo `.env`.
+Pasos en el [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/):
+1.  **Configurar tus Credenciales (EL PASO MÁS IMPORTANTE):**
+    *   Clic en el icono de **Engranaje (Settings)** arriba a la derecha.
+    *   Tildar la casilla **"Use your own OAuth credentials"**.
+    *   Pegar tu `OAuth Client ID` y `OAuth Client Secret` (los que tenés en el `.env`).
+    *   Clic en **Close**.
+2.  **Seleccionar Scopes:**
+    *   En el cuadro "Input your own scopes" a la izquierda, pegar estos 3 separados por espacio:
+        `https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/contacts.readonly`
+    *   Clic en **Authorize APIs**.
+3.  **Obtener Token:**
+    *   Logueate con la cuenta de ambientales.
+    *   En el "Step 2", clic en **Exchange authorization code for tokens**.
+    *   Copiá el **Refresh Token** resultante y pegalo en tu `.env`.
 
 ### 3. Configuración en Google Cloud Console
 1. **Permisos de Gmail:**
