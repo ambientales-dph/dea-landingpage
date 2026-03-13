@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, ShieldAlert, Zap } from 'lucide-react';
+import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, ShieldAlert, Zap, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -21,6 +21,7 @@ import { syncGmailAlerts, updateAlertStatus, activateRealTimeRadar } from '@/app
 import { useToast } from '@/hooks/use-toast';
 import { useProject } from '@/providers/project-provider';
 import { ScrollArea } from './ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 export default function MailRadar() {
     const [alerts, setAlerts] = useState<any[]>([]);
@@ -37,7 +38,6 @@ export default function MailRadar() {
 
     useEffect(() => {
         setIsLoading(true);
-        // Escuchamos en tiempo real los cambios en Firestore para las alertas de mail
         const q = query(
             collection(db, 'mail_alerts'), 
             orderBy('processedAt', 'desc'), 
@@ -214,14 +214,31 @@ export default function MailRadar() {
                                             </span>
                                             <p className="text-xs font-semibold truncate text-foreground" title={alert.subject}>{alert.subject}</p>
                                         </div>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
-                                            onClick={(e) => handleDismiss(e, alert.id)}
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
+                                        <div className="flex gap-1 shrink-0">
+                                            {alert.reasoning && (
+                                                <TooltipProvider>
+                                                    <Tooltip delayDuration={200}>
+                                                        <TooltipTrigger asChild>
+                                                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20">
+                                                                <Info className="h-3.5 w-3.5" />
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="left" className="max-w-xs bg-white text-black border shadow-lg text-[10px]">
+                                                            <p className="font-bold mb-1 uppercase tracking-tighter">Razonamiento IA:</p>
+                                                            <p className="leading-tight italic">"{alert.reasoning}"</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                                onClick={(e) => handleDismiss(e, alert.id)}
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
                                     </div>
                                     
                                     <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed bg-muted/30 p-1.5 rounded w-full italic">
