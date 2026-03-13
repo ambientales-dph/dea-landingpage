@@ -12,10 +12,9 @@ Para que Google pueda avisarle a tu PC que entró un mail, necesitás ngrok corr
 3. Tu URL actual es: `https://torquate-hoodlike-mariann.ngrok-free.dev`
 
 ### 2. Generar Refresh Token con Scopes Correctos (CRUCIAL)
-Si ves el error "insufficient scopes" o errores de autenticación, tenés que generar el token **vinculado a tu propio Client ID**.
+Si ves el error "insufficient scopes", seguí estos pasos exactos:
 
-Pasos en el [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/):
-1.  **Configurar tus Credenciales (EL PASO MÁS IMPORTANTE):**
+1.  **Configurar tus Credenciales en el [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/):**
     *   Clic en el icono de **Engranaje (Settings)** arriba a la derecha.
     *   Tildar la casilla **"Use your own OAuth credentials"**.
     *   Pegar tu `OAuth Client ID` y `OAuth Client Secret` (los que tenés en el `.env`).
@@ -29,17 +28,19 @@ Pasos en el [OAuth 2.0 Playground](https://developers.google.com/oauthplayground
     *   En el "Step 2", clic en **Exchange authorization code for tokens**.
     *   Copiá el **Refresh Token** resultante y pegalo en tu `.env`.
 
+**IMPORTANTE:** Si tenés variables con el sufijo `_TL` en tu `.env` (como `GOOGLE_CLIENT_ID_TL`), asegurate de que tengan los mismos valores que las normales, o borralas si no las estás usando, ya que la app podría estar priorizando valores viejos.
+
 ### 3. Configuración en Google Cloud Console
 1. **Permisos de Gmail:**
    - Ve a tu Topic: `projects/studio-1428739321-e57bb/topics/push_desde_gmail`.
    - Pestaña **Permisos** -> **Agregar Acceso**.
    - Miembro: `gmail-api-push@system.gserviceaccount.com`
-   - Rol: `Pub/Sub Publisher`.
+   - Rol: **Pub/Sub Publisher**.
 
-2. **Suscripción PUSH:**
+2. **Suscripción PUSH (NO extracción):**
    - Ve a tu Suscripción: `projects/studio-1428739321-e57bb/subscriptions/push_desde_gmail-sub`.
    - Clic en **Editar**.
-   - **Tipo de entrega:** Seleccioná **PUSH** (No "Extracción").
+   - **Tipo de entrega:** Seleccioná **PUSH**.
    - **URL de extremo:** `https://torquate-hoodlike-mariann.ngrok-free.dev/api/gmail-webhook`
    - Guarda los cambios.
 

@@ -5,34 +5,33 @@ import { google } from 'googleapis';
 
 /**
  * Servicio para interactuar con la API de Gmail.
- * Intenta usar las credenciales de la Línea de Tiempo (_TL) o las estándar.
+ * Mejora: Informa qué credenciales está usando para evitar confusiones con variables _TL.
  */
 async function getGmailClient() {
-    const clientId = (process.env.GOOGLE_CLIENT_ID_TL || process.env.GOOGLE_CLIENT_ID || '').trim();
-    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET_TL || process.env.GOOGLE_CLIENT_SECRET || '').trim();
-    const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN_TL || process.env.GOOGLE_REFRESH_TOKEN || '').trim();
+    // Intentamos obtener las credenciales priorizando las que NO tienen _TL si el usuario está en el Portal
+    // o consolidando si solo existe un set.
+    const clientId = (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID_TL || '').trim();
+    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET_TL || '').trim();
+    const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN || process.env.GOOGLE_REFRESH_TOKEN_TL || '').trim();
 
     if (!clientId || !clientSecret || !refreshToken) {
+        console.error('❌ [GMAIL SERVICE] Error: Faltan credenciales en .env');
         throw new Error('CONFIG_MISSING: Faltan credenciales de Google en el archivo .env.');
     }
+
+    // Log de diagnóstico (seguro)
+    console.log(`\n🔍 [GMAIL AUTH] Iniciando cliente...`);
+    console.log(`   Client ID: ${clientId.substring(0, 10)}... (Verificá que coincida con tu consola)`);
 
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({ refresh_token: refreshToken });
 
     try {
-        await oauth2Client.getAccessToken();
+        const tokenInfo = await oauth2Client.getAccessToken();
+        // Si llegamos acá, el token es válido, pero puede que no tenga los scopes correctos para Gmail
     } catch (error: any) {
-        console.error('ERROR OAUTH GMAIL:', error.message);
+        console.error('❌ [GMAIL AUTH] El Refresh Token es inválido o el Client Secret no coincide.');
         const detail = error.response?.data?.error_description || error.message;
-        
-        if (detail.includes('invalid_grant')) {
-            throw new Error('AUTH_INVALID_GRANT: El Refresh Token es inválido o expiró. Generá uno nuevo.');
-        }
-        
-        if (detail.includes('insufficient')) {
-            throw new Error('AUTH_SCOPE_ERROR: El Refresh Token no tiene permisos suficientes para Gmail.');
-        }
-
         throw new Error(`AUTH_FAILED: ${detail}`);
     }
 
@@ -70,7 +69,7 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
                 id: msg.id!,
                 format: 'full'
             }).catch(err => {
-                console.warn(`Error obteniendo detalle de mail ${msg.id}:`, err.message);
+                console.warn(`⚠️ [GMAIL] Error obteniendo detalle de mail ${msg.id}:`, err.message);
                 return null;
             })
         );
@@ -98,7 +97,7 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
 
         return summaries;
     } catch (error: any) {
-        console.error('Error fetching Gmail messages:', error.message);
+        console.error('❌ [GMAIL API ERROR]:', error.message);
         throw error;
     }
 }
@@ -108,10 +107,11 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
  */
 export async function setupGmailWatch(topicName: string) {
     try {
-        console.log(`Intentando registrar Watch en Gmail para el topic: ${topicName}`);
+        console.log(`\n🚀 [GMAIL WATCH] Intentando registrar suscripción...`);
+        console.log(`   Topic: ${topicName}`);
+        
         const gmail = await getGmailClient();
         
-        // Ejecutar el watch
         const response = await gmail.users.watch({
             userId: 'me',
             requestBody: {
@@ -120,23 +120,23 @@ export async function setupGmailWatch(topicName: string) {
             }
         });
         
-        console.log('✅ Gmail Watch registrado con éxito:', response.data);
+        console.log('✅ [GMAIL WATCH] Suscripción exitosa:', response.data);
         return { success: true, data: response.data };
     } catch (error: any) {
         const detail = error.response?.data?.error?.message || error.message;
-        console.error('❌ Error registrando Gmail watch:', detail);
+        console.error('❌ [GMAIL WATCH ERROR]:', detail);
         
         if (detail.includes('insufficient')) {
             return { 
                 success: false, 
-                error: 'Error de Scopes: Tu Refresh Token no tiene permiso para ejecutar "watch". Asegurate de haber marcado "Use your own OAuth credentials" en el Playground y seleccionado el scope gmail.readonly.' 
+                error: 'Error de Scopes: Aunque configuraste el Client ID, el Token generado NO incluye el permiso de lectura de Gmail. Repetí el proceso en el Playground asegurándote de ver "gmail.readonly" en la lista de autorizados del paso 2.' 
             };
         }
         
         return { 
             success: false, 
             error: detail.includes('403') 
-                ? 'Error 403: El topic no tiene permisos. Verificá el permiso Publisher para gmail-api-push@system.gserviceaccount.com.' 
+                ? 'Error 403: El topic no tiene permisos. Verificá el permiso "Pub/Sub Publisher" para gmail-api-push@system.gserviceaccount.com en la consola de Google Cloud.' 
                 : `Error en Gmail Watch: ${detail}` 
         };
     }
