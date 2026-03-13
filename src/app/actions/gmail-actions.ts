@@ -17,7 +17,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
     try {
         let projects = providedProjects;
         
-        // Si no se proveen proyectos (ej: llamado desde webhook), los buscamos
+        // Si no se proveen proyectos (ej: llamado desde webhook), los buscamos dinámicamente
         if (!projects) {
             const allCards = await getAllCardsFromAllBoards();
             projects = allCards.map(c => {
@@ -36,18 +36,19 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
         let newAlertsCount = 0;
 
         for (const email of emails) {
-            // Verificar si este mail ya fue procesado (usando cache local de IDs si fuera posible, pero consultamos Firestore)
+            // Verificamos en Firestore si este mailId ya fue procesado para no duplicar alertas
             const q = query(mailAlertsRef, where('mailId', '==', email.id));
             const existing = await getDocs(q);
             
             if (existing.empty) {
-                // Analizar con IA
+                // Análisis con Gemini IA
                 const analysis = await matchMailToProject({
                     subject: email.subject,
                     snippet: email.snippet,
                     availableProjects: projects
                 });
 
+                // Si la IA detecta una obra con confianza razonable (> 0.6)
                 if (analysis.matchedProjectCode && analysis.confidence > 0.6) {
                     const project = projects.find(p => p.code === analysis.matchedProjectCode);
                     
@@ -71,25 +72,28 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
 
         return { success: true, newAlerts: newAlertsCount };
     } catch (error: any) {
-        console.error('Error in syncGmailAlerts:', error);
+        console.error('Error en syncGmailAlerts:', error);
         return { success: false, error: error.message || 'Error desconocido al sincronizar Gmail.' };
     }
 }
 
 /**
- * Inicia la suscripción a notificaciones Push.
- * Requiere la variable de entorno GMAIL_PUB_SUB_TOPIC.
+ * Inicia la suscripción a notificaciones Push de Gmail.
+ * El topic debe estar configurado en Google Cloud Pub/Sub.
  */
 export async function activateRealTimeRadar() {
     const topic = process.env.GMAIL_PUB_SUB_TOPIC;
     if (!topic) {
-        return { success: false, error: 'Falta la variable GMAIL_PUB_SUB_TOPIC en el servidor.' };
+        return { 
+            success: false, 
+            error: 'Falta la variable GMAIL_PUB_SUB_TOPIC. Ejemplo: projects/tu-id/topics/mi-tema' 
+        };
     }
     return await setupGmailWatch(topic);
 }
 
 /**
- * Marca una alerta como leída o descartada.
+ * Marca una alerta como leída o descartada en Firestore.
  */
 export async function updateAlertStatus(alertId: string, status: 'read' | 'dismissed') {
     const { db } = initializeFirebase();

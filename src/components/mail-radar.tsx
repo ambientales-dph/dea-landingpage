@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Mail, Loader2, AlertCircle, ExternalLink, Trash2, CheckCircle2, RefreshCw, Sparkles, ShieldAlert, Zap } from 'lucide-react';
+import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, ShieldAlert, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -37,30 +37,22 @@ export default function MailRadar() {
 
     useEffect(() => {
         setIsLoading(true);
+        // Escuchamos en tiempo real los cambios en Firestore para las alertas de mail
         const q = query(
             collection(db, 'mail_alerts'), 
             orderBy('processedAt', 'desc'), 
-            limit(50)
+            limit(20)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const docs = snapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter((alert: any) => alert.status !== 'dismissed')
-                .sort((a: any, b: any) => {
-                    if (a.status === b.status) {
-                        const dateA = a.processedAt?.toMillis?.() || 0;
-                        const dateB = b.processedAt?.toMillis?.() || 0;
-                        return dateB - dateA;
-                    }
-                    return a.status === 'new' ? -1 : 1;
-                })
-                .slice(0, 20);
+                .filter((alert: any) => alert.status !== 'dismissed');
 
             setAlerts(docs);
             setIsLoading(false);
         }, (error) => {
-            console.error("Error in MailRadar snapshot:", error);
+            console.error("Error en listener de Radar:", error);
             setIsLoading(false);
         });
 
@@ -74,7 +66,7 @@ export default function MailRadar() {
 
         setIsSyncing(true);
         setErrorState(null);
-        toast({ title: 'Escaneando Gmail...', description: 'La IA está analizando nuevos correos vinculados a obras.' });
+        toast({ title: 'Escaneando Gmail...', description: 'La IA está analizando los correos en busca de obras.' });
 
         try {
             const projectList = allCards.map(c => {
@@ -89,17 +81,17 @@ export default function MailRadar() {
             const result = await syncGmailAlerts(projectList);
             if (result.success) {
                 if (result.newAlerts > 0) {
-                    toast({ title: 'Escaneo finalizado', description: `Se detectaron ${result.newAlerts} correos nuevos.` });
+                    toast({ title: 'Escaneo finalizado', description: `Se detectaron ${result.newAlerts} correos vinculados.` });
                 } else {
-                    toast({ title: 'Sin novedades', description: 'No hay correos nuevos para procesar.' });
+                    toast({ title: 'Sin novedades', description: 'No se encontraron correos nuevos para obras conocidas.' });
                 }
             } else {
                 setErrorState(result.error);
                 toast({ variant: 'destructive', title: 'Error de escaneo', description: result.error });
             }
         } catch (error: any) {
-            setErrorState('Error de conexión con el servidor.');
-            toast({ variant: 'destructive', title: 'Error de conexión', description: 'No se pudo contactar con el servicio de Gmail.' });
+            setErrorState('Error de comunicación con el servidor.');
+            toast({ variant: 'destructive', title: 'Error de conexión', description: 'No se pudo contactar con Gmail API.' });
         } finally {
             setIsSyncing(false);
         }
@@ -112,12 +104,12 @@ export default function MailRadar() {
         try {
             const result = await activateRealTimeRadar();
             if (result.success) {
-                toast({ title: 'Push Activado', description: 'Gmail ahora notificará cambios en tiempo real.' });
+                toast({ title: 'Push Activado', description: 'Gmail notificará a la app cada vez que entre un mail.' });
             } else {
-                toast({ variant: 'destructive', title: 'Error Push', description: result.error });
+                toast({ variant: 'destructive', title: 'Error al activar Push', description: result.error });
             }
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo activar el servicio Push.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo registrar el Watch de Gmail.' });
         } finally {
             setIsActivatingPush(false);
         }
@@ -130,7 +122,7 @@ export default function MailRadar() {
                 setSelectedCard(card);
                 await updateAlertStatus(alert.id, 'read');
             } else {
-                toast({ variant: 'destructive', title: 'Proyecto no encontrado', description: 'La tarjeta vinculada ya no está disponible.' });
+                toast({ variant: 'destructive', title: 'Proyecto no encontrado', description: 'La tarjeta vinculada ya no está en Trello.' });
             }
         }
     };
@@ -158,7 +150,7 @@ export default function MailRadar() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Sparkles className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-bold uppercase tracking-tight">Radar de Gmail</span>
+                            <span className="text-sm font-bold uppercase tracking-tight">Radar de Gmail (IA)</span>
                         </div>
                         <div className="flex gap-2">
                             <Button 
@@ -166,7 +158,7 @@ export default function MailRadar() {
                                 size="sm" 
                                 onClick={handleActivatePush}
                                 disabled={isActivatingPush}
-                                title="Activar notificaciones Push"
+                                title="Suscribir a notificaciones instantáneas"
                                 className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/10"
                             >
                                 {isActivatingPush ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
@@ -190,7 +182,7 @@ export default function MailRadar() {
                     {isLoading && alerts.length === 0 && !errorState && (
                         <div className="p-12 flex flex-col items-center justify-center text-muted-foreground gap-3">
                             <Loader2 className="h-8 w-8 animate-spin opacity-20" />
-                            <p className="text-xs italic">Cargando alertas de mail...</p>
+                            <p className="text-xs italic">Cargando alertas...</p>
                         </div>
                     )}
 
@@ -198,9 +190,9 @@ export default function MailRadar() {
                         <div className="p-8 text-center flex flex-col items-center gap-3">
                             <ShieldAlert className="h-8 w-8 text-destructive opacity-50" />
                             <div className="space-y-1">
-                                <p className="text-xs font-bold text-destructive">Error de conexión</p>
+                                <p className="text-xs font-bold text-destructive">Error de Gmail</p>
                                 <p className="text-[10px] text-muted-foreground px-4 leading-relaxed">
-                                    No se pudo conectar con el servidor de Gmail. Verificá que la API esté habilitada y el token sea válido.
+                                    No se pudo conectar. Verificá que la Gmail API esté activa y el Refresh Token sea válido.
                                 </p>
                             </div>
                         </div>
@@ -218,7 +210,7 @@ export default function MailRadar() {
                                         <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                                             <span className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase">
                                                 <AlertCircle className="h-3 w-3" />
-                                                Proyecto: {alert.detectedProjectCode}
+                                                Obra: {alert.detectedProjectCode}
                                             </span>
                                             <p className="text-xs font-semibold truncate text-foreground" title={alert.subject}>{alert.subject}</p>
                                         </div>
@@ -238,7 +230,7 @@ export default function MailRadar() {
                                     
                                     <div className="flex items-center justify-between w-full mt-2">
                                         <div className="flex flex-col">
-                                            <span className="text-[9px] text-muted-foreground truncate max-w-[180px]">De: {alert.from}</span>
+                                            <span className="text-[9px] text-muted-foreground truncate max-w-[180px]">Remitente: {alert.from}</span>
                                             <span className="text-[9px] text-zinc-400">
                                                 {alert.processedAt ? formatDistanceToNow(alert.processedAt.toDate(), { addSuffix: true, locale: es }) : 'Recién'}
                                             </span>
@@ -256,8 +248,8 @@ export default function MailRadar() {
                                 <Mail className="h-6 w-6 text-muted-foreground/40" />
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium">Radar sin novedades</p>
-                                <p className="text-[10px] text-muted-foreground px-8">No hay correos detectados actualmente.</p>
+                                <p className="text-sm font-medium">Bandeja sin novedades</p>
+                                <p className="text-[10px] text-muted-foreground px-8">No se han detectado correos vinculados a obras recientemente.</p>
                             </div>
                         </div>
                     )}
@@ -266,7 +258,7 @@ export default function MailRadar() {
                 <DropdownMenuSeparator className="m-0" />
                 <div className="p-3 bg-muted/10 text-center">
                     <p className="text-[9px] text-muted-foreground italic flex items-center justify-center gap-1">
-                        <Zap className="h-2.5 w-2.5 text-primary" /> Modo Push preparado para notificaciones instantáneas.
+                        <Zap className="h-2.5 w-2.5 text-primary" /> El modo Push está activado para recibir alertas instantáneas.
                     </p>
                 </div>
             </DropdownMenuContent>
