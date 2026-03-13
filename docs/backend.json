@@ -32,6 +32,24 @@
       },
       "required": ["name"]
     },
+    "MailAlert": {
+      "title": "MailAlert",
+      "description": "Notificación de un correo electrónico entrante vinculado a un proyecto por IA.",
+      "type": "object",
+      "properties": {
+        "mailId": { "type": "string" },
+        "subject": { "type": "string" },
+        "from": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "detectedProjectCode": { "type": "string" },
+        "detectedProjectName": { "type": "string" },
+        "cardId": { "type": "string" },
+        "snippet": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "read", "dismissed"] },
+        "processedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["mailId", "subject", "from", "detectedProjectCode", "status"]
+    },
     "TimelineProject": {
       "title": "TimelineProject",
       "description": "Datos de proyectos migrados de la Línea de Tiempo.",
@@ -77,6 +95,10 @@
     "/proyectistas/{proyectistaId}": {
       "schema": { "$ref": "#/backend/entities/Proyectista" },
       "description": "Directorio de proyectistas."
+    },
+    "/mail_alerts/{alertId}": {
+      "schema": { "$ref": "#/backend/entities/MailAlert" },
+      "description": "Alertas de correos vinculados a proyectos."
     },
     "/timeline_projects/{projectId}": {
       "schema": { "$ref": "#/backend/entities/TimelineProject" },

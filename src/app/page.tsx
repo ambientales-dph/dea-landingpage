@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
@@ -80,6 +81,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import jsPDF from 'jspdf';
 import NotificationsBell from '@/components/notifications-bell';
+import MailRadar from '@/components/mail-radar';
 import { useAuth, useUser } from '@/firebase';
 import { loginConGoogle, cerrarSesion, isUserAuthorized, WHITELIST } from '@/services/auth-service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -563,6 +565,7 @@ function HomeContent() {
           <div className="container mx-auto flex h-full items-center justify-between px-4">
             <h1 className="font-headline text-lg md:text-xl font-bold tracking-tight text-primary-foreground">Departamento de Estudios Ambientales</h1>
             <div className='flex items-center gap-2'>
+              <MailRadar />
               <NotificationsBell onNotificationClick={handleNotificationClick} />
               <DropdownMenu>
                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/80"><Settings className="h-6 w-6" /></Button></DropdownMenuTrigger>
