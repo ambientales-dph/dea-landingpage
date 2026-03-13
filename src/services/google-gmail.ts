@@ -5,8 +5,6 @@ import { google } from 'googleapis';
 
 /**
  * Servicio para interactuar con la API de Gmail.
- * Requiere que las variables de entorno de Google (TL) estén configuradas
- * y que el Refresh Token tenga el scope 'https://www.googleapis.com/auth/gmail.readonly'.
  */
 async function getGmailClient() {
     const clientId = (process.env.GOOGLE_CLIENT_ID_TL || '').trim();
@@ -21,7 +19,6 @@ async function getGmailClient() {
     oauth2Client.setCredentials({ refresh_token: refreshToken });
 
     try {
-        // Validar token
         await oauth2Client.getAccessToken();
     } catch (error: any) {
         console.error('ERROR OAUTH GMAIL:', error.message);
@@ -49,7 +46,7 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
         
         const response = await gmail.users.messages.list({
             userId: 'me',
-            maxResults: 20,
+            maxResults: 10, // Bajamos a 10 para mayor velocidad en el radar
             q: 'label:INBOX'
         });
 
@@ -84,8 +81,27 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
         return summaries;
     } catch (error: any) {
         console.error('Error fetching Gmail messages:', error.message);
-        if (error.message.includes('CONFIG_MISSING')) throw error;
-        if (error.message.includes('AUTH_FAILED')) throw error;
-        throw new Error('API_ERROR: Asegurate de que la "Gmail API" esté habilitada en Google Cloud Console.');
+        throw error;
+    }
+}
+
+/**
+ * Configura el "Watch" de Gmail para recibir notificaciones Push vía Pub/Sub.
+ * El topicName debe tener el formato projects/PROJECT_ID/topics/TOPIC_NAME
+ */
+export async function setupGmailWatch(topicName: string) {
+    try {
+        const gmail = await getGmailClient();
+        const response = await gmail.users.watch({
+            userId: 'me',
+            requestBody: {
+                topicName: topicName,
+                labelIds: ['INBOX']
+            }
+        });
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error('Error setting up Gmail watch:', error.message);
+        return { success: false, error: error.message };
     }
 }
