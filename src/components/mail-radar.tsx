@@ -35,17 +35,33 @@ export default function MailRadar() {
 
     useEffect(() => {
         setIsLoading(true);
+        // Simplificamos la consulta para evitar la necesidad de un índice compuesto manual en Firestore.
+        // Obtenemos los últimos registros por fecha de procesamiento y filtramos/ordenamos en memoria.
         const q = query(
             collection(db, 'mail_alerts'), 
-            where('status', '!=', 'dismissed'),
-            orderBy('status', 'asc'),
             orderBy('processedAt', 'desc'), 
-            limit(20)
+            limit(50)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const docs = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter((alert: any) => alert.status !== 'dismissed')
+                .sort((a: any, b: any) => {
+                    // Priorizar los 'new' sobre los 'read'
+                    if (a.status === b.status) {
+                        const dateA = a.processedAt?.toMillis?.() || 0;
+                        const dateB = b.processedAt?.toMillis?.() || 0;
+                        return dateB - dateA;
+                    }
+                    return a.status === 'new' ? -1 : 1;
+                })
+                .slice(0, 20);
+
             setAlerts(docs);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error in MailRadar snapshot:", error);
             setIsLoading(false);
         });
 
