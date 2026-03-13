@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, ShieldAlert, Zap, Info, CheckCircle2 } from 'lucide-react';
+import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, ShieldAlert, Zap, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -87,12 +87,13 @@ export default function MailRadar() {
                     toast({ title: 'Sin novedades', description: 'No se encontraron correos nuevos para obras conocidas.' });
                 }
             } else {
-                setErrorState(result.error);
+                setErrorState(result.error || 'Error desconocido');
                 toast({ variant: 'destructive', title: 'Error de escaneo', description: result.error });
             }
         } catch (error: any) {
-            setErrorState('Error de comunicación con el servidor.');
-            toast({ variant: 'destructive', title: 'Error de conexión', description: 'No se pudo contactar con Gmail API.' });
+            const msg = error.message || 'Error de comunicación con el servidor.';
+            setErrorState(msg);
+            toast({ variant: 'destructive', title: 'Error de conexión', description: msg });
         } finally {
             setIsSyncing(false);
         }
@@ -193,11 +194,11 @@ export default function MailRadar() {
 
                     {errorState && (
                         <div className="p-8 text-center flex flex-col items-center gap-3">
-                            <ShieldAlert className="h-8 w-8 text-destructive opacity-50" />
+                            <AlertTriangle className="h-8 w-8 text-destructive opacity-50" />
                             <div className="space-y-1">
                                 <p className="text-xs font-bold text-destructive">Error de Gmail</p>
                                 <p className="text-[10px] text-muted-foreground px-4 leading-relaxed">
-                                    No se pudo conectar. Verificá que la Gmail API esté activa y el Refresh Token sea válido.
+                                    {errorState}
                                 </p>
                             </div>
                         </div>
