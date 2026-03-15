@@ -14,11 +14,11 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
     const { db } = initializeFirebase();
     
     try {
-        console.log(`\n🔍 [RADAR] Iniciando escaneo de Gmail...`);
+        console.log(`   [RADAR] Iniciando proceso de análisis...`);
         let projects = providedProjects;
         
         if (!projects) {
-            console.log(`   - Buscando proyectos en Trello...`);
+            console.log(`   [RADAR] Obteniendo proyectos desde Trello...`);
             const allCards = await getAllCardsFromAllBoards();
             projects = allCards.map(c => {
                 const codeMatch = c.name.match(/\(([^)]+)\)$/);
@@ -28,11 +28,17 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                     name: c.name.replace(/\([^)]+\)$/, '').trim()
                 };
             }).filter(p => p.code !== 'S/C');
-            console.log(`   - OK: ${projects.length} proyectos activos encontrados.`);
+            console.log(`   [RADAR] OK: ${projects.length} proyectos con código encontrados.`);
         }
 
+        if (projects.length === 0) {
+            console.warn(`   [RADAR] No hay proyectos con códigos válidos (ej: ARG001) para comparar.`);
+            return { success: true, newAlerts: 0 };
+        }
+
+        console.log(`   [RADAR] Consultando últimos emails de la API de Gmail...`);
         const emails = await getLatestEmails();
-        console.log(`   - OK: ${emails.length} correos recientes obtenidos.`);
+        console.log(`   [RADAR] OK: ${emails.length} correos recibidos para analizar.`);
         
         const mailAlertsRef = collection(db, 'mail_alerts');
         const notificacionesRef = collection(db, 'notificaciones_obras');
@@ -40,11 +46,12 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
 
         const processPromises = emails.map(async (email) => {
             try {
+                // Verificar si este mail ya fue procesado antes para no duplicar notificaciones
                 const q = query(mailAlertsRef, where('mailId', '==', email.id));
                 const existing = await getDocs(q);
                 
                 if (existing.empty) {
-                    console.log(`   - Analizando: "${email.subject}" de ${email.from}...`);
+                    console.log(`   [ANALIZANDO] "${email.subject}" (Remitente: ${email.from})`);
                     
                     const analysis = await matchMailToProject({
                         subject: email.subject,
@@ -53,10 +60,10 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                     });
 
                     if (analysis.matchedProjectCode) {
-                        console.log(`     ✅ COINCIDENCIA: ${analysis.matchedProjectCode} (Confianza: ${analysis.confidence})`);
+                        console.log(`     ✅ VÍNCULO DETECTADO: ${analysis.matchedProjectCode} (Confianza: ${analysis.confidence})`);
                         const project = projects!.find(p => p.code === analysis.matchedProjectCode);
                         
-                        // Guardamos la alerta técnica completa
+                        // 1. Guardamos la alerta técnica completa
                         await addDoc(mailAlertsRef, {
                             mailId: email.id,
                             subject: email.subject,
@@ -71,7 +78,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                             reasoning: analysis.reasoning
                         });
 
-                        // Guardamos la notificación simplificada para el listener de tiempo real (pedido por el usuario)
+                        // 2. Guardamos la notificación simplificada para el listener de tiempo real del frontend
                         await addDoc(notificacionesRef, {
                             obra_relacionada: `${analysis.matchedProjectCode} - ${project?.name || 'Obra detectada'}`,
                             resumen_ia: analysis.reasoning,
@@ -84,9 +91,11 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                     } else {
                         console.log(`     ❌ Sin relación clara.`);
                     }
+                } else {
+                    // console.log(`     - Mail ${email.id} ya procesado anteriormente.`);
                 }
-            } catch (err) {
-                console.error(`Error procesando mail individual ${email.id}:`, err);
+            } catch (err: any) {
+                console.error(`   [ERROR INDIVIDUAL] Procesando mail ${email.id}:`, err.message);
             }
             return false;
         });
@@ -94,10 +103,9 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
         const results = await Promise.all(processPromises);
         newAlertsCount = results.filter(r => r === true).length;
 
-        console.log(`🏁 [RADAR] Fin del proceso. Nuevas alertas: ${newAlertsCount}\n`);
         return { success: true, newAlerts: newAlertsCount };
     } catch (error: any) {
-        console.error('Error crítico en syncGmailAlerts:', error);
+        console.error('❌ [RADAR ERROR CRÍTICO]:', error.message);
         return { 
             success: false, 
             error: error.message || 'Error desconocido al sincronizar Gmail.' 
