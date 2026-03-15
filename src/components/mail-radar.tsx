@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, ShieldAlert, Zap, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, Zap, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -32,12 +33,15 @@ export default function MailRadar() {
     const [isOpen, setIsOpen] = useState(false);
     const [errorState, setErrorState] = useState<string | null>(null);
     const db = useFirestore();
+    const { user } = useUser();
     const { toast } = useToast();
     const { allCards, setSelectedCard } = useProject();
 
     const unreadCount = useMemo(() => alerts.filter(a => a.status === 'new').length, [alerts]);
 
     useEffect(() => {
+        if (!db || !user) return;
+
         setIsLoading(true);
         const q = query(
             collection(db, 'mail_alerts'), 
@@ -53,12 +57,12 @@ export default function MailRadar() {
             setAlerts(docs);
             setIsLoading(false);
         }, (error) => {
-            console.error("Error en listener de Radar:", error);
+            console.warn("Error en listener de Radar (posible sesión expirada):", error.message);
             setIsLoading(false);
         });
 
         return () => unsubscribe();
-    }, [db]);
+    }, [db, user]);
 
     const handleSync = async (e: React.MouseEvent) => {
         e.preventDefault();

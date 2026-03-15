@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { collection, query, orderBy, limit, onSnapshot, where, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -11,14 +12,15 @@ import { useToast } from '@/hooks/use-toast';
  */
 export function useMailNotifications() {
     const db = useFirestore();
+    const { user } = useUser();
     const { toast } = useToast();
     const isFirstRun = useRef(true);
     const lastProcessedTime = useRef(Date.now());
 
     useEffect(() => {
-        if (!db) return;
+        // Solo escuchamos si el usuario está autenticado para evitar errores de permisos
+        if (!db || !user) return;
 
-        // Solo escuchamos notificaciones creadas DESDE que se cargó la app para evitar spam de viejas
         const q = query(
             collection(db, 'notificaciones_obras'),
             where('fecha_recepcion', '>', Timestamp.fromMillis(lastProcessedTime.current)),
@@ -36,21 +38,17 @@ export function useMailNotifications() {
                 if (change.type === 'added') {
                     const data = change.doc.data();
                     
-                    console.log('🔔 NUEVA NOTIFICACIÓN DE OBRA:', data);
-                    
-                    // Disparamos la notificación visual
                     toast({
                         title: '📬 Nuevo correo detectado',
                         description: `Vínculo: ${data.obra_relacionada}. Asunto: ${data.mailSubject || 'Sin asunto'}`,
                         duration: 8000,
                     });
-
-                    // También un console.log como placeholder/debug
-                    console.log(`IA RADAR: Se vinculó un mail a la obra ${data.obra_relacionada}. Resumen: ${data.resumen_ia}`);
                 }
             });
+        }, (error) => {
+            console.warn('Error en snapshot de notificaciones (posiblemente sesión expirada):', error.message);
         });
 
         return () => unsubscribe();
-    }, [db, toast]);
+    }, [db, user, toast]);
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -17,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
 interface CombinedAction {
@@ -42,6 +43,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
     const [isLoading, setIsLoading] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
     const db = useFirestore();
+    const { user } = useUser();
     const { toast } = useToast();
 
     const [allActions, setAllActions] = useState<{trello: CombinedAction[], portal: CombinedAction[]}>({ trello: [], portal: [] });
@@ -99,6 +101,8 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
     };
 
     useEffect(() => {
+        if (!db || !user) return;
+        
         setIsLoading(true);
         
         const q = query(collection(db, 'app_activities'), orderBy('timestamp', 'desc'), limit(50));
@@ -163,6 +167,8 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                 return updated;
             });
             setIsLoading(false);
+        }, (error) => {
+            console.warn('Error en snapshot de actividades:', error.message);
         });
 
         const fetchTrello = async () => {
@@ -200,7 +206,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
             unsubscribePortal();
             clearInterval(interval);
         };
-    }, [db]);
+    }, [db, user]);
 
     const handleSelect = async (action: CombinedAction) => {
         if (action.cardId) {

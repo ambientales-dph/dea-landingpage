@@ -11,13 +11,17 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Permitimos escritura para que el Webhook pueda guardar alertas, 
+    // pero la lectura sigue siendo solo para autorizados.
     match /mail_alerts/{alertId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if true; 
     }
 
     // Notificaciones de obras en tiempo real
     match /notificaciones_obras/{notificationId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if true;
     }
     
     // Rutas de la Línea de Tiempo Migrada (Con guion bajo)

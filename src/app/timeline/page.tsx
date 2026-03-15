@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -83,22 +84,24 @@ function HomeContent() {
   const [isLoadingTimeline, setIsLoadingTimeline] = React.useState(true);
 
   React.useEffect(() => {
-    if (!firestore) return;
+    if (!firestore || !user) return;
     const unsubscribe = onSnapshot(collection(firestore, 'timeline_categories'), (snapshot) => {
       const cats = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Category));
       if (cats.length > 0) {
           setFirestoreCategories(cats);
       }
+    }, (error) => {
+        console.warn("Error en listener de categorías TL (posible sesión expirada):", error.message);
     });
     return () => unsubscribe();
-  }, [firestore]);
+  }, [firestore, user]);
 
   const categories = React.useMemo(() => {
     return firestoreCategories.length > 0 ? firestoreCategories : CATEGORIES;
   }, [firestoreCategories]);
 
   React.useEffect(() => {
-    if (!firestore || !selectedCard || selectedCard.id === 'training-rsa999') {
+    if (!firestore || !user || !selectedCard || selectedCard.id === 'training-rsa999') {
         if (!selectedCard) setIsLoadingTimeline(false);
         return;
     }
@@ -118,12 +121,12 @@ function HomeContent() {
       setMilestones(ms);
       setIsLoadingTimeline(false);
     }, (error) => {
-        console.error("Error loading milestones:", error);
+        console.warn("Error en listener de hitos TL (posible sesión expirada):", error.message);
         setIsLoadingTimeline(false);
     });
 
     return () => unsubscribe();
-  }, [firestore, selectedCard, categories]);
+  }, [firestore, user, selectedCard, categories]);
 
   React.useEffect(() => {
     if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
@@ -210,7 +213,7 @@ function HomeContent() {
 
   React.useEffect(() => {
     const syncTrelloToFirestore = async () => {
-        if (!selectedCard || !firestore || syncPerformedForCard.current === selectedCard.id) {
+        if (!selectedCard || !firestore || !user || syncPerformedForCard.current === selectedCard.id) {
             return;
         }
 
@@ -368,7 +371,7 @@ function HomeContent() {
     };
 
     syncTrelloToFirestore();
-  }, [selectedCard, firestore, categories]);
+  }, [selectedCard, firestore, user, categories]);
 
 
   const executeFinalUpload = React.useCallback(async (data: any, folderId: string | null, resolutions: Record<string, ConflictStrategy>) => {
