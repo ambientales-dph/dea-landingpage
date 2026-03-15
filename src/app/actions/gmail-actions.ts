@@ -8,7 +8,7 @@ import { getAllCardsFromAllBoards } from '@/services/trello';
 
 /**
  * Escanea Gmail, analiza con IA y guarda alertas en Firestore.
- * Optimizada para procesamiento en paralelo y manejo de errores detallado.
+ * Ahora también alimenta la colección 'notificaciones_obras' para tiempo real.
  */
 export async function syncGmailAlerts(providedProjects: { id: string, code: string, name: string }[] | null = null) {
     const { db } = initializeFirebase();
@@ -35,6 +35,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
         console.log(`   - OK: ${emails.length} correos recientes obtenidos.`);
         
         const mailAlertsRef = collection(db, 'mail_alerts');
+        const notificacionesRef = collection(db, 'notificaciones_obras');
         let newAlertsCount = 0;
 
         const processPromises = emails.map(async (email) => {
@@ -55,6 +56,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                         console.log(`     ✅ COINCIDENCIA: ${analysis.matchedProjectCode} (Confianza: ${analysis.confidence})`);
                         const project = projects!.find(p => p.code === analysis.matchedProjectCode);
                         
+                        // Guardamos la alerta técnica completa
                         await addDoc(mailAlertsRef, {
                             mailId: email.id,
                             subject: email.subject,
@@ -68,6 +70,16 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                             processedAt: serverTimestamp(),
                             reasoning: analysis.reasoning
                         });
+
+                        // Guardamos la notificación simplificada para el listener de tiempo real (pedido por el usuario)
+                        await addDoc(notificacionesRef, {
+                            obra_relacionada: `${analysis.matchedProjectCode} - ${project?.name || 'Obra detectada'}`,
+                            resumen_ia: analysis.reasoning,
+                            fecha_recepcion: serverTimestamp(),
+                            leido: false,
+                            mailSubject: email.subject
+                        });
+
                         return true;
                     } else {
                         console.log(`     ❌ Sin relación clara.`);

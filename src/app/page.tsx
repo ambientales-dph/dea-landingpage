@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
@@ -86,6 +85,7 @@ import { useAuth, useUser } from '@/firebase';
 import { loginConGoogle, cerrarSesion, isUserAuthorized, WHITELIST } from '@/services/auth-service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useProject, INITIAL_MAP_VIEW } from '@/providers/project-provider';
+import { useMailNotifications } from '@/hooks/use-mail-notifications';
 
 function HomeContent() {
   const router = useRouter();
@@ -95,6 +95,9 @@ function HomeContent() {
   const auth = useAuth();
   const { toast } = useToast();
   const { allCards, selectedCard, setSelectedCard, isLoadingCards, viewState, setViewState } = useProject();
+
+  // Activamos el listener de notificaciones de Gmail en tiempo real
+  useMailNotifications();
 
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
