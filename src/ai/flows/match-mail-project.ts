@@ -1,8 +1,7 @@
-
 'use server';
 
 /**
- * @fileOverview Flujo de IA para vincular correos electrónicos con proyectos de hidráulica.
+ * @fileOverview Flujo de IA optimizado para vincular correos mediante palabras clave y nombres de lugares.
  */
 
 import { ai } from '@/ai/genkit';
@@ -21,10 +20,10 @@ const MatchMailInputSchema = z.object({
 export type MatchMailInput = z.infer<typeof MatchMailInputSchema>;
 
 const MatchMailOutputSchema = z.object({
-  matchedProjectCode: z.string().nullable().describe('El código del proyecto detectado (ej: MAR001) o null si no hay coincidencia clara.'),
-  matchedProjectId: z.string().nullable().describe('El ID de Trello del proyecto detectado.'),
+  matchedProjectCode: z.string().nullable().describe('El código del proyecto detectado o null si no hay coincidencia.'),
+  matchedProjectName: z.string().nullable().describe('El nombre corto o lugar detectado (ej: Zapiola).'),
   confidence: z.number().describe('Nivel de confianza de 0 a 1.'),
-  reasoning: z.string().describe('Breve explicación de por qué se vinculó con ese proyecto.')
+  reasoning: z.string().describe('Breve nota de por qué se vinculó.')
 });
 
 export type MatchMailOutput = z.infer<typeof MatchMailOutputSchema>;
@@ -33,25 +32,26 @@ const prompt = ai.definePrompt({
   name: 'matchMailProjectPrompt',
   input: { schema: MatchMailInputSchema },
   output: { schema: MatchMailOutputSchema },
-  prompt: `Eres un asistente administrativo del Departamento de Estudios Ambientales. 
-  Tu tarea es analizar un correo electrónico y determinar si se refiere a una de las obras hidráulicas activas.
+  prompt: `Eres un asistente del Departamento de Estudios Ambientales. 
+  Tu tarea es vincular un correo con una obra basándote en NOMBRES DE LUGARES, RÍOS o MUNICIPIOS.
 
   DATOS DEL CORREO:
   Asunto: {{{subject}}}
   Resumen: {{{snippet}}}
 
-  LISTADO DE PROYECTOS DISPONIBLES (Código e ID):
+  PROYECTOS ACTIVOS (Nombre y Código):
   {{#each availableProjects}}
-  - [{{code}}] {{name}} (ID: {{id}})
+  - {{name}} [{{code}}]
   {{/each}}
 
   INSTRUCCIONES:
-  1. Busca menciones directas del código del proyecto (ej: "MAR001") en el asunto o cuerpo.
-  2. Si no hay código, busca nombres de localidades o ríos que coincidan con los nombres de los proyectos (ej: si el mail habla de "Zapiola", vincúlalo con el proyecto que tenga "Zapiola" en su nombre).
-  3. Si la relación es ambigua o no hay ninguna pista, devuelve null en matchedProjectCode.
-  4. Sé estricto: si no hay relación clara, no inventes una coincidencia.
+  1. Ignora los códigos técnicos (como MAR001) a menos que aparezcan explícitamente.
+  2. Busca coincidencias entre el texto del mail y los nombres de los proyectos. 
+  3. PRIORIZA nombres geográficos: si el mail menciona "Luján", "Salado", "Zapiola", "Matanza", etc., vincúlalo al proyecto cuyo nombre contenga esa palabra.
+  4. Si detectas una relación, devuelve el matchedProjectCode y en matchedProjectName pon el nombre del lugar o palabra clave que causó la coincidencia (ej: "Zapiola").
+  5. Si no hay una relación geográfica o de nombre clara, devuelve null.
 
-  Devuelve el resultado en formato JSON.`,
+  Devuelve el resultado en JSON.`,
 });
 
 export async function matchMailToProject(input: MatchMailInput): Promise<MatchMailOutput> {

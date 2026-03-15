@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -7,8 +6,7 @@ import { collection, query, orderBy, limit, onSnapshot, where, Timestamp } from 
 import { useToast } from '@/hooks/use-toast';
 
 /**
- * Hook para escuchar en tiempo real la colección 'notificaciones_obras'.
- * Dispara una notificación visual cuando la IA vincula un nuevo correo.
+ * Hook para notificaciones simplificadas y directas.
  */
 export function useMailNotifications() {
     const db = useFirestore();
@@ -18,7 +16,6 @@ export function useMailNotifications() {
     const lastProcessedTime = useRef(Date.now());
 
     useEffect(() => {
-        // Solo escuchamos si el usuario está autenticado para evitar errores de permisos
         if (!db || !user) return;
 
         const q = query(
@@ -29,6 +26,7 @@ export function useMailNotifications() {
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            // Evitar notificaciones de mensajes viejos al cargar la página
             if (isFirstRun.current) {
                 isFirstRun.current = false;
                 return;
@@ -38,15 +36,16 @@ export function useMailNotifications() {
                 if (change.type === 'added') {
                     const data = change.doc.data();
                     
+                    // Notificación simplificada solicitada por el usuario
                     toast({
-                        title: '📬 Nuevo correo detectado',
-                        description: `Vínculo: ${data.obra_relacionada}. Asunto: ${data.mailSubject || 'Sin asunto'}`,
-                        duration: 8000,
+                        title: '📬 Correo entrante',
+                        description: `Hay mail nuevo de ${data.obra_relacionada || 'un proyecto'}.`,
+                        duration: 6000,
                     });
                 }
             });
         }, (error) => {
-            console.warn('Error en snapshot de notificaciones (posiblemente sesión expirada):', error.message);
+            console.warn('Listener de notificaciones en pausa.');
         });
 
         return () => unsubscribe();
