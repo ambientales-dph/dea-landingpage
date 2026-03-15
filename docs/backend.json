@@ -50,6 +50,18 @@
       },
       "required": ["mailId", "subject", "from", "detectedProjectCode", "status"]
     },
+    "ObraNotification": {
+      "title": "ObraNotification",
+      "description": "Notificación simplificada para el listener de tiempo real.",
+      "type": "object",
+      "properties": {
+        "obra_relacionada": { "type": "string" },
+        "resumen_ia": { "type": "string" },
+        "fecha_recepcion": { "type": "string", "format": "date-time" },
+        "leido": { "type": "boolean" },
+        "mailSubject": { "type": "string" }
+      }
+    },
     "TimelineProject": {
       "title": "TimelineProject",
       "description": "Datos de proyectos migrados de la Línea de Tiempo.",
@@ -99,6 +111,10 @@
     "/mail_alerts/{alertId}": {
       "schema": { "$ref": "#/backend/entities/MailAlert" },
       "description": "Alertas de correos vinculados a proyectos."
+    },
+    "/notificaciones_obras/{notificationId}": {
+      "schema": { "$ref": "#/backend/entities/ObraNotification" },
+      "description": "Notificaciones en tiempo real para la interfaz."
     },
     "/timeline_projects/{projectId}": {
       "schema": { "$ref": "#/backend/entities/TimelineProject" },
