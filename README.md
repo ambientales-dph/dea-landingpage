@@ -28,27 +28,22 @@ Si ves el error "insufficient scopes", seguí estos pasos exactos:
     *   En el "Step 2", clic en **Exchange authorization code for tokens**.
     *   Copiá el **Refresh Token** resultante y pegalo en tu `.env`.
 
-**IMPORTANTE:** Si tenés variables con el sufijo `_TL` en tu `.env` (como `GOOGLE_CLIENT_ID_TL`), asegurate de que tengan los mismos valores que las normales, o borralas si no las estás usando, ya que la app podría estar priorizando valores viejos.
-
 ### 3. Configuración en Google Cloud Console
-1. **Permisos de Gmail:**
-   - Ve a tu Topic: `projects/studio-1428739321-e57bb/topics/push_desde_gmail`.
-   - Pestaña **Permisos** -> **Agregar Acceso**.
-   - Miembro: `gmail-api-push@system.gserviceaccount.com`
-   - Rol: **Pub/Sub Publisher**.
-
-2. **Suscripción PUSH (NO extracción):**
+1. **Suscripción PUSH (Configuración Correcta):**
    - Ve a tu Suscripción: `projects/studio-1428739321-e57bb/subscriptions/push_desde_gmail-sub`.
    - Clic en **Editar**.
    - **Tipo de entrega:** Seleccioná **PUSH**.
    - **URL de extremo:** `https://torquate-hoodlike-mariann.ngrok-free.dev/api/gmail-webhook`
    - Guarda los cambios.
 
-### 4. Activar en la App
-- Asegúrate de tener en `.env`: `GMAIL_PUB_SUB_TOPIC=projects/studio-1428739321-e57bb/topics/push_desde_gmail`
-- Abre el **Radar de Gmail** (icono de sobre).
-- Haz clic en el botón del **Rayo (Zap)**. 
-- Si sale el Check Verde, la conexión está establecida.
+## 🛠 Solución de Problemas
+
+### Error: Puerto 9002 ya está ocupado
+Si al ejecutar `npm run dev` ves este error, ejecutá:
+`npx kill-port 9002`
+
+### ¿Cómo ver los logs de los mails?
+Los mails no aparecen en la consola del navegador. Aparecen en la **Terminal** donde corre el servidor (`npm run dev`). Busca mensajes que empiecen con `🔍 [RADAR]` o `[IA]`.
 
 ---
 © 2024 Departamento de Estudios Ambientales

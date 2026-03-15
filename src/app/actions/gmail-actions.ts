@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getLatestEmails, setupGmailWatch } from '@/services/google-gmail';
@@ -8,6 +9,7 @@ import { getAllCardsFromAllBoards } from '@/services/trello';
 
 /**
  * Escanea Gmail con un enfoque en palabras clave y nombres de lugares.
+ * Imprime logs detallados en la terminal para monitoreo.
  */
 export async function syncGmailAlerts(providedProjects: { id: string, code: string, name: string }[] | null = null) {
     const { db } = initializeFirebase();
@@ -50,10 +52,11 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                 const existing = await getDocs(q);
                 
                 if (!existing.empty) {
+                    console.log(`   [SKIP] Mail ID ${email.id} ya procesado anteriormente.`);
                     return false;
                 }
 
-                console.log(`   [IA] Analizando asunto: "${email.subject}"...`);
+                console.log(`   [IA] Analizando: "${email.subject}"...`);
                 
                 const analysis = await matchMailToProject({
                     subject: email.subject,
@@ -61,11 +64,12 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                     availableProjects: projects!
                 });
 
-                if (analysis.matchedProjectCode && analysis.confidence > 0.4) {
+                // Umbral de confianza más bajo para facilitar detección de lugares
+                if (analysis.matchedProjectCode && (analysis.confidence > 0.4 || analysis.reasoning.toLowerCase().includes('lugar'))) {
                     const project = projects!.find(p => p.code === analysis.matchedProjectCode);
                     const placeName = analysis.matchedProjectName || project?.name || 'un proyecto';
 
-                    console.log(`     ✅ COINCIDENCIA: Detectado "${placeName}" (Confianza: ${analysis.confidence})`);
+                    console.log(`     ✅ COINCIDENCIA DETECTADA: "${placeName}"`);
                     console.log(`     📝 Motivo: ${analysis.reasoning}`);
 
                     // 1. Guardamos alerta técnica
@@ -93,11 +97,11 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
 
                     return true;
                 } else {
-                    console.log(`     ❌ IGNORADO: No se detectó relación clara con obras conocidas.`);
+                    console.log(`     ❌ IGNORADO: No se detectó relación geográfica clara.`);
                     return false;
                 }
             } catch (err: any) {
-                console.error(`   [ERROR] Procesando mail "${email.subject}":`, err.message);
+                console.error(`   [ERROR] Falló procesamiento de: "${email.subject}":`, err.message);
             }
             return false;
         });
@@ -105,7 +109,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
         const results = await Promise.all(processPromises);
         newAlertsCount = results.filter(r => r === true).length;
 
-        console.log(`🏁 [RADAR] Escaneo finalizado. Alertas nuevas: ${newAlertsCount}\n`);
+        console.log(`🏁 [RADAR] Finalizado. Alertas nuevas: ${newAlertsCount}\n`);
         return { success: true, newAlerts: newAlertsCount };
     } catch (error: any) {
         console.error('❌ [RADAR ERROR CRÍTICO]:', error.message);
@@ -115,7 +119,8 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
 
 export async function activateRealTimeRadar() {
     const topic = process.env.GMAIL_PUB_SUB_TOPIC;
-    if (!topic) return { success: false, error: 'Falta GMAIL_PUB_SUB_TOPIC' };
+    if (!topic) return { success: false, error: 'Falta GMAIL_PUB_SUB_TOPIC en .env' };
+    console.log(`🚀 [RADAR] Activando Watch de Gmail en el Topic: ${topic}`);
     return await setupGmailWatch(topic);
 }
 
