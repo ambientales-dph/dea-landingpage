@@ -9,25 +9,21 @@ export async function POST(req: Request) {
         const body = await req.json();
         const messageId = body.message?.messageId || 'unknown';
         
-        console.log(`\n-------------------------------------------`);
-        console.log(`🚀 [GMAIL WEBHOOK] Mensaje Push recibido (ID: ${messageId})`);
-        console.log(`   - Timestamp: ${new Date().toISOString()}`);
+        console.log(`\n🔔 [GMAIL WEBHOOK] Mensaje Push detectado (ID: ${messageId})`);
         
         // Ejecutamos la sincronización.
-        // Importante: No pasamos proyectos para que los busque frescos de Trello.
         const result = await syncGmailAlerts();
         
         if (result.success) {
-            console.log(`✅ [GMAIL WEBHOOK] Sincronización finalizada. Nuevas alertas: ${result.newAlerts}`);
+            console.log(`✅ [GMAIL WEBHOOK] Proceso completado.`);
         } else {
-            console.error(`⚠️ [GMAIL WEBHOOK] Error detectado: ${result.error}`);
+            console.error(`⚠️ [GMAIL WEBHOOK] Falló la sincronización: ${result.error}`);
         }
-        console.log(`-------------------------------------------\n`);
 
-        // Siempre respondemos 200 a Google para que no reintente el envío infinitamente.
+        // Siempre respondemos 200 a Google para evitar reintentos infinitos
         return NextResponse.json({ success: true });
     } catch (error: any) {
-        console.error('❌ [GMAIL WEBHOOK] Error crítico procesando el request:', error.message);
+        console.error('❌ [GMAIL WEBHOOK] Error crítico:', error.message);
         return NextResponse.json({ success: false, error: error.message }, { status: 200 });
     }
 }
