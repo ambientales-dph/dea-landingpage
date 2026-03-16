@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getLatestEmails, setupGmailWatch } from '@/services/google-gmail';
@@ -8,18 +7,16 @@ import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, update
 import { getAllCardsFromAllBoards } from '@/services/trello';
 
 /**
- * Escanea Gmail con un enfoque en palabras clave y nombres de lugares.
- * Imprime logs detallados en la terminal para monitoreo.
+ * Sincroniza alertas de Gmail analizando solo correos no leídos.
  */
 export async function syncGmailAlerts(providedProjects: { id: string, code: string, name: string }[] | null = null) {
     const { db } = initializeFirebase();
     
     try {
-        console.log(`\n🔍 [RADAR] Iniciando escaneo profundo...`);
+        console.log(`\n🔍 [RADAR] Iniciando escaneo...`);
         let projects = providedProjects;
         
         if (!projects) {
-            console.log(`   - Obteniendo lista de obras desde Trello...`);
             const allCards = await getAllCardsFromAllBoards();
             projects = allCards.map(c => {
                 const codeMatch = c.name.match(/\(([^)]+)\)$/);
@@ -29,32 +26,24 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                     name: c.name.replace(/\([^)]+\)$/, '').trim()
                 };
             }).filter(p => p.code !== 'S/C');
-            console.log(`   - ${projects.length} obras identificadas.`);
         }
 
-        if (projects.length === 0) {
-            console.log(`   ⚠️ No hay proyectos activos para comparar.`);
-            return { success: true, newAlerts: 0 };
-        }
+        if (projects.length === 0) return { success: true, newAlerts: 0 };
 
-        console.log(`   - Consultando últimos mensajes en Gmail...`);
         const emails = await getLatestEmails();
-        console.log(`   - ${emails.length} correos encontrados en el INBOX.`);
+        console.log(`   - ${emails.length} correos nuevos detectados.`);
+
+        if (emails.length === 0) return { success: true, newAlerts: 0 };
 
         const mailAlertsRef = collection(db, 'mail_alerts');
         const notificacionesRef = collection(db, 'notificaciones_obras');
-        let newAlertsCount = 0;
-
-        const processPromises = emails.map(async (email) => {
+        
+        const results = await Promise.all(emails.map(async (email) => {
             try {
-                // Verificar si ya procesamos este mailId antes
+                // Verificación ultra-rápida de duplicados
                 const q = query(mailAlertsRef, where('mailId', '==', email.id));
                 const existing = await getDocs(q);
-                
-                if (!existing.empty) {
-                    console.log(`   [SKIP] Mail ID ${email.id} ya procesado anteriormente.`);
-                    return false;
-                }
+                if (!existing.empty) return false;
 
                 console.log(`   [IA] Analizando: "${email.subject}"...`);
                 
@@ -64,15 +53,18 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                     availableProjects: projects!
                 });
 
-                // Umbral de confianza más bajo para facilitar detección de lugares
-                if (analysis.matchedProjectCode && (analysis.confidence > 0.4 || analysis.reasoning.toLowerCase().includes('lugar'))) {
+                // Prioridad absoluta a nombres de lugares o ríos
+                const hasGeographicMatch = analysis.reasoning.toLowerCase().includes('lugar') || 
+                                         analysis.reasoning.toLowerCase().includes('rio') || 
+                                         analysis.reasoning.toLowerCase().includes('municipio');
+
+                if (analysis.matchedProjectCode && (analysis.confidence > 0.3 || hasGeographicMatch)) {
                     const project = projects!.find(p => p.code === analysis.matchedProjectCode);
                     const placeName = analysis.matchedProjectName || project?.name || 'un proyecto';
 
-                    console.log(`     ✅ COINCIDENCIA DETECTADA: "${placeName}"`);
-                    console.log(`     📝 Motivo: ${analysis.reasoning}`);
+                    console.log(`     ✅ VINCULADO: "${placeName}"`);
 
-                    // 1. Guardamos alerta técnica
+                    // Guardamos ambos documentos en Firestore
                     await addDoc(mailAlertsRef, {
                         mailId: email.id,
                         subject: email.subject,
@@ -87,29 +79,27 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                         reasoning: analysis.reasoning
                     });
 
-                    // 2. Notificación simplificada para el frontend
                     await addDoc(notificacionesRef, {
                         obra_relacionada: placeName,
                         fecha_recepcion: serverTimestamp(),
                         leido: false,
-                        mailSubject: email.subject
+                        mailSubject: email.subject,
+                        resumen_ia: analysis.reasoning
                     });
 
                     return true;
-                } else {
-                    console.log(`     ❌ IGNORADO: No se detectó relación geográfica clara.`);
-                    return false;
                 }
+                
+                console.log(`     ❌ IGNORADO: Sin relación geográfica clara.`);
+                return false;
             } catch (err: any) {
-                console.error(`   [ERROR] Falló procesamiento de: "${email.subject}":`, err.message);
+                console.error(`   [ERROR FIRESTORE/IA]:`, err.message);
+                return false;
             }
-            return false;
-        });
+        }));
 
-        const results = await Promise.all(processPromises);
-        newAlertsCount = results.filter(r => r === true).length;
-
-        console.log(`🏁 [RADAR] Finalizado. Alertas nuevas: ${newAlertsCount}\n`);
+        const newAlertsCount = results.filter(r => r === true).length;
+        console.log(`🏁 [RADAR] Finalizado. Alertas: ${newAlertsCount}\n`);
         return { success: true, newAlerts: newAlertsCount };
     } catch (error: any) {
         console.error('❌ [RADAR ERROR CRÍTICO]:', error.message);
@@ -120,7 +110,6 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
 export async function activateRealTimeRadar() {
     const topic = process.env.GMAIL_PUB_SUB_TOPIC;
     if (!topic) return { success: false, error: 'Falta GMAIL_PUB_SUB_TOPIC en .env' };
-    console.log(`🚀 [RADAR] Activando Watch de Gmail en el Topic: ${topic}`);
     return await setupGmailWatch(topic);
 }
 

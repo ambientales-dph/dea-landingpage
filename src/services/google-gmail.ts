@@ -37,22 +37,22 @@ export interface GmailMessageSummary {
 }
 
 /**
- * Obtiene los últimos correos recibidos de forma robusta.
+ * Obtiene los últimos correos NO LEÍDOS recibidos.
  */
 export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
     try {
         const gmail = await getGmailClient();
         
+        // Filtramos por is:unread para no procesar mails viejos infinitamente
         const response = await gmail.users.messages.list({
             userId: 'me',
-            maxResults: 10,
-            q: 'label:INBOX'
+            maxResults: 15,
+            q: 'label:INBOX is:unread'
         });
 
         const messages = response.data.messages || [];
         const summaries: GmailMessageSummary[] = [];
 
-        // Usamos Promise.allSettled para que si un mail falla en cargar, no se caiga toda la lista
         const detailResults = await Promise.allSettled(
             messages.map(msg => 
                 gmail.users.messages.get({
@@ -108,12 +108,6 @@ export async function setupGmailWatch(topicName: string) {
         return { success: true, data: response.data };
     } catch (error: any) {
         const detail = error.response?.data?.error?.message || error.message;
-        if (detail.includes('insufficient')) {
-            return { 
-                success: false, 
-                error: 'Permisos insuficientes: El Refresh Token no incluye el permiso de lectura de Gmail. Genera uno nuevo incluyendo "gmail.readonly".' 
-            };
-        }
         return { success: false, error: `Error en Gmail Watch: ${detail}` };
     }
 }
