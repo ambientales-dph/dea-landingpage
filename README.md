@@ -6,9 +6,9 @@ Este es el portal centralizado para la gestión de proyectos y obras hidráulica
 ## 🚀 Configuración del Radar de Gmail (Tiempo Real)
 
 ### 1. Túnel de Desarrollo (ngrok)
-Para que Google pueda avisarle a tu PC que entró un mail, necesitás ngrok corriendo:
+Para que Google pueda avisarle a tu PC que entró un mail, necesitás ngrok corriendo en el puerto **9003**:
 1. `npx ngrok config add-authtoken TU_TOKEN`
-2. `npx ngrok http 9002`
+2. `npx ngrok http 9003`
 3. Tu URL actual es: `https://torquate-hoodlike-mariann.ngrok-free.dev`
 
 ### 2. Generar Refresh Token con Scopes Correctos (CRUCIAL)
@@ -38,9 +38,9 @@ Si ves el error "insufficient scopes", seguí estos pasos exactos:
 
 ## 🛠 Solución de Problemas
 
-### Error: Puerto 9002 ya está ocupado
-Si al ejecutar `npm run dev` ves este error, ejecutá:
-`npx kill-port 9002`
+### Error: Puerto ya está ocupado
+Si al ejecutar `npm run dev` ves que el puerto está ocupado, la app ahora usa el **9003**. Si ese también fallara, podés probar con `9004`.
+Para liberar un puerto específico: `npx kill-port 9003`
 
 ### ¿Cómo ver los logs de los mails?
 Los mails no aparecen en la consola del navegador. Aparecen en la **Terminal** donde corre el servidor (`npm run dev`). Busca mensajes que empiecen con `🔍 [RADAR]` o `[IA]`.
