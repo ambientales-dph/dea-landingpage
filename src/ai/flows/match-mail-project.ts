@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Flujo de IA optimizado para vincular correos mediante palabras clave y nombres de lugares.
+ * @fileOverview Sabueso de IA para vincular mails con obras por nombres de lugares.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,9 +20,8 @@ const MatchMailInputSchema = z.object({
 export type MatchMailInput = z.infer<typeof MatchMailInputSchema>;
 
 const MatchMailOutputSchema = z.object({
-  matchedProjectCode: z.string().nullable().describe('El código del proyecto detectado o null si no hay coincidencia.'),
-  matchedProjectName: z.string().nullable().describe('El nombre corto o lugar detectado (ej: Zapiola).'),
-  confidence: z.number().describe('Nivel de confianza de 0 a 1.'),
+  matchedProjectCode: z.string().nullable().describe('El código del proyecto detectado.'),
+  matchedProjectName: z.string().nullable().describe('El nombre del lugar detectado (ej: Zapiola).'),
   reasoning: z.string().describe('Breve nota de por qué se vinculó.')
 });
 
@@ -32,25 +31,27 @@ const prompt = ai.definePrompt({
   name: 'matchMailProjectPrompt',
   input: { schema: MatchMailInputSchema },
   output: { schema: MatchMailOutputSchema },
-  prompt: `Eres un asistente del Departamento de Estudios Ambientales. 
-  Tu tarea es vincular un correo con una obra basándote en NOMBRES DE LUGARES, RÍOS o MUNICIPIOS.
-
-  DATOS DEL CORREO:
-  Asunto: {{{subject}}}
-  Resumen: {{{snippet}}}
-
-  PROYECTOS ACTIVOS (Nombre y Código):
+  prompt: `Actúa como un clasificador geográfico para el Departamento de Estudios Ambientales.
+  
+  TU MISIÓN:
+  Identificar si el correo menciona algún LUGAR, RÍO o MUNICIPIO que coincida con nuestras obras activas.
+  
+  PROYECTOS ACTUALES:
   {{#each availableProjects}}
   - {{name}} [{{code}}]
   {{/each}}
 
-  INSTRUCCIONES:
-  1. Busca coincidencias entre el texto del mail y los nombres de los proyectos. 
-  2. PRIORIZA nombres geográficos: si el mail menciona "Luján", "Salado", "Zapiola", "Matanza", "Pergamino", etc., vincúlalo al proyecto cuyo nombre contenga esa palabra.
-  3. Si detectas una relación, devuelve el matchedProjectCode y en matchedProjectName pon el nombre del lugar o palabra clave que causó la coincidencia (ej: "Zapiola").
-  4. Si no hay una relación geográfica o de nombre clara, devuelve null.
+  DATOS DEL MAIL:
+  Asunto: {{{subject}}}
+  Resumen: {{{snippet}}}
 
-  Devuelve el resultado en JSON.`,
+  REGLAS:
+  1. Buscá nombres propios de lugares (ej: Pergamino, Luján, Matanza, Zapiola, El Gato).
+  2. Si el mail menciona un lugar que está en el nombre de un proyecto, vinculalo.
+  3. No importa el código del proyecto, lo importante es el nombre del lugar.
+  4. Si no hay coincidencia geográfica clara, devolvé null en los campos de match.
+
+  Devuelve el resultado en formato JSON.`,
 });
 
 export async function matchMailToProject(input: MatchMailInput): Promise<MatchMailOutput> {
