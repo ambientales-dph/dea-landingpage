@@ -3,12 +3,12 @@
 import { getLatestEmails, setupGmailWatch } from '@/services/google-gmail';
 import { matchMailToProject } from '@/ai/flows/match-mail-project';
 import { initializeFirebase } from '@/firebase';
-import { collection, doc, getDoc, setDoc, serverTimestamp, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getAllCardsFromAllBoards } from '@/services/trello';
 
 /**
  * Sincroniza alertas de Gmail analizando solo correos no leídos.
- * Usa acceso directo por ID de documento para evitar errores de permisos en queries.
+ * Usa acceso directo por ID de documento para evitar errores de permisos.
  */
 export async function syncGmailAlerts(providedProjects: { id: string, code: string, name: string }[] | null = null) {
     const { db } = initializeFirebase();
@@ -38,7 +38,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
 
         const results = await Promise.all(emails.map(async (email) => {
             try {
-                // ACCESO DIRECTO: Usamos el ID del mail como ID del documento para evitar permisos de 'query'
+                // ACCESO DIRECTO: Usamos el ID del mail como ID del documento
                 const alertDocRef = doc(db, 'mail_alerts', email.id);
                 const existingSnap = await getDoc(alertDocRef);
                 
@@ -54,18 +54,13 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                     availableProjects: projects!
                 });
 
-                const hasGeographicMatch = analysis.reasoning.toLowerCase().includes('lugar') || 
-                                         analysis.reasoning.toLowerCase().includes('rio') || 
-                                         analysis.reasoning.toLowerCase().includes('municipio') ||
-                                         analysis.confidence > 0.5;
-
-                if (analysis.matchedProjectCode && hasGeographicMatch) {
+                if (analysis.matchedProjectCode) {
                     const project = projects!.find(p => p.code === analysis.matchedProjectCode);
-                    const placeName = analysis.matchedProjectName || project?.name || 'un proyecto';
+                    const placeName = analysis.matchedProjectName || project?.name || 'Obra Detectada';
 
                     console.log(`     ✅ VINCULADO: "${placeName}"`);
 
-                    // Guardamos la alerta usando setDoc con el ID del mail
+                    // Guardamos la alerta técnica usando setDoc (ID explícito)
                     await setDoc(alertDocRef, {
                         mailId: email.id,
                         subject: email.subject,
@@ -80,9 +75,9 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                         reasoning: analysis.reasoning
                     });
 
-                    // Guardamos la notificación para el listener en tiempo real
-                    const notificacionesRef = collection(db, 'notificaciones_obras');
-                    await addDoc(notificacionesRef, {
+                    // Guardamos la notificación simplificada usando setDoc (ID explícito)
+                    const notifDocRef = doc(db, 'notificaciones_obras', `notif_${email.id}`);
+                    await setDoc(notifDocRef, {
                         obra_relacionada: placeName,
                         fecha_recepcion: serverTimestamp(),
                         leido: false,
@@ -95,7 +90,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                 
                 return false;
             } catch (err: any) {
-                console.error(`   [ERROR FIRESTORE]:`, err.message);
+                console.error(`   [ERROR FIRESTORE/IA EN MAIL ${email.id}]:`, err.message);
                 return false;
             }
         }));
