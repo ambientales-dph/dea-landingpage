@@ -10,15 +10,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
-    // Radar de Gmail (Webhook y Sincronización)
-    // Se permite lectura y escritura pública para que el servidor pueda operar sin sesión de usuario
+    // Radar de Gmail (Público para permitir Webhooks sin sesión de usuario)
     match /mail_alerts/{alertId} {
-      allow read, write: if true; 
+      allow get, list, create, update, delete: if true;
     }
 
-    // Notificaciones en tiempo real
     match /notificaciones_obras/{notificationId} {
-      allow read, write: if true;
+      allow get, list, create, update, delete: if true;
     }
     
     // Rutas de la Línea de Tiempo
