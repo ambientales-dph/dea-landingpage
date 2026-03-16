@@ -3,12 +3,11 @@
 import { getLatestEmails, setupGmailWatch } from '@/services/google-gmail';
 import { matchMailToProject } from '@/ai/flows/match-mail-project';
 import { initializeFirebase } from '@/firebase';
-import { collection, doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getAllCardsFromAllBoards } from '@/services/trello';
 
 /**
  * Sincroniza alertas de Gmail analizando solo correos no leídos.
- * Usa acceso directo por ID de documento para evitar errores de permisos.
  */
 export async function syncGmailAlerts(providedProjects: { id: string, code: string, name: string }[] | null = null) {
     const { db } = initializeFirebase();
@@ -32,21 +31,20 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
         if (projects.length === 0) return { success: true, newAlerts: 0 };
 
         const emails = await getLatestEmails();
-        console.log(`   - ${emails.length} correos nuevos detectados.`);
+        console.log(`   - ${emails.length} correos no leídos encontrados.`);
 
         if (emails.length === 0) return { success: true, newAlerts: 0 };
 
         const results = await Promise.all(emails.map(async (email) => {
             try {
-                // ACCESO DIRECTO: Usamos el ID del mail como ID del documento
+                // Usamos el ID del mail directamente para evitar búsquedas (queries) que den error de permisos
                 const alertDocRef = doc(db, 'mail_alerts', email.id);
-                const existingSnap = await getDoc(alertDocRef);
                 
-                if (existingSnap.exists()) {
-                    return false;
-                }
+                // Verificamos si ya procesamos este mail (acceso directo por ID)
+                const existingSnap = await getDoc(alertDocRef);
+                if (existingSnap.exists()) return false;
 
-                console.log(`   [IA] Analizando: "${email.subject.substring(0, 30)}..."`);
+                console.log(`   [IA] Analizando lugar en: "${email.subject.substring(0, 30)}..."`);
                 
                 const analysis = await matchMailToProject({
                     subject: email.subject,
@@ -60,7 +58,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
 
                     console.log(`     ✅ VINCULADO: "${placeName}"`);
 
-                    // Guardamos la alerta técnica usando setDoc (ID explícito)
+                    // Guardamos la alerta técnica
                     await setDoc(alertDocRef, {
                         mailId: email.id,
                         subject: email.subject,
@@ -75,7 +73,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                         reasoning: analysis.reasoning
                     });
 
-                    // Guardamos la notificación simplificada usando setDoc (ID explícito)
+                    // Guardamos la notificación simplificada para el frontend
                     const notifDocRef = doc(db, 'notificaciones_obras', `notif_${email.id}`);
                     await setDoc(notifDocRef, {
                         obra_relacionada: placeName,
@@ -90,13 +88,13 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                 
                 return false;
             } catch (err: any) {
-                console.error(`   [ERROR FIRESTORE/IA EN MAIL ${email.id}]:`, err.message);
+                console.error(`   [ERROR EN MAIL ${email.id}]:`, err.message);
                 return false;
             }
         }));
 
         const newAlertsCount = results.filter(r => r === true).length;
-        console.log(`🏁 [RADAR] Finalizado. Alertas nuevas guardadas: ${newAlertsCount}\n`);
+        console.log(`🏁 [RADAR] Finalizado. Alertas nuevas: ${newAlertsCount}\n`);
         return { success: true, newAlerts: newAlertsCount };
     } catch (error: any) {
         console.error('❌ [RADAR ERROR CRÍTICO]:', error.message);

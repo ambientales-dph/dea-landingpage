@@ -45,11 +45,10 @@ const prompt = ai.definePrompt({
   {{/each}}
 
   INSTRUCCIONES:
-  1. Ignora los códigos técnicos (como MAR001) a menos que aparezcan explícitamente.
-  2. Busca coincidencias entre el texto del mail y los nombres de los proyectos. 
-  3. PRIORIZA nombres geográficos: si el mail menciona "Luján", "Salado", "Zapiola", "Matanza", etc., vincúlalo al proyecto cuyo nombre contenga esa palabra.
-  4. Si detectas una relación, devuelve el matchedProjectCode y en matchedProjectName pon el nombre del lugar o palabra clave que causó la coincidencia (ej: "Zapiola").
-  5. Si no hay una relación geográfica o de nombre clara, devuelve null.
+  1. Busca coincidencias entre el texto del mail y los nombres de los proyectos. 
+  2. PRIORIZA nombres geográficos: si el mail menciona "Luján", "Salado", "Zapiola", "Matanza", "Pergamino", etc., vincúlalo al proyecto cuyo nombre contenga esa palabra.
+  3. Si detectas una relación, devuelve el matchedProjectCode y en matchedProjectName pon el nombre del lugar o palabra clave que causó la coincidencia (ej: "Zapiola").
+  4. Si no hay una relación geográfica o de nombre clara, devuelve null.
 
   Devuelve el resultado en JSON.`,
 });

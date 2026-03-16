@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // REGLAS PÚBLICAS PARA EL RADAR (Webhooks y Sincronización)
-    // Permitimos acceso total a estas dos colecciones para que el servidor opere sin trabas
+    // Permitimos acceso total a estas colecciones para que el servidor opere sin trabas
     match /mail_alerts/{alertId} {
       allow read, write: if true;
     }
