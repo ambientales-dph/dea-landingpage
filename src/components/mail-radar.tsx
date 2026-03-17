@@ -222,7 +222,7 @@ export default function MailRadar() {
                                                 <AlertCircle className="h-3 w-3" />
                                                 Obra: {alert.detectedProjectCode}
                                             </span>
-                                            <p className="text-xs font-semibold truncate text-foreground" title={alert.subject}>{alert.subject}</p>
+                                            <p className="text-xs font-semibold text-foreground whitespace-normal leading-tight" title={alert.subject}>{alert.subject}</p>
                                         </div>
                                         <div className="flex gap-1 shrink-0">
                                             {alert.reasoning && (
@@ -255,14 +255,14 @@ export default function MailRadar() {
                                         "{alert.snippet}"
                                     </p>
                                     
-                                    <div className="flex items-center justify-between w-full mt-2">
-                                        <div className="flex flex-col">
-                                            <span className="text-[9px] text-muted-foreground truncate max-w-[180px]">Remitente: {alert.from}</span>
+                                    <div className="flex items-end justify-between w-full mt-2 gap-2">
+                                        <div className="flex flex-col flex-1 min-w-0">
+                                            <span className="text-[9px] text-muted-foreground whitespace-normal">Remitente: {alert.from}</span>
                                             <span className="text-[9px] text-zinc-400">
                                                 {alert.processedAt ? formatDistanceToNow(alert.processedAt.toDate(), { addSuffix: true, locale: es }) : 'Recién'}
                                             </span>
                                         </div>
-                                        <Badge variant="outline" className="text-[8px] h-4 gap-1 border-primary/20 bg-primary/5">
+                                        <Badge variant="outline" className="text-[8px] h-auto py-1 px-2 gap-1 border-primary/20 bg-primary/5 whitespace-normal text-right max-w-[150px] shrink-0">
                                             IA: {alert.detectedProjectName}
                                         </Badge>
                                     </div>
