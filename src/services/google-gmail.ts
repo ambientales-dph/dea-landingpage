@@ -34,6 +34,7 @@ export interface GmailMessageSummary {
     from: string;
     date: string;
     snippet: string;
+    body?: string;
 }
 
 /**
@@ -43,11 +44,11 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
     try {
         const gmail = await getGmailClient();
         
-        // Filtramos por is:unread para no procesar mails viejos infinitamente
+        // Ampliamos la búsqueda quitando label:INBOX por si hay filtros, pero mantenemos is:unread
         const response = await gmail.users.messages.list({
             userId: 'me',
-            maxResults: 15,
-            q: 'label:INBOX is:unread'
+            maxResults: 20,
+            q: 'is:unread'
         });
 
         const messages = response.data.messages || [];
@@ -87,6 +88,27 @@ export async function getLatestEmails(): Promise<GmailMessageSummary[]> {
     } catch (error: any) {
         console.error('Error detallado de Gmail API:', error);
         throw new Error(`Gmail API: ${error.message || 'Error desconocido al listar correos'}`);
+    }
+}
+
+/**
+ * Obtiene todo el contenido de texto de un hilo de conversación.
+ */
+export async function getThreadContext(threadId: string): Promise<string> {
+    try {
+        const gmail = await getGmailClient();
+        const response = await gmail.users.threads.get({
+            userId: 'me',
+            id: threadId,
+            format: 'minimal' // Solo necesitamos snippets de mensajes anteriores para contexto
+        });
+
+        const messages = response.data.messages || [];
+        // Concatenamos los fragmentos de toda la cadena
+        return messages.map(m => m.snippet).join(' | ');
+    } catch (error) {
+        console.error('Error al obtener hilo:', error);
+        return '';
     }
 }
 

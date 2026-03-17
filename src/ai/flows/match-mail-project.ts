@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Sabueso de IA para vincular mails con obras por nombres de lugares.
+ * @fileOverview Sabueso de IA para vincular mails con obras por nombres de lugares o códigos.
  */
 
 import { ai } from '@/ai/genkit';
@@ -10,6 +10,7 @@ import { z } from 'genkit';
 const MatchMailInputSchema = z.object({
   subject: z.string(),
   snippet: z.string(),
+  threadContext: z.string().optional().describe('Contenido de mensajes anteriores en la misma cadena.'),
   availableProjects: z.array(z.object({
     id: z.string(),
     code: z.string(),
@@ -20,8 +21,10 @@ const MatchMailInputSchema = z.object({
 export type MatchMailInput = z.infer<typeof MatchMailInputSchema>;
 
 const MatchMailOutputSchema = z.object({
-  matchedProjectCode: z.string().nullable().describe('El código del proyecto detectado.'),
-  matchedProjectName: z.string().nullable().describe('El nombre del lugar detectado (ej: Zapiola).'),
+  matchedProjects: z.array(z.object({
+    code: z.string(),
+    name: z.string(),
+  })).describe('Lista de proyectos detectados. Si no hay, devolver array vacío.'),
   reasoning: z.string().describe('Breve nota de por qué se vinculó.')
 });
 
@@ -31,25 +34,31 @@ const prompt = ai.definePrompt({
   name: 'matchMailProjectPrompt',
   input: { schema: MatchMailInputSchema },
   output: { schema: MatchMailOutputSchema },
-  prompt: `Actúa como un clasificador geográfico para el Departamento de Estudios Ambientales.
+  prompt: `Actúa como un clasificador experto para el Departamento de Estudios Ambientales.
   
   TU MISIÓN:
-  Identificar si el correo menciona algún LUGAR, RÍO o MUNICIPIO que coincida con nuestras obras activas.
+  Identificar a qué obra o proyecto pertenece el correo recibido.
   
-  PROYECTOS ACTUALES:
+  PROYECTOS ACTIVOS:
   {{#each availableProjects}}
   - {{name}} [{{code}}]
   {{/each}}
 
-  DATOS DEL MAIL:
+  DATOS DEL MAIL ACTUAL:
   Asunto: {{{subject}}}
   Resumen: {{{snippet}}}
 
-  REGLAS:
-  1. Buscá nombres propios de lugares (ej: Pergamino, Luján, Matanza, Zapiola, El Gato).
-  2. Si el mail menciona un lugar que está en el nombre de un proyecto, vinculalo.
-  3. No importa el código del proyecto, lo importante es el nombre del lugar.
-  4. Si no hay coincidencia geográfica clara, devolvé null en los campos de match.
+  {{#if threadContext}}
+  CONTEXTO DE LA CADENA (Mails anteriores):
+  {{{threadContext}}}
+  {{/if}}
+
+  REGLAS DE ORO:
+  1. PRIORIDAD CÓDIGO: Si el mail menciona un código (ej: MAR001, RSAL005), vincúlalo de inmediato.
+  2. PRIORIDAD LUGAR: Busca nombres de ciudades, ríos o cuencas (ej: Pergamino, Luján, Matanza, Zapiola, Saladillo).
+  3. AMBIGÜEDAD: Si el mail menciona un lugar que pertenece a más de una obra (ej: "La Madrid"), devuelve TODAS las obras que coincidan en el array 'matchedProjects'.
+  4. SIN CONTEXTO: Si el mail no dice nada útil (ej: "Te mando el archivo"), busca en el 'threadContext' si se mencionó la obra antes.
+  5. Si no hay ninguna coincidencia clara ni en el mail ni en el hilo, devuelve un array vacío en 'matchedProjects'.
 
   Devuelve el resultado en formato JSON.`,
 });

@@ -1,6 +1,6 @@
 'use server';
 
-import { getLatestEmails } from '@/services/google-gmail';
+import { getLatestEmails, getThreadContext } from '@/services/google-gmail';
 import { matchMailToProject } from '@/ai/flows/match-mail-project';
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -34,24 +34,46 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
 
         const results = await Promise.all(emails.map(async (email) => {
             try {
-                // Verificamos si ya procesamos este mail (ID directo = no necesita permisos de listado)
+                // Verificamos si ya procesamos este mail por su ID de Gmail
                 const alertDocRef = doc(db, 'mail_alerts', email.id);
                 const existingSnap = await getDoc(alertDocRef);
                 if (existingSnap.exists()) return false;
 
                 console.log(`   [IA] Procesando: "${email.subject.substring(0, 30)}..."`);
                 
-                const analysis = await matchMailToProject({
+                // Intento 1: Analizar mail actual
+                let analysis = await matchMailToProject({
                     subject: email.subject,
                     snippet: email.snippet,
                     availableProjects: projects!
                 });
 
-                if (analysis.matchedProjectCode) {
-                    const project = projects!.find(p => p.code === analysis.matchedProjectCode);
-                    const placeName = analysis.matchedProjectName || project?.name || 'Obra Detectada';
+                // Intento 2: Si no hubo match, buscar en el hilo de conversación
+                if (analysis.matchedProjects.length === 0 && email.threadId) {
+                    console.log(`     💡 Sin contexto claro. Buscando en la cadena de mails...`);
+                    const threadText = await getThreadContext(email.threadId);
+                    if (threadText) {
+                        analysis = await matchMailToProject({
+                            subject: email.subject,
+                            snippet: email.snippet,
+                            threadContext: threadText,
+                            availableProjects: projects!
+                        });
+                    }
+                }
 
-                    console.log(`     ✅ VINCULADO: "${placeName}"`);
+                if (analysis.matchedProjects.length > 0) {
+                    const isMultiple = analysis.matchedProjects.length > 1;
+                    const firstMatch = analysis.matchedProjects[0];
+                    
+                    // Si hay múltiples, armamos un nombre compuesto
+                    const displayName = isMultiple 
+                        ? `Múltiples (${analysis.matchedProjects.map(p => p.name).join(' / ')})`
+                        : firstMatch.name;
+
+                    const displayCode = isMultiple ? 'Varios' : firstMatch.code;
+
+                    console.log(`     ✅ VINCULADO: "${displayName}"`);
 
                     // Guardamos la alerta técnica
                     await setDoc(alertDocRef, {
@@ -60,18 +82,19 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                         from: email.from,
                         date: email.date,
                         snippet: email.snippet,
-                        detectedProjectCode: analysis.matchedProjectCode,
-                        detectedProjectName: project?.name || placeName,
-                        cardId: project?.id,
+                        detectedProjectCode: displayCode,
+                        detectedProjectName: displayName,
+                        cardId: isMultiple ? null : projects!.find(p => p.code === firstMatch.code)?.id,
                         status: 'new',
                         processedAt: serverTimestamp(),
-                        reasoning: analysis.reasoning
+                        reasoning: analysis.reasoning,
+                        isAmbiguous: isMultiple
                     });
 
                     // Guardamos la notificación simplificada para el frontend
                     const notifDocRef = doc(db, 'notificaciones_obras', `notif_${email.id}`);
                     await setDoc(notifDocRef, {
-                        obra_relacionada: placeName,
+                        obra_relacionada: displayName,
                         fecha_recepcion: serverTimestamp(),
                         leido: false,
                         mailSubject: email.subject,
@@ -81,7 +104,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                     return true;
                 }
                 
-                console.log(`     ❌ IGNORADO: No se detectó lugar conocido.`);
+                console.log(`     ❌ IGNORADO: No se detectó lugar ni código conocido.`);
                 return false;
             } catch (err: any) {
                 console.error(`   [ERROR MAIL ${email.id}]:`, err.message);
