@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, Zap, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, Zap, Info, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -52,7 +52,7 @@ export default function MailRadar() {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const docs = snapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter((alert: any) => alert.status !== 'dismissed');
+                .filter((alert: any) => alert.status === 'new');
 
             setAlerts(docs);
             setIsLoading(false);
@@ -152,7 +152,7 @@ export default function MailRadar() {
                     )}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 md:w-[400px] max-h-[70vh] overflow-hidden flex flex-col p-0 shadow-2xl border-primary/20 bg-white">
+            <DropdownMenuContent align="end" className="w-[320px] md:w-[420px] max-h-[80vh] overflow-hidden flex flex-col p-0 shadow-2xl border-primary/20 bg-white">
                 <DropdownMenuLabel className="flex flex-col gap-3 p-4 bg-muted/30">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -214,17 +214,14 @@ export default function MailRadar() {
                                 <DropdownMenuItem 
                                     key={alert.id} 
                                     onSelect={() => handleSelectAlert(alert)}
-                                    className={`flex flex-col items-start gap-1 p-4 border-b last:border-0 cursor-pointer hover:bg-primary/5 transition-colors ${alert.status === 'new' ? 'bg-primary/5' : ''}`}
+                                    className="flex flex-col items-start gap-0 p-4 border-b last:border-0 cursor-pointer hover:bg-primary/5 transition-colors focus:bg-primary/5 outline-none"
                                 >
-                                    <div className="flex items-start justify-between w-full gap-2">
-                                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                            <span className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase">
-                                                <AlertCircle className="h-3 w-3" />
-                                                Obra: {alert.detectedProjectCode}
-                                            </span>
-                                            <p className="text-xs font-semibold text-foreground whitespace-normal leading-tight" title={alert.subject}>{alert.subject}</p>
-                                        </div>
-                                        <div className="flex gap-1 shrink-0">
+                                    {/* Header Row: Obra + Actions */}
+                                    <div className="flex items-center justify-between w-full mb-2">
+                                        <Badge variant="secondary" className="text-[9px] font-bold bg-primary text-primary-foreground border-none hover:bg-primary rounded-sm px-1.5 py-0.5 uppercase tracking-tighter">
+                                            OBRA: {alert.detectedProjectCode}
+                                        </Badge>
+                                        <div className="flex items-center gap-1">
                                             {alert.reasoning && (
                                                 <TooltipProvider>
                                                     <Tooltip delayDuration={200}>
@@ -234,7 +231,7 @@ export default function MailRadar() {
                                                             </div>
                                                         </TooltipTrigger>
                                                         <TooltipContent side="left" className="max-w-xs bg-white text-black border shadow-lg text-[10px]">
-                                                            <p className="font-bold mb-1 uppercase tracking-tighter">Razonamiento IA:</p>
+                                                            <p className="font-bold mb-1 uppercase tracking-tighter">Análisis de la IA:</p>
                                                             <p className="leading-tight italic">"{alert.reasoning}"</p>
                                                         </TooltipContent>
                                                     </Tooltip>
@@ -243,28 +240,42 @@ export default function MailRadar() {
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
-                                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                                className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-transparent"
                                                 onClick={(e) => handleDismiss(e, alert.id)}
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </Button>
                                         </div>
                                     </div>
-                                    
-                                    <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed bg-muted/30 p-1.5 rounded w-full italic">
-                                        "{alert.snippet}"
+
+                                    {/* Subject */}
+                                    <p className="text-xs font-bold text-foreground leading-tight mb-2 whitespace-normal w-full text-left">
+                                        {alert.subject}
                                     </p>
-                                    
-                                    <div className="flex items-end justify-between w-full mt-2 gap-2">
-                                        <div className="flex flex-col flex-1 min-w-0">
-                                            <span className="text-[9px] text-muted-foreground whitespace-normal">Remitente: {alert.from}</span>
-                                            <span className="text-[9px] text-zinc-400">
-                                                {alert.processedAt ? formatDistanceToNow(alert.processedAt.toDate(), { addSuffix: true, locale: es }) : 'Recién'}
-                                            </span>
+
+                                    {/* IA Detection Result - Clean Box */}
+                                    <div className="w-full bg-muted/40 rounded-sm p-2 mb-2 border-l-2 border-primary/40 text-left">
+                                        <div className="text-[8px] font-bold text-primary/60 uppercase mb-0.5 tracking-widest">Proyecto Detectado</div>
+                                        <p className="text-[10px] font-semibold text-primary leading-tight whitespace-normal">
+                                            {alert.detectedProjectName}
+                                        </p>
+                                    </div>
+
+                                    {/* Snippet */}
+                                    <div className="w-full bg-muted/10 border border-zinc-100 rounded-sm p-2 mb-3 italic text-[10px] text-muted-foreground leading-normal text-left">
+                                        "{alert.snippet}"
+                                    </div>
+
+                                    {/* Footer Info */}
+                                    <div className="flex flex-col gap-1 w-full text-[9px] text-zinc-500">
+                                        <div className="flex items-center gap-1 overflow-hidden">
+                                            <span className="font-bold shrink-0 uppercase text-[8px] text-zinc-400">De:</span>
+                                            <span className="truncate">{alert.from}</span>
                                         </div>
-                                        <Badge variant="outline" className="text-[8px] h-auto py-1 px-2 gap-1 border-primary/20 bg-primary/5 whitespace-normal text-right max-w-[150px] shrink-0">
-                                            IA: {alert.detectedProjectName}
-                                        </Badge>
+                                        <div className="flex items-center gap-1 text-zinc-400">
+                                            <Clock className="h-2.5 w-2.5" />
+                                            <span>{alert.processedAt ? formatDistanceToNow(alert.processedAt.toDate(), { addSuffix: true, locale: es }) : 'Recién'}</span>
+                                        </div>
                                     </div>
                                 </DropdownMenuItem>
                             ))}
