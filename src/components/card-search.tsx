@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -549,10 +550,20 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const filteredCards = useMemo(() => {
     if (!query || (selectedCard && query === selectedCard.name)) return [];
     const normalizedQuery = removeAccents(query.toLowerCase());
-    return allCards.filter(card => 
-      removeAccents(card.name.toLowerCase()).includes(normalizedQuery) || 
-      removeAccents(card.desc || '').toLowerCase().includes(normalizedQuery)
-    );
+    
+    // Deduplicar localmente por ID por seguridad extra
+    const uniqueCardsMap = new Map<string, TrelloCard>();
+    allCards.forEach(card => {
+        if (!uniqueCardsMap.has(card.id)) {
+            const matchesName = removeAccents(card.name.toLowerCase()).includes(normalizedQuery);
+            const matchesDesc = removeAccents(card.desc || '').toLowerCase().includes(normalizedQuery);
+            if (matchesName || matchesDesc) {
+                uniqueCardsMap.set(card.id, card);
+            }
+        }
+    });
+    
+    return Array.from(uniqueCardsMap.values());
   }, [query, allCards, selectedCard?.id]);
   
   const handleSelect = (card: TrelloCard) => {

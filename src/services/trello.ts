@@ -213,7 +213,15 @@ export async function getAllCardsFromAllBoards(): Promise<TrelloCard[]> {
         });
         
         const cardsPerBoard = await Promise.all(allCardsPromises);
-        return cardsPerBoard.flat().sort((a, b) => a.name.localeCompare(b.name));
+        const combinedCards = cardsPerBoard.flat();
+
+        // DEDUPLICACIÓN POR ID: Evita errores de llaves duplicadas en React
+        const uniqueCardsMap = new Map<string, TrelloCard>();
+        combinedCards.forEach(card => {
+            uniqueCardsMap.set(card.id, card);
+        });
+        
+        return Array.from(uniqueCardsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
     } catch (error) {
         console.error('Failed to get cards:', error);
