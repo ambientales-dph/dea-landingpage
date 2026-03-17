@@ -165,7 +165,13 @@ export async function getAllRecentActions(hours: number = 8): Promise<TrelloBoar
         });
         
         const actionsPerBoard = await Promise.all(allActionsPromises);
-        return actionsPerBoard.flat().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const combined = actionsPerBoard.flat();
+
+        // DEDUPLICACIÓN POR ID: Crucial para evitar errores de llaves duplicadas en React
+        const uniqueActionsMap = new Map<string, TrelloBoardAction>();
+        combined.forEach(a => uniqueActionsMap.set(a.id, a));
+        
+        return Array.from(uniqueActionsMap.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     } catch (error) {
         return [];

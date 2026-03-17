@@ -59,7 +59,13 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
     };
 
     const filterDuplicateActions = (actions: CombinedAction[]): CombinedAction[] => {
+        const seenIds = new Set<string>();
         return actions.filter((action, index, self) => {
+            // 1. Evitar duplicados por ID (Error de React key)
+            if (seenIds.has(action.id)) return false;
+            seenIds.add(action.id);
+
+            // 2. Evitar duplicados lógicos (Portal + Trello reportando lo mismo)
             if (action.source === 'trello') {
                 const cardNameMatch = action.text.match(/"([^"]+)"/);
                 const cardName = cardNameMatch ? cardNameMatch[1] : null;
