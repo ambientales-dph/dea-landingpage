@@ -42,6 +42,7 @@ export type ProjectState = {
   projectName?: string;
   isStatusChange?: boolean;
   newStatus?: string;
+  timestamp?: number;
 };
 
 const STATUS_COLORS: Record<string, string | null> = {
@@ -239,6 +240,7 @@ export async function createProject(
       cardUrl: card.url,
       cardId: card.id,
       projectName: cardName,
+      timestamp: Date.now(),
     };
   } catch (error) {
     return {
@@ -347,7 +349,8 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             cardId: cardId,
             projectName: cardName,
             isStatusChange: isStatusChange,
-            newStatus: estado
+            newStatus: estado,
+            timestamp: Date.now(),
         };
 
     } catch (error) {

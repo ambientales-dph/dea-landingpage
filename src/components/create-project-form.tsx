@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState, useCallback, useMemo } from 'react';
+import { useActionState, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,6 +60,9 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
 
   const isPending = isCreating || isUpdating;
   const currentStatus = editingCard ? updateState : createState;
+  
+  // Ref para evitar procesar el mismo resultado de acción múltiples veces
+  const lastProcessedActionRef = useRef<number>(0);
 
   const [nombre, setNombre] = useState('');
   const [selectedCuenca, setSelectedCuenca] = useState('');
@@ -128,7 +131,10 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
   };
 
   useEffect(() => {
-    if (currentStatus.success && currentStatus.message) {
+    // Solo procesamos si el resultado es exitoso y tiene un timestamp mayor al último procesado
+    if (currentStatus.success && currentStatus.message && currentStatus.timestamp && currentStatus.timestamp > lastProcessedActionRef.current) {
+      lastProcessedActionRef.current = currentStatus.timestamp;
+      
       toast({ title: '¡Éxito!', description: currentStatus.message });
       
       if (user && db) {
@@ -169,7 +175,8 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
       setIsFormOpen(false);
       resetForm();
       refreshCards(); // Actualizar la lista global tras un cambio
-    } else if (!currentStatus.success && currentStatus.message) {
+    } else if (!currentStatus.success && currentStatus.message && currentStatus.timestamp && currentStatus.timestamp > lastProcessedActionRef.current) {
+      lastProcessedActionRef.current = currentStatus.timestamp;
       toast({ variant: 'destructive', title: 'Error', description: currentStatus.message });
     }
   }, [currentStatus, toast, refreshCards, user, db, editingCard]);

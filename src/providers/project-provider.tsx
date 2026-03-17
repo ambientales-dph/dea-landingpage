@@ -29,11 +29,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [selectedCard, setSelectedCard] = useState<TrelloCard | null>(null);
   const [viewState, setViewState] = useState(INITIAL_MAP_VIEW);
   const initialLoadDone = useRef(false);
+  
+  // Ref para estabilizar la función refreshCards y evitar bucles en efectos dependientes
+  const isRefreshingRef = useRef(false);
 
   const refreshCards = useCallback(async () => {
-    // Evitar múltiples cargas simultáneas
-    if (isLoadingCards) return;
+    if (isRefreshingRef.current) return;
     
+    isRefreshingRef.current = true;
     setIsLoadingCards(true);
     try {
       const cards = await getAllCardsFromAllBoards();
@@ -45,8 +48,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       console.error("Error loading cards in ProjectProvider:", e);
     } finally {
       setIsLoadingCards(false);
+      isRefreshingRef.current = false;
     }
-  }, [isLoadingCards]);
+  }, []);
 
   // Carga inicial única al montar la aplicación
   useEffect(() => {
