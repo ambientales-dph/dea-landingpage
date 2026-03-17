@@ -61,7 +61,6 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
   const isPending = isCreating || isUpdating;
   const currentStatus = editingCard ? updateState : createState;
   
-  // Ref para evitar procesar el mismo resultado de acción múltiples veces
   const lastProcessedActionRef = useRef<number>(0);
 
   const [nombre, setNombre] = useState('');
@@ -100,9 +99,8 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
   const handleEditClick = (card: TrelloCard) => {
     setEditingCard(card);
     setNombre(card.name.replace(/\([^)]+\)$/, '').trim());
-    
-    // Regex actualizada para soportar cuencas de 2 a 4 letras
-    const cuencaCode = card.name.match(/\(([A-Z]{2,4})\d{3}\)$/)?.[1];
+    const cuencaCodeMatch = card.name.match(/\(([A-Z]{2,4})\d{3}\)$/);
+    const cuencaCode = cuencaCodeMatch ? cuencaCodeMatch[1] : null;
     const cuenca = CUENCAS.find(c => c.code === cuencaCode);
     setSelectedCuenca(cuenca?.id || '');
 
@@ -131,53 +129,53 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
   };
 
   useEffect(() => {
-    // Solo procesamos si el resultado es exitoso y tiene un timestamp mayor al último procesado
-    if (currentStatus.success && currentStatus.message && currentStatus.timestamp && currentStatus.timestamp > lastProcessedActionRef.current) {
+    if (currentStatus.timestamp && currentStatus.timestamp > lastProcessedActionRef.current) {
       lastProcessedActionRef.current = currentStatus.timestamp;
       
-      toast({ title: '¡Éxito!', description: currentStatus.message });
-      
-      if (user && db) {
-        const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
-        const realName = authorizedUser?.name || user.displayName || 'Usuario';
+      if (currentStatus.success) {
+        toast({ title: '¡Éxito!', description: currentStatus.message });
+        
+        if (user && db) {
+          const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+          const realName = authorizedUser?.name || user.displayName || 'Usuario';
 
-        let actionType = editingCard ? 'update_project' : 'create_project';
-        if (currentStatus.isStatusChange) {
-            actionType = 'status_change';
-        }
+          let actionType = editingCard ? 'update_project' : 'create_project';
+          if (currentStatus.isStatusChange) {
+              actionType = 'status_change';
+          }
 
-        const activityData: any = {
-          userId: user.uid,
-          userName: realName,
-          userEmail: user.email,
-          userPhoto: user.photoURL || '',
-          actionType: actionType,
-          projectName: currentStatus.projectName || 'Proyecto',
-          cardId: currentStatus.cardId,
-          timestamp: serverTimestamp(),
-        };
+          const activityData: any = {
+            userId: user.uid,
+            userName: realName,
+            userEmail: user.email,
+            userPhoto: user.photoURL || '',
+            actionType: actionType,
+            projectName: currentStatus.projectName || 'Proyecto',
+            cardId: currentStatus.cardId,
+            timestamp: serverTimestamp(),
+          };
 
-        if (currentStatus.isStatusChange && currentStatus.newStatus) {
-            activityData.detail = `Cambió estado a "${currentStatus.newStatus}"`;
-        }
+          if (currentStatus.isStatusChange && currentStatus.newStatus) {
+              activityData.detail = `Cambió estado a "${currentStatus.newStatus}"`;
+          }
 
-        addDoc(collection(db, 'app_activities'), activityData)
-          .catch(async (error) => {
-            const permissionError = new FirestorePermissionError({
-              path: 'app_activities',
-              operation: 'create',
-              requestResourceData: activityData,
+          addDoc(collection(db, 'app_activities'), activityData)
+            .catch(async (error) => {
+              const permissionError = new FirestorePermissionError({
+                path: 'app_activities',
+                operation: 'create',
+                requestResourceData: activityData,
+              });
+              errorEmitter.emit('permission-error', permissionError);
             });
-            errorEmitter.emit('permission-error', permissionError);
-          });
-      }
+        }
 
-      setIsFormOpen(false);
-      resetForm();
-      refreshCards(); // Actualizar la lista global tras un cambio
-    } else if (!currentStatus.success && currentStatus.message && currentStatus.timestamp && currentStatus.timestamp > lastProcessedActionRef.current) {
-      lastProcessedActionRef.current = currentStatus.timestamp;
-      toast({ variant: 'destructive', title: 'Error', description: currentStatus.message });
+        setIsFormOpen(false);
+        resetForm();
+        refreshCards();
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: currentStatus.message });
+      }
     }
   }, [currentStatus, toast, refreshCards, user, db, editingCard]);
 

@@ -61,24 +61,20 @@ function getTrelloColorForStatus(status: string): string | null {
 
 /**
  * Reconcilia la descripción actual de una tarjeta con la plantilla maestra,
- * asegurando que se respete el orden de los campos y se preserven los datos existentes.
+ * asegurando que se respecte el orden de los campos y se preserven los datos existentes.
  */
 function reconcileDescription(currentDesc: string, updates: Record<string, string>): string {
     const template = DESCRIPCION_PLANTILLA;
     const templateLines = template.split('\n');
     const currentLines = (currentDesc || '').split('\n');
     
-    // Almacén de valores finales para cada campo identificado en la plantilla
     const fieldValues: Record<string, string> = {};
 
-    // 1. Identificar todos los campos en la plantilla y extraer sus valores actuales si existen
     templateLines.forEach(tLine => {
         const fieldMatch = tLine.match(/^([- ]?.*?:)/);
         if (fieldMatch) {
-            const fieldKey = fieldMatch[1]; // ej: "ESTADO:" o "- Proyectista:"
+            const fieldKey = fieldMatch[1];
             const cleanKey = fieldKey.replace(/:\s*$/, '').trim();
-            
-            // Buscar este campo en la descripción actual (ignorando espacios iniciales)
             const existingLine = currentLines.find(cl => cl.trim().startsWith(fieldKey));
             if (existingLine) {
                 const val = existingLine.substring(existingLine.indexOf(':') + 1).trim().replace(/\*\*/g, '');
@@ -87,14 +83,12 @@ function reconcileDescription(currentDesc: string, updates: Record<string, strin
         }
     });
 
-    // 2. Sobrescribir con las nuevas actualizaciones del formulario
     Object.keys(updates).forEach(key => {
         if (updates[key] !== undefined) {
             fieldValues[key] = updates[key];
         }
     });
 
-    // 3. Reconstruir la descripción usando la plantilla como esqueleto
     const resultLines: string[] = [];
     templateLines.forEach(tLine => {
         const fieldMatch = tLine.match(/^([- ]?.*?:)/);
@@ -102,32 +96,22 @@ function reconcileDescription(currentDesc: string, updates: Record<string, strin
             const fieldKey = fieldMatch[1];
             const cleanKey = fieldKey.replace(/:\s*$/, '').trim();
             const val = fieldValues[cleanKey];
-            // Aseguramos el formato: "CAMPO: **VALOR**" o "CAMPO: " si está vacío
             resultLines.push(`${fieldKey}${val ? ` **${val}**` : ''}`);
         } else {
-            // Es una línea en blanco, un encabezado, info de Drive o el marcador #
             resultLines.push(tLine);
         }
     });
 
-    // 4. Preservar líneas de la descripción actual que NO son campos de la plantilla
-    // Esto evita perder información manual (ej. comentarios extras, links manuales)
     const extraLines = currentLines.filter(cl => {
         const trimmed = cl.trim();
-        if (!trimmed) return false;
-        if (trimmed === '#') return false;
-        if (trimmed.startsWith('Drive ')) return false;
-        
-        // ¿Es un campo de la plantilla?
+        if (!trimmed || trimmed === '#' || trimmed.startsWith('Drive ')) return false;
         const isTemplateField = templateLines.some(tl => {
             const fm = tl.match(/^([- ]?.*?:)/);
             return fm && trimmed.startsWith(fm[1]);
         });
-        
         return !isTemplateField;
     });
 
-    // Insertar líneas extra antes del hashtag si es posible, para mantener el orden visual
     if (extraLines.length > 0) {
         const hashtagIndex = resultLines.findIndex(rl => rl.trim() === '#');
         if (hashtagIndex !== -1) {
@@ -171,6 +155,7 @@ export async function createProject(
       errors: validatedFields.error.flatten().fieldErrors,
       message: 'Faltan campos obligatorios.',
       success: false,
+      timestamp: Date.now()
     };
   }
 
@@ -182,14 +167,13 @@ export async function createProject(
     
     const projectCode = await getNextProjectCode(selectedCuenca.code);
     const lists = await getListsOnBoard(PROYECTOS_BOARD_ID);
-    const targetList = lists.find(list => list.name.toLowerCase() === selectedCuenca.trelloListName.toLowerCase());
+    const targetList = lists.find(list => list.name.toLowerCase().trim() === selectedCuenca.trelloListName.toLowerCase().trim());
 
-    if (!targetList) throw new Error(`No se encontró la lista "${selectedCuenca.trelloListName}".`);
+    if (!targetList) throw new Error(`No se encontró la lista de Trello "${selectedCuenca.trelloListName}". Asegúrate de que exista en el tablero.`);
 
     const cardName = `${nombre} (${projectCode})`;
     const folderName = `${projectCode} - ${nombre}`;
     
-    // Usar la nueva lógica de reconciliación para generar la descripción inicial
     const updates = {
         'ESTADO': estado || 'Sin iniciar',
         'PARTIDO': partido || '',
@@ -211,20 +195,18 @@ export async function createProject(
     await updateTrelloCard({ cardId: card.id, cover: { color: initialColor } });
 
     try {
-      const folderData = await createProjectFolder(folderName, cuencaId);
-      await addAttachmentToTrelloCard({ cardId: card.id, url: folderData.url, name: folderName });
-      
-      const emailsToShare = new Set<string>();
-      if (userEmail && userEmail.includes('@')) {
-        emailsToShare.add(userEmail.trim().toLowerCase());
-      }
-      getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-      getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-      getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-      
-      const emailList = Array.from(emailsToShare);
-      if (emailList.length > 0) {
-          await shareFolderWithEmails(folderData.id, emailList);
+      if (selectedCuenca.driveFolderId) {
+        const folderData = await createProjectFolder(folderName, cuencaId);
+        await addAttachmentToTrelloCard({ cardId: card.id, url: folderData.url, name: folderName });
+        
+        const emailsToShare = new Set<string>();
+        if (userEmail && userEmail.includes('@')) emailsToShare.add(userEmail.trim().toLowerCase());
+        getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+        getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+        getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+        
+        const emailList = Array.from(emailsToShare);
+        if (emailList.length > 0) await shareFolderWithEmails(folderData.id, emailList);
       }
     } catch (e: any) {
       console.error('Error en gestión de Drive:', e);
@@ -242,10 +224,11 @@ export async function createProject(
       projectName: cardName,
       timestamp: Date.now(),
     };
-  } catch (error) {
+  } catch (error: any) {
     return {
-      message: `Error: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+      message: `Error al crear: ${error.message || 'Error desconocido'}`,
       success: false,
+      timestamp: Date.now()
     };
   }
 }
@@ -269,11 +252,12 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             errors: validatedFields.error.flatten().fieldErrors,
             message: 'Faltan campos obligatorios.',
             success: false,
+            timestamp: Date.now()
         };
     }
 
     const { nombre, cuenca: cuencaId, estado, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, cardId } = validatedFields.data;
-    if (!cardId) return { success: false, message: 'ID de tarjeta no encontrado.' };
+    if (!cardId) return { success: false, message: 'ID de tarjeta no encontrado.', timestamp: Date.now() };
 
     try {
         const currentCard = await getCardById(cardId);
@@ -283,7 +267,6 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         let cardName = currentCard.name;
         let idList = currentCard.idList;
 
-        // Extraer estado anterior de la descripción usando la lógica por línea
         const lines = (currentCard.desc || '').split('\n');
         let oldStatus = null;
         for (const line of lines) {
@@ -296,24 +279,21 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         
         const isStatusChange = estado !== undefined && estado !== oldStatus;
 
-        // Extraer código actual (Soporta de 2 a 4 letras seguidas de dígitos)
+        // Regex mejorada para códigos de 2 a 4 letras
         const codeRegex = /\(([A-Z]{2,4}\d{3})\)$/;
         const codeMatch = currentCard.name.match(codeRegex);
         const currentCode = codeMatch ? codeMatch[1] : null;
 
-        // Si cambió la cuenca, generar nuevo código y mover de lista
         if (currentCode && !currentCode.startsWith(selectedCuenca.code)) {
             const newCode = await getNextProjectCode(selectedCuenca.code);
             cardName = `${nombre} (${newCode})`;
-            
             const lists = await getListsOnBoard(PROYECTOS_BOARD_ID);
-            const targetList = lists.find(list => list.name.toLowerCase() === selectedCuenca.trelloListName.toLowerCase());
+            const targetList = lists.find(list => list.name.toLowerCase().trim() === selectedCuenca.trelloListName.toLowerCase().trim());
             if (targetList) idList = targetList.id;
         } else {
             cardName = `${nombre} (${currentCode || 'XXX000'})`;
         }
 
-        // Aplicar la lógica de reconciliación para mantener el orden estricto de la plantilla
         const updates: Record<string, string> = {};
         if (estado !== undefined) updates['ESTADO'] = estado;
         if (partido !== undefined) updates['PARTIDO'] = partido;
@@ -334,10 +314,10 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
 
         if (isStatusChange && estado) {
             updatePayload.cover = { color: getTrelloColorForStatus(estado) };
-            const timestamp = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+            const timestampStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
             await addCommentToCard({
                 cardId,
-                text: `📍 HITO DE PROYECTO: El estado ha cambiado de "${oldStatus || '---'}" a "${estado}". Fecha: ${timestamp}.`
+                text: `📍 HITO DE PROYECTO: El estado ha cambiado de "${oldStatus || '---'}" a "${estado}". Fecha: ${timestampStr}.`
             });
         }
 
@@ -353,10 +333,11 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             timestamp: Date.now(),
         };
 
-    } catch (error) {
+    } catch (error: any) {
         return {
             success: false,
-            message: `Error al actualizar: ${error instanceof Error ? error.message : 'Error desconocido'}`
+            message: `Error al actualizar: ${error.message || 'Error desconocido'}`,
+            timestamp: Date.now()
         };
     }
 }
