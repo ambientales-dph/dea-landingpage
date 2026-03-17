@@ -11,7 +11,7 @@ export const ai = genkit({
 
 /**
  * Modelo estable utilizado para las operaciones de IA.
- * Se utiliza 'googleai/gemini-1.5-flash' por ser el modelo con mejor soporte
- * para tareas de extracción y estructuración de datos.
+ * Se utiliza 'googleai/gemini-2.0-flash' por ser el modelo más avanzado
+ * disponible para tareas de extracción y estructuración de datos.
  */
-export const geminiModel = 'googleai/gemini-1.5-flash';
+export const geminiModel = 'googleai/gemini-2.0-flash';
