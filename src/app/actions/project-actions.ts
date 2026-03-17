@@ -294,8 +294,8 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         
         const isStatusChange = estado !== undefined && estado !== oldStatus;
 
-        // Extraer código actual
-        const codeRegex = /\(([A-Z]{3}\d{3})\)$/;
+        // Extraer código actual (Soporta de 2 a 4 letras seguidas de dígitos)
+        const codeRegex = /\(([A-Z]{2,4}\d{3})\)$/;
         const codeMatch = currentCard.name.match(codeRegex);
         const currentCode = codeMatch ? codeMatch[1] : null;
 

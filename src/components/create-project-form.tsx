@@ -98,7 +98,8 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
     setEditingCard(card);
     setNombre(card.name.replace(/\([^)]+\)$/, '').trim());
     
-    const cuencaCode = card.name.match(/\(([A-Z]{3})\d{3}\)$/)?.[1];
+    // Regex actualizada para soportar cuencas de 2 a 4 letras
+    const cuencaCode = card.name.match(/\(([A-Z]{2,4})\d{3}\)$/)?.[1];
     const cuenca = CUENCAS.find(c => c.code === cuencaCode);
     setSelectedCuenca(cuenca?.id || '');
 

@@ -37,8 +37,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setIsLoadingCards(true);
     try {
       const cards = await getAllCardsFromAllBoards();
-      // Filtrar solo las tarjetas que parecen proyectos (tienen código entre paréntesis)
-      const projectCards = cards.filter(card => card.name.match(/\(([A-Z]{3}\d{3})\)$/));
+      // Filtrar solo las tarjetas que parecen proyectos (tienen código entre paréntesis, de 2 a 4 letras y 3 números)
+      const projectCards = cards.filter(card => card.name.match(/\(([A-Z]{2,4}\d{3})\)$/));
       setAllCards(projectCards);
       initialLoadDone.current = true;
     } catch (e) {

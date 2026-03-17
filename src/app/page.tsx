@@ -247,7 +247,8 @@ function HomeContent() {
   };
 
   const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
-    const projectRegex = /\(([A-Z]{3}\d{3})\)$/;
+    // Regex actualizada para soportar códigos de 2 a 4 letras
+    const projectRegex = /\(([A-Z]{2,4}\d{3})\)$/;
     const match = name.match(projectRegex);
     if (match && match[1]) {
         return {
