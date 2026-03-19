@@ -32,8 +32,9 @@ EQUIPO DEA
 - Diagnóstico ambiental-socioeconómico: 
 - Información SIG-imágenes: 
 - Información LIDAR/vuelos Dron: 
+- Seguimiento de obra:
+ 
 - Proyectista: 
-- Seguimiento de obra: 
 
 EXPEDIENTE: 
 PROVIDENCIA: 
