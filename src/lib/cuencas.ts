@@ -28,10 +28,12 @@ POBLACIÓN BENEFICIADA:
 PRESUPUESTO:
 FINANCIAMIENTO: 
 
+EQUIPO DEA
 - Diagnóstico ambiental-socioeconómico: 
 - Información SIG-imágenes: 
 - Información LIDAR/vuelos Dron: 
 - Proyectista: 
+- Seguimiento de obra: 
 
 EXPEDIENTE: 
 PROVIDENCIA: 

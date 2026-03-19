@@ -34,10 +34,11 @@ export const EQUIPO_SIG = [
   'María Ángeles González',
   'Alan Santamarina',
   'Joaquín Montorsi',
-  'Nicolás Guardo'
+  'Nicolás Guardo',
+  'Mariano Mediavilla',
 ].sort((a, b) => a.localeCompare(b));
 
 export const EQUIPO_DRON = [
    'Pablo Giner',
-  'Alan Santamarina',
+   'Alan Santamarina',
 ].sort((a, b) => a.localeCompare(b));
