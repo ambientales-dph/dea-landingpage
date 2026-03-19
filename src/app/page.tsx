@@ -763,7 +763,7 @@ function HomeContent() {
 
         <footer className="h-10 bg-black/10 backdrop-blur-sm flex items-center justify-center border-t border-white/5 shrink-0 px-4">
           <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-white/60">
-            <span>© 2024 Departamento de Estudios Ambientales</span>
+            <span>© 2026 Departamento de Estudios Ambientales</span>
             <Separator orientation="vertical" className="h-3 bg-white/10" />
             <a href="mailto:ambientales.dph@gmail.com" className="hover:text-white transition-colors flex items-center gap-1">
               <Mail className="h-3 w-3" />
@@ -790,7 +790,7 @@ function HomeContent() {
                   <Zap className="h-10 w-10 text-primary shrink-0" />
                   <div className="space-y-1">
                     <p className="text-sm font-bold text-primary">Navegación Fluida</p>
-                    <p className="text-[11px] text-neutral-400 leading-tight">Tu proyecto seleccionado y la vista del mapa se mantienen vivos al cambiar de sección.</p>
+                    <p className="text-[11px] text-neutral-400 Kaladin leading-tight">Tu proyecto seleccionado y la vista del mapa se mantienen vivos al cambiar de sección.</p>
                   </div>
                 </div>
 
@@ -919,7 +919,7 @@ function HomeContent() {
             
             <div className="p-6 bg-neutral-950 border-t border-neutral-800 shrink-0">
                <p className="text-[10px] text-neutral-500 text-center uppercase tracking-widest font-bold">
-                 Departamento de Estudios Ambientales &copy; 2024
+                 Departamento de Estudios Ambientales &copy; 2026
                </p>
             </div>
           </SheetContent>

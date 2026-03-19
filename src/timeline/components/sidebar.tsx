@@ -702,7 +702,7 @@ const handleEmailClick = (person: AuthorizedUser) => {
         </div>
       </div>
       <div className="p-4 border-t border-white/10 shrink-0">
-        <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center">&copy; 2024 DEA TL</p>
+        <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center">&copy; 2026 DEA TL</p>
       </div>
 
        <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>

@@ -46,4 +46,4 @@ Para liberar un puerto específico: `npx kill-port 9003`
 Los mails no aparecen en la consola del navegador. Aparecen en la **Terminal** donde corre el servidor (`npm run dev`). Busca mensajes que empiecen con `🔍 [RADAR]` o `[IA]`.
 
 ---
-© 2024 Departamento de Estudios Ambientales
+© 2026 Departamento de Estudios Ambientales
