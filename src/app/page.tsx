@@ -693,8 +693,8 @@ function HomeContent() {
               <div className="h-32 bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg overflow-hidden transition-all duration-500">
                 {selectedCard ? (
                   <div className="space-y-1">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-1.5 opacity-90">Expediente Cargado</p>
-                    <h2 className="text-white text-base md:text-lg font-headline leading-tight text-balance text-justify">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-1.5 opacity-90">Proyecto Cargado</p>
+                    <h2 className="text-white text-sm font-headline leading-tight text-justify line-clamp-4">
                       {(() => {
                         const { code, nameWithoutCode } = getProjectInfo(selectedCard.name);
                         return (
