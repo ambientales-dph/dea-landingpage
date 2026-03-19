@@ -698,8 +698,8 @@ function HomeContent() {
                       return (
                         <>
                           <div className="flex items-center gap-2 mb-1.5">
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary opacity-90">Proyecto Cargado</p>
-                            {code && <span className="text-[10px] font-bold text-primary font-mono select-none bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">{code.toUpperCase()}</span>}
+                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#9FCCE3] opacity-90">Proyecto Cargado</p>
+                            {code && <span className="text-[10px] font-bold text-[#9FCCE3] font-mono select-none bg-[#9FCCE3]/10 px-1.5 py-0.5 rounded border border-[#9FCCE3]/20">{code.toUpperCase()}</span>}
                           </div>
                           <h2 className="text-white text-sm font-headline leading-tight text-justify line-clamp-4">
                             <span className="font-medium">{nameWithoutCode}</span>
@@ -710,7 +710,7 @@ function HomeContent() {
                   </div>
                 ) : (
                   <>
-                    <h2 className="text-xl font-bold mb-2 text-primary shrink-0">Búsqueda de proyectos</h2>
+                    <h2 className="text-xl font-bold mb-2 text-[#9FCCE3] shrink-0">Búsqueda de proyectos</h2>
                     <p className="text-sm text-balance truncate">Encontrá proyectos por nombre o código.</p>
                   </>
                 )}
