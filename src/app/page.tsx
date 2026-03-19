@@ -693,18 +693,20 @@ function HomeContent() {
               <div className="h-32 bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg overflow-hidden transition-all duration-500">
                 {selectedCard ? (
                   <div className="space-y-1">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary mb-1.5 opacity-90">Proyecto Cargado</p>
-                    <h2 className="text-white text-sm font-headline leading-tight text-justify line-clamp-4">
-                      {(() => {
-                        const { code, nameWithoutCode } = getProjectInfo(selectedCard.name);
-                        return (
-                          <>
+                    {(() => {
+                      const { code, nameWithoutCode } = getProjectInfo(selectedCard.name);
+                      return (
+                        <>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary opacity-90">Proyecto Cargado</p>
+                            {code && <span className="text-[10px] font-bold text-primary font-mono select-none bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">{code.toUpperCase()}</span>}
+                          </div>
+                          <h2 className="text-white text-sm font-headline leading-tight text-justify line-clamp-4">
                             <span className="font-medium">{nameWithoutCode}</span>
-                            {code && <span className="ml-2 font-bold text-primary font-mono select-none">{code.toUpperCase()}</span>}
-                          </>
-                        );
-                      })()}
-                    </h2>
+                          </h2>
+                        </>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <>
