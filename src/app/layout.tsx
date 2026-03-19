@@ -5,7 +5,7 @@ import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { ProjectProvider } from "@/providers/project-provider";
 
 export const metadata: Metadata = {
-  title: "DEA",
+  title: "Portal DEA",
   description: "Departamento de Estudios Ambientales",
   icons: {
     icon: "/favicon.ico",

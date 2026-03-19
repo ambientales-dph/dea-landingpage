@@ -567,7 +567,7 @@ function HomeContent() {
       <div className="relative z-10 flex h-full flex-col font-body text-foreground">
         <header className="bg-primary shadow-md h-16 flex-shrink-0">
           <div className="container mx-auto flex h-full items-center justify-between px-4">
-            <h1 className="font-headline text-lg md:text-xl font-bold tracking-tight text-primary-foreground">Departamento de Estudios Ambientales</h1>
+            <h1 className="font-headline text-lg md:text-xl font-bold tracking-tight text-primary-foreground">Portal DEA</h1>
             <div className='flex items-center gap-2'>
               <MailRadar />
               <NotificationsBell onNotificationClick={handleNotificationClick} />
@@ -760,6 +760,17 @@ function HomeContent() {
             </div>
           </div>
         </main>
+
+        <footer className="h-10 bg-black/10 backdrop-blur-sm flex items-center justify-center border-t border-white/5 shrink-0 px-4">
+          <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-white/60">
+            <span>© 2024 Departamento de Estudios Ambientales</span>
+            <Separator orientation="vertical" className="h-3 bg-white/10" />
+            <a href="mailto:ambientales.dph@gmail.com" className="hover:text-white transition-colors flex items-center gap-1">
+              <Mail className="h-3 w-3" />
+              ambientales.dph@gmail.com
+            </a>
+          </div>
+        </footer>
 
         <Sheet open={isHelpPanelOpen} onOpenChange={setIsHelpPanelOpen}>
           <SheetContent className="bg-neutral-900 text-white sm:max-w-md border-l-primary/20 shadow-2xl p-0 flex flex-col">
