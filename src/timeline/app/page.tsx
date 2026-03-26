@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -9,22 +8,27 @@ import { MilestoneDetail } from '@/timeline/components/milestone-detail';
 import { type Milestone, type Category, type AssociatedFile } from '@/timeline/types';
 import { CATEGORIES } from '@/timeline/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { addMonths, endOfDay, parseISO, startOfDay, subMonths, subYears, format, isSameDay } from 'date-fns';
+import { addMonths, parseISO, startOfDay, endOfDay, subMonths, subYears, format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
-import { getCardAttachments, type TrelloCardBasic, getCardActions, attachUrlToCard, deleteAttachmentFromCard, deleteAction, getCardById } from '@/timeline/services/trello';
+import { 
+    getCardAttachments, 
+    getCardActions, 
+    attachUrlToCard, 
+    deleteAttachmentFromCard, 
+    deleteAction, 
+    getCardById 
+} from '@/timeline/services/trello';
 import { FileUpload } from '@/timeline/components/file-upload';
 import { MilestoneSummaryTable } from '@/timeline/components/milestone-summary-sheet';
 import { WelcomeScreen } from '@/timeline/components/welcome-screen';
 import { RSA060_MILESTONES } from '@/timeline/lib/rsa060-data';
 import { FeedbackButton } from '@/timeline/components/feedback-button';
 import { FeedbackDialog } from '@/timeline/components/feedback-dialog';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, doc, setDoc, addDoc, getDocs, writeBatch, deleteDoc, updateDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/timeline/services/google-drive';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, doc, setDoc, addDoc, getDocs, writeBatch, deleteDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive, createMilestoneFolder } from '@/timeline/services/google-drive';
 import { Buffer } from 'buffer';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
@@ -34,6 +38,8 @@ import {
     TooltipTrigger,
   } from '@/components/ui/tooltip';
 import { FileConflictDialog, type ConflictStrategy } from '@/timeline/components/file-conflict-dialog';
+import { useProject } from '@/providers/project-provider';
+import { WHITELIST } from '@/lib/auth-data';
 
 function getTrelloObjectCreationDate(trelloId: string): Date {
     const timestampHex = trelloId.substring(0, 8);
@@ -42,14 +48,22 @@ function getTrelloObjectCreationDate(trelloId: string): Date {
 }
 
 function HomeContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const cardIdParam = searchParams.get('cardId');
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
+  
+  const { allCards, selectedCard, setSelectedCard } = useProject();
+
   const [searchTerm, setSearchTerm] = React.useState('');
   const [dateRange, setDateRange] = React.useState<{ start: Date; end: Date } | null>(null);
   const [selectedMilestone, setSelectedMilestone] = React.useState<Milestone | null>(null);
-  const [selectedCard, setSelectedCard] = React.useState<TrelloCardBasic | null>(null);
   const [isUploadOpen, setIsUploadOpen] = React.useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = React.useState(false);
   const [view, setView] = React.useState<'timeline' | 'summary'>('timeline');
-  const [cardFromUrl, setCardFromUrl] = React.useState<TrelloCardBasic | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [uploadText, setUploadText] = React.useState('');
@@ -62,81 +76,77 @@ function HomeContent() {
   const [pendingUploadData, setPendingUploadData] = React.useState<any>(null);
   const [conflicts, setConflicts] = React.useState<any[]>([]);
 
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const cardIdParam = searchParams.get('cardId');
-  const firestore = useFirestore();
   const syncPerformedForCard = React.useRef<string | null>(null);
-  const { toast } = useToast();
 
-  const categoriesCollection = React.useMemo(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'categories');
-  }, [firestore]);
+  const [firestoreCategories, setFirestoreCategories] = React.useState<Category[]>([]);
+  const [milestones, setMilestones] = React.useState<Milestone[]>([]);
+  const [isLoadingTimeline, setIsLoadingTimeline] = React.useState(true);
 
-  const { data: firestoreCategories, loading: categoriesLoading } = useCollection(categoriesCollection);
+  React.useEffect(() => {
+    if (!firestore || !user) return;
+    const unsubscribe = onSnapshot(collection(firestore, 'timeline_categories'), (snapshot) => {
+      const cats = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Category));
+      if (cats.length > 0) {
+          setFirestoreCategories(cats);
+      }
+    }, (error) => {
+        console.warn("Error en listener de categorías TL:", error.message);
+    });
+    return () => unsubscribe();
+  }, [firestore, user]);
 
   const categories = React.useMemo(() => {
-    if (firestoreCategories && firestoreCategories.length > 0) {
-      return firestoreCategories as Category[];
-    }
-    return CATEGORIES;
+    return firestoreCategories.length > 0 ? firestoreCategories : CATEGORIES;
   }, [firestoreCategories]);
 
   React.useEffect(() => {
-    if (!cardIdParam) {
-        if (selectedCard !== null) setSelectedCard(null);
-        if (cardFromUrl !== null) setCardFromUrl(null);
-        syncPerformedForCard.current = null;
+    if (!firestore || !user || !selectedCard || selectedCard.id === 'training-rsa999') {
+        if (!selectedCard) setIsLoadingTimeline(false);
         return;
     }
 
-    if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
-        const fetchCard = async () => {
-            try {
-                const card = await getCardById(cardIdParam);
-                if (card) {
-                    setSelectedCard(card);
-                    setCardFromUrl(card);
-                }
-            } catch (error) {
-                console.error("Error fetching card from URL param:", error);
-            }
-        };
-        fetchCard();
-    }
-  }, [cardIdParam]);
+    setIsLoadingTimeline(true);
+    const q = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ms = snapshot.docs.map(d => {
+          const data = d.data();
+          const currentCat = categories.find(c => c.id === data.category?.id);
+          return { 
+              id: d.id, 
+              ...data,
+              category: currentCat || data.category
+          } as Milestone;
+      });
+      setMilestones(ms);
+      setIsLoadingTimeline(false);
+    }, (error) => {
+        console.warn("Error en listener de hitos TL:", error.message);
+        setIsLoadingTimeline(false);
+    });
+
+    return () => unsubscribe();
+  }, [firestore, user, selectedCard, categories]);
 
   React.useEffect(() => {
-    if (firestore && firestoreCategories && firestoreCategories.length === 0) {
-        const batch = writeBatch(firestore);
-        CATEGORIES.forEach(cat => {
-            const docRef = doc(firestore, 'categories', cat.id);
-            batch.set(docRef, cat);
-        });
-        batch.commit().catch(err => console.error("Error seeding categories:", err));
-    }
-  }, [firestore, firestoreCategories]);
-
-  const milestonesCollection = React.useMemo(() => {
-    if (!firestore || !selectedCard) return null;
-    if (selectedCard.id === 'training-rsa999') return null;
-    return collection(firestore, 'projects', selectedCard.id, 'milestones');
-  }, [firestore, selectedCard]);
-
-  const { data: rawMilestones, loading: firestoreLoading } = useCollection(milestonesCollection);
-
-  const milestones = React.useMemo(() => {
-    if (!rawMilestones) return null;
-    return rawMilestones.map(m => {
-        const currentCat = categories.find(c => c.id === m.category.id);
-        if (currentCat) {
-            return { ...m, category: currentCat };
+    if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
+        const cached = allCards.find(c => c.id === cardIdParam);
+        if (cached) {
+            setSelectedCard(cached);
+        } else {
+            const fetchCard = async () => {
+                try {
+                    const card = await getCardById(cardIdParam);
+                    if (card) {
+                        setSelectedCard(card as any);
+                    }
+                } catch (error) {
+                    console.error("Error fetching card from URL param:", error);
+                }
+            };
+            fetchCard();
         }
-        return m;
-    }) as Milestone[];
-  }, [rawMilestones, categories]);
+    }
+  }, [cardIdParam, allCards, selectedCard, setSelectedCard]);
 
   const displayedMilestones = React.useMemo(() => {
     if (selectedCard?.id === 'training-rsa999') {
@@ -160,14 +170,7 @@ function HomeContent() {
     .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
   }, [displayedMilestones, searchTerm]);
 
-  const isLoadingTimeline = firestoreLoading || categoriesLoading;
-  
-  const [isResizing, setIsResizing] = React.useState(false);
-  const [timelinePanelHeight, setTimelinePanelHeight] = React.useState(40);
-  const resizeContainerRef = React.useRef<HTMLDivElement>(null);
-  const milestoneDateBounds = React.useRef<{start: string; end: string} | null>(null);
-
-  const handleCardSelect = React.useCallback(async (card: TrelloCardBasic | null) => {
+  const handleCardSelect = React.useCallback(async (card: any | null) => {
     setSelectedCard(card);
     setSelectedMilestone(null);
     if (card) {
@@ -175,11 +178,37 @@ function HomeContent() {
     } else {
         router.push(pathname);
     }
-  }, [router, pathname]);
+  }, [router, pathname, setSelectedCard]);
   
+  const logTimelineActivity = React.useCallback(async (actionType: string, detail: string) => {
+    if (user && firestore && selectedCard) {
+      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+      const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+      const activityData = {
+        userId: user.uid,
+        userName: realName,
+        userEmail: user.email,
+        userPhoto: user.photoURL || '',
+        actionType: actionType,
+        projectName: selectedCard.name,
+        detail: detail,
+        cardId: selectedCard.id,
+        timestamp: serverTimestamp(),
+      };
+
+      try {
+        await addDoc(collection(firestore, 'app_activities'), activityData);
+      } catch (error) {
+        console.error("Error logging activity:", error);
+      }
+    }
+  }, [user, firestore, selectedCard]);
+
+  // Sincronización Trello -> Firestore
   React.useEffect(() => {
     const syncTrelloToFirestore = async () => {
-        if (!selectedCard || !firestore || syncPerformedForCard.current === selectedCard.id) {
+        if (!selectedCard || !firestore || !user || syncPerformedForCard.current === selectedCard.id) {
             return;
         }
 
@@ -191,21 +220,14 @@ function HomeContent() {
         syncPerformedForCard.current = selectedCard.id;
         
         try {
-            const projectRef = doc(firestore, 'projects', selectedCard.id);
-            const codeMatch = selectedCard.name.match(/\b([A-Z]{3}\d{3})\b/i);
+            const projectRef = doc(firestore, 'timeline_projects', selectedCard.id);
+            const codeMatch = selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i);
             const projectData = {
                 name: selectedCard.name,
                 code: codeMatch ? codeMatch[0].toUpperCase() : null
             };
             
-            setDoc(projectRef, projectData, { merge: true })
-                .catch((serverError) => {
-                    errorEmitter.emit('permission-error', new FirestorePermissionError({
-                        path: projectRef.path,
-                        operation: 'update',
-                        requestResourceData: projectData
-                    }));
-                });
+            setDoc(projectRef, projectData, { merge: true });
 
             const [attachments, actions] = await Promise.all([
                 getCardAttachments(selectedCard.id),
@@ -213,9 +235,8 @@ function HomeContent() {
             ]);
 
             const currentTrelloAttachmentIds = new Set(attachments.map(a => a.id));
-            const currentTrelloActionIds = new Set(actions.map(a => a.id));
             
-            const milestonesRef = collection(firestore, 'projects', selectedCard.id, 'milestones');
+            const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
             const existingDocsSnapshot = await getDocs(milestonesRef);
             
             const existingHitosByTrelloId = new Map();
@@ -226,7 +247,7 @@ function HomeContent() {
                 const data = d.data() as Milestone;
                 let milestoneChanged = false;
 
-                const validFiles = data.associatedFiles.filter(f => {
+                const validFiles = (data.associatedFiles || []).filter(f => {
                     if (f.trelloId && !currentTrelloAttachmentIds.has(f.trelloId)) {
                         milestoneChanged = true;
                         return false;
@@ -237,12 +258,12 @@ function HomeContent() {
                 if (milestoneChanged) {
                     batch.update(d.ref, { 
                         associatedFiles: validFiles,
-                        history: [...data.history, `${format(new Date(), "PPpp", { locale: es })} - Limpieza automática: se removió un archivo que ya no existe en Trello.`]
+                        history: [...(data.history || []), `${format(new Date(), "PPpp", { locale: es })} - Sincronización: se removió un archivo que ya no está en Trello.`]
                     });
                     hasChanges = true;
                 }
 
-                data.associatedFiles.forEach(f => {
+                (data.associatedFiles || []).forEach(f => {
                     if (f.trelloId) existingHitosByTrelloId.set(f.trelloId, d.id);
                 });
                 if (d.id.startsWith('hito-')) {
@@ -289,6 +310,7 @@ function HomeContent() {
             });
             
             const commentsCategory = categories.find(c => c.id === 'cat-10') || { id: 'cat-10', name: 'Comentarios', color: '#607D8B' };
+            const statusChangeCategory = categories.find(c => c.name.toLowerCase().includes('cambio de estado')) || { id: 'cat-status', name: 'Cambio de Estado', color: '#f59e0b' };
             const activityCategory = categories.find(c => c.id === 'cat-11') || { id: 'cat-11', name: 'Actividad de Tarjeta', color: '#9E9E9E' };
 
             const actionMilestones: Milestone[] = actions
@@ -296,7 +318,18 @@ function HomeContent() {
               .map(action => {
                 let milestone: Milestone | null = null;
                 if (action.type === 'commentCard' && action.data.text) {
-                    milestone = { id: `hito-${action.id}`, name: `Comentario de ${action.memberCreator.fullName}`, description: action.data.text, occurredAt: action.date, category: commentsCategory, tags: ['comentario'], associatedFiles: [], isImportant: false, history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] };
+                    const isStatusUpdate = action.data.text.includes('📍 HITO DE PROYECTO');
+                    milestone = { 
+                        id: `hito-${action.id}`, 
+                        name: isStatusUpdate ? 'Actualización de Estado' : `Comentario de ${action.memberCreator.fullName}`, 
+                        description: action.data.text, 
+                        occurredAt: action.date, 
+                        category: isStatusUpdate ? statusChangeCategory : commentsCategory, 
+                        tags: isStatusUpdate ? ['estado', 'sistema'] : ['comentario'], 
+                        associatedFiles: [], 
+                        isImportant: false, 
+                        history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] 
+                    };
                 } else if (action.type === 'updateCard' && action.data.listAfter && action.data.listBefore) {
                     milestone = { id: `hito-${action.id}`, name: `Tarjeta movida`, description: `Movida de "${action.data.listBefore.name}" a "${action.data.listAfter.name}" por ${action.memberCreator.fullName}.`, occurredAt: action.date, category: activityCategory, tags: ['actividad', 'movimiento'], associatedFiles: [], isImportant: false, history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] };
                 }
@@ -305,23 +338,10 @@ function HomeContent() {
 
             const allTrelloItems = [creationMilestone, ...attachmentMilestones, ...actionMilestones];
             
-            const idsToRemove = existingDocsSnapshot.docs
-              .filter(d => d.id.startsWith('hito-'))
-              .map(d => d.id)
-              .filter(id => {
-                  if (id.includes('creacion')) return false;
-                  const possibleId = id.replace('hito-', '');
-                  return !currentTrelloAttachmentIds.has(possibleId) && !currentTrelloActionIds.has(possibleId);
-              });
-
-            if (allTrelloItems.length > 0 || idsToRemove.length > 0 || hasChanges) {
+            if (allTrelloItems.length > 0 || hasChanges) {
                 allTrelloItems.forEach(milestone => {
-                    const milestoneRef = doc(firestore, 'projects', selectedCard.id, 'milestones', milestone.id);
+                    const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestone.id);
                     batch.set(milestoneRef, milestone, { merge: true });
-                });
-                idsToRemove.forEach(id => {
-                    const milestoneRef = doc(firestore, 'projects', selectedCard.id, 'milestones', id);
-                    batch.delete(milestoneRef);
                 });
                 batch.commit().catch(err => console.error("Error committing sync batch:", err));
             }
@@ -332,11 +352,11 @@ function HomeContent() {
     };
 
     syncTrelloToFirestore();
-  }, [selectedCard, firestore, categories]);
+  }, [selectedCard, firestore, user, categories]);
 
 
-  const executeFinalUpload = React.useCallback(async (data: any, folderId: string | null, resolutions: Record<string, ConflictStrategy>) => {
-    const { files, categoryId, name, description, occurredAt } = data;
+  const executeFinalUpload = React.useCallback(async (data: any, rootFolderId: string, resolutions: Record<string, ConflictStrategy>) => {
+    const { files, categoryId, name, description, occurredAt, isFinalDocument } = data;
     const category = categories.find((c: any) => c.id === categoryId);
     if (!category || !selectedCard || !firestore) {
         setIsUploading(false);
@@ -344,21 +364,27 @@ function HomeContent() {
     }
 
     setIsUploading(true);
-    const { id: toastId, update, dismiss } = toast({
-      title: "Procesando archivos...",
-      description: "Por favor, espera.",
+    const { id: toastId, dismiss } = toast({
+      title: "Gestionando Drive...",
+      description: isFinalDocument ? "Creando carpeta de hito intocable." : "Preparando carpeta de trabajo.",
       duration: Infinity,
     });
 
     try {
+      let uploadFolderId = rootFolderId;
+
+      // Si es final, creamos la carpeta YYMMDDHHMMSS_Nombre
+      if (isFinalDocument) {
+          uploadFolderId = await createMilestoneFolder(rootFolderId, name);
+      }
+
       const associatedFiles: AssociatedFile[] = [];
-      if (files && files.length > 0 && folderId) {
+      if (files && files.length > 0) {
         const totalFiles = files.length;
         for (const [index, file] of files.entries()) {
           const strategy = resolutions[file.name] || 'rename';
           if (strategy === 'omit') continue;
 
-          setUploadText(`Subiendo: ${file.name}`);
           setUploadProgress(((index) / totalFiles) * 100);
           
           const arrayBuffer = await file.arrayBuffer();
@@ -368,32 +394,24 @@ function HomeContent() {
           let existingId = strategy === 'overwrite' ? conflicts.find(c => c.name === file.name)?.existingId : undefined;
 
           if (strategy === 'rename') {
-             let counter = 1;
-             let nameParts = file.name.split('.');
-             let ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
-             let baseName = nameParts.join('.');
-             
+             const nameParts = file.name.split('.');
+             const ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
+             const baseName = nameParts.join('.');
              let currentTryName = file.name;
-             let alreadyExists = conflicts.some(c => c.name === currentTryName);
-             
-             while (alreadyExists) {
-                currentTryName = `${baseName} (${counter})${ext}`;
-                const check = await findFileInFolder(folderId, currentTryName);
+             let counter = 1;
+             while (true) {
+                const check = await findFileInFolder(uploadFolderId, currentTryName);
                 if (!check) break;
+                currentTryName = `${baseName} (${counter})${ext}`;
                 counter++;
              }
              targetName = currentTryName;
           }
 
-          const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
-          
-          // Cleanup Trello duplicate attachments by name before attaching the new one
-          const currentTrelloAttachments = await getCardAttachments(selectedCard.id);
-          const duplicates = currentTrelloAttachments.filter(a => a.fileName === targetName);
-          for (const dup of duplicates) {
-              await deleteAttachmentFromCard(selectedCard.id, dup.id);
-          }
+          setUploadText(`Subiendo a Drive: ${targetName}`);
 
+          const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, uploadFolderId, existingId);
+          
           const trelloAtt = await attachUrlToCard(selectedCard.id, driveResult.name, driveResult.webViewLink);
           
           associatedFiles.push({
@@ -436,24 +454,20 @@ function HomeContent() {
           description: description,
           occurredAt: finalDate.toISOString(),
           category: { id: category.id, name: category.name, color: category.color },
-          tags: ['manual'],
+          tags: [isFinalDocument ? 'intocable' : 'trabajo', 'manual'],
           associatedFiles: associatedFiles,
           isImportant: false,
-          history: [`${format(new Date(), "PPpp", { locale: es })} - Creación de hito con ${associatedFiles.length} archivo(s).`],
+          history: [`${format(new Date(), "PPpp", { locale: es })} - Hito creado como ${isFinalDocument ? 'INTOCABLE' : 'TRABAJO'} con ${associatedFiles.length} archivo(s).`],
       };
 
-      const milestonesRef = collection(firestore, 'projects', selectedCard.id, 'milestones');
-      addDoc(milestonesRef, newMilestoneData).catch((serverError) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: milestonesRef.path,
-                operation: 'create',
-                requestResourceData: newMilestoneData
-            }));
-      });
+      const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
+      await addDoc(milestonesRef, newMilestoneData);
       
+      logTimelineActivity('timeline_milestone_created', `Hito ${isFinalDocument ? 'Intocable' : 'Trabajo'}: "${name}"`);
+
       setIsUploadOpen(false);
       dismiss(toastId);
-      toast({ title: "Hito creado" });
+      toast({ title: `Hito ${isFinalDocument ? 'final' : 'de trabajo'} creado.` });
     } catch (error: any) {
         console.error("Upload error:", error);
         dismiss(toastId);
@@ -465,31 +479,38 @@ function HomeContent() {
         setConflicts([]);
         setPendingUploadData(null);
     }
-  }, [categories, selectedCard, firestore, toast, milestones, conflicts]);
+  }, [categories, selectedCard, firestore, toast, milestones, conflicts, logTimelineActivity]);
 
-  const handleUpload = React.useCallback(async (data: { files?: File[], categoryId: string, name: string, description: string, occurredAt: Date }) => {
+  const handleUpload = React.useCallback(async (data: any) => {
     if (!firestore || !selectedCard) return;
 
     if (selectedCard.id === 'training-rsa999') {
-        toast({ variant: "destructive", title: "Acción no permitida", description: "No se pueden crear hitos para el proyecto de entrenamiento." });
+        toast({ variant: "destructive", title: "Acción no permitida", description: "Proyecto de entrenamiento solo lectura." });
         return;
     }
 
-    const { files, categoryId } = data;
-    const category = categories.find(c => c.id === categoryId);
-    if (!category) return;
-
-    const codeMatch = selectedCard.name.match(/\b([A-Z]{3}\d{3})\b/i);
+    const { files, isFinalDocument, targetFolderId } = data;
+    const codeMatch = selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i);
     const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
 
-    if (files && files.length > 0) {
-        setIsUploading(true);
-        setUploadText("Escaneando Drive...");
-        try {
-            const folderId = await getOrCreateProjectFolder(projectCode);
+    setIsUploading(true);
+    setUploadText("Escaneando Drive...");
+
+    try {
+        let finalRootId = '';
+        
+        if (isFinalDocument) {
+            // Raíz de TL
+            finalRootId = await getOrCreateProjectFolder(projectCode, true);
+        } else {
+            // Raíz Principal - Usar la carpeta de destino seleccionada o la del proyecto
+            finalRootId = targetFolderId || await getOrCreateProjectFolder(projectCode, false);
+        }
+
+        if (files && files.length > 0) {
             const foundConflicts = [];
             for (const file of files) {
-                const existing = await findFileInFolder(folderId, file.name);
+                const existing = await findFileInFolder(finalRootId, file.name);
                 if (existing) {
                     foundConflicts.push({ name: file.name, existingId: existing.id });
                 }
@@ -497,102 +518,68 @@ function HomeContent() {
 
             if (foundConflicts.length > 0) {
                 setConflicts(foundConflicts);
-                setPendingUploadData({ ...data, folderId });
+                setPendingUploadData({ ...data, finalRootId });
                 setIsConflictDialogOpen(true);
                 return;
-            } else {
-                executeFinalUpload(data, folderId, {});
             }
-        } catch (error: any) {
-            setIsUploading(false);
-            toast({ variant: "destructive", title: "Error al verificar Drive", description: error.message });
         }
-    } else {
-        executeFinalUpload(data, null, {});
+        
+        executeFinalUpload(data, finalRootId, {});
+    } catch (error: any) {
+        setIsUploading(false);
+        toast({ variant: "destructive", title: "Error de Drive", description: error.message });
     }
-  }, [categories, selectedCard, firestore, toast, executeFinalUpload]);
+  }, [selectedCard, firestore, toast, executeFinalUpload]);
 
   const handleConflictResolve = (resolutions: Record<string, ConflictStrategy>) => {
     setIsConflictDialogOpen(false);
     if (pendingUploadData) {
-        executeFinalUpload(pendingUploadData, pendingUploadData.folderId, resolutions);
+        executeFinalUpload(pendingUploadData, pendingUploadData.finalRootId, resolutions);
     }
   };
 
   const handleMilestoneUpdate = React.useCallback((updatedMilestone: Milestone) => {
     if (!firestore || !selectedCard) return;
-
-    if (selectedCard.id === 'training-rsa999') {
-      toast({ variant: "destructive", title: "Acción no permitida", description: "No se pueden guardar cambios para el proyecto de entrenamiento." });
-      return;
+    const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', updatedMilestone.id);
+    updateDoc(milestoneRef, updatedMilestone as any);
+    toast({ title: "Hito actualizado" });
+    if (selectedMilestone && selectedMilestone.id === updatedMilestone.id) {
+        setSelectedMilestone(updatedMilestone);
     }
-
-    const milestoneRef = doc(firestore, 'projects', selectedCard.id, 'milestones', updatedMilestone.id);
-    
-    updateDoc(milestoneRef, updatedMilestone as any)
-        .then(() => {
-            toast({ title: "Hito actualizado" });
-            if (selectedMilestone && selectedMilestone.id === updatedMilestone.id) {
-                setSelectedMilestone(updatedMilestone);
-            }
-        })
-        .catch((serverError: any) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: milestoneRef.path,
-                operation: 'update',
-                requestResourceData: updatedMilestone
-            }));
-        });
   }, [selectedCard, selectedMilestone, firestore, toast]);
 
   const handleMilestoneDelete = React.useCallback(async (milestoneId: string) => {
     if (!firestore || !selectedCard) return;
-
-    if (selectedCard.id === 'training-rsa999') {
-      toast({ variant: "destructive", title: "Acción no permitida", description: "No se pueden borrar hitos del proyecto de entrenamiento." });
-      return;
-    }
-
     const hitoToDelete = milestones?.find(m => m.id === milestoneId);
     if (!hitoToDelete) return;
 
     const { id: toastId, dismiss } = toast({
       title: "Eliminando hito...",
-      description: "Por favor, espera.",
+      description: "Borrando archivos vinculados en Drive.",
       duration: Infinity,
     });
 
     try {
         for (const file of hitoToDelete.associatedFiles) {
             if (file.trelloId) await deleteAttachmentFromCard(selectedCard.id, file.trelloId);
-            const driveId = file.driveId || (file.id && !file.trelloId ? file.id : null);
+            const driveId = file.driveId || file.id;
             if (driveId) await deleteFileFromDrive(driveId);
         }
-
         if (milestoneId.startsWith('hito-') && hitoToDelete.tags?.includes('comentario')) {
             const trelloObjectId = milestoneId.replace('hito-', '');
             await deleteAction(trelloObjectId);
         }
-        
+        logTimelineActivity('timeline_milestone_deleted', `Eliminó hito: "${hitoToDelete.name}"`);
         dismiss(toastId);
     } catch (e) {
         dismiss(toastId);
     }
 
-    const milestoneRef = doc(firestore, 'projects', selectedCard.id, 'milestones', milestoneId);
-    
-    deleteDoc(milestoneRef)
-        .then(() => {
-            toast({ title: "Hito eliminado" });
-            setSelectedMilestone(null);
-        })
-        .catch((serverError: any) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: milestoneRef.path,
-                operation: 'delete'
-            }));
-        });
-  }, [selectedCard, firestore, toast, milestones]);
+    const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestoneId);
+    deleteDoc(milestoneRef);
+    toast({ title: "Hito eliminado" });
+    setSelectedMilestone(null);
+  }, [selectedCard, firestore, toast, milestones, logTimelineActivity]);
 
 
   const handleSetRange = React.useCallback((rangeType: '1D' | '1M' | '1Y' | 'All') => {
@@ -612,95 +599,55 @@ function HomeContent() {
     setSelectedMilestone(milestone);
   }, []);
 
-  const handleDetailClose = React.useCallback(() => {
-    setSelectedMilestone(null);
-  }, []);
-  
   const handleGoHome = React.useCallback(() => {
-    router.push(pathname);
-    setSelectedCard(null);
-    setSelectedMilestone(null);
-    setCardFromUrl(null);
-    setSearchTerm('');
-    setSelectedBoard('');
-    setSelectedList('');
-    setCardSearchTerm('');
-    setView('timeline');
-    syncPerformedForCard.current = null;
-  }, [router, pathname]);
+    let path = '/';
+    if (selectedCard) {
+      path += `?cardId=${selectedCard.id}`;
+    }
+    router.push(path);
+  }, [router, selectedCard]);
 
   const handleCategoryColorChange = React.useCallback((categoryId: string, color: string) => {
     if (!firestore) return;
-    const catRef = doc(firestore, 'categories', categoryId);
-    updateDoc(catRef, { color })
-        .catch(err => {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: catRef.path,
-                operation: 'update',
-                requestResourceData: { color }
-            }));
-        });
+    const catRef = doc(firestore, 'timeline_categories', categoryId);
+    updateDoc(catRef, { color });
   }, [firestore]);
   
   const handleCategoryAdd = React.useCallback((name: string) => {
     if (!firestore) return;
     const DEFAULT_COLORS = ['#a3e635', '#22c55e', '#14b8a6', '#0ea5e9', '#4f46e5', '#8b5cf6', '#be185d', '#f97316', '#facc15'];
     const color = DEFAULT_COLORS[categories.length % DEFAULT_COLORS.length];
-    const newCat = { name, color };
-    addDoc(collection(firestore, 'categories'), newCat)
-        .catch(err => {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: 'categories',
-                operation: 'create',
-                requestResourceData: newCat
-            }));
-        });
+    addDoc(collection(firestore, 'timeline_categories'), { name, color });
   }, [firestore, categories]);
 
   const handleCategoryUpdate = React.useCallback((categoryId: string, name: string) => {
     if (!firestore) return;
-    const newName = name.trim();
-    if (!newName) return;
-    const catRef = doc(firestore, 'categories', categoryId);
-    updateDoc(catRef, { name: newName })
-        .catch(err => {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: catRef.path,
-                operation: 'update',
-                requestResourceData: { name: newName }
-            }));
-        });
+    const catRef = doc(firestore, 'timeline_categories', categoryId);
+    updateDoc(catRef, { name: name.trim() });
   }, [firestore]);
   
   const handleCategoryDelete = React.useCallback((categoryId: string) => {
     if (!firestore) return;
-    const catRef = doc(firestore, 'categories', categoryId);
-    deleteDoc(catRef)
-        .catch(err => {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: 'categories',
-                operation: 'delete'
-            }));
-        });
+    const catRef = doc(firestore, 'timeline_categories', categoryId);
+    deleteDoc(catRef);
   }, [firestore]);
 
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleResizeMouseDown = (event: React.MouseEvent) => {
+    event.preventDefault();
     setIsResizing(true);
   };
   
   React.useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (event: MouseEvent) => {
       if (!isResizing || !resizeContainerRef.current) return;
       const container = resizeContainerRef.current;
       const rect = container.getBoundingClientRect();
-      const newHeight = e.clientY - rect.top;
+      const newHeight = event.clientY - rect.top;
       let newHeightPercent = (newHeight / rect.height) * 100;
       if (newHeightPercent < 20) newHeightPercent = 20;
       if (newHeightPercent > 80) newHeightPercent = 80;
       setTimelinePanelHeight(newHeightPercent);
     };
-
     const handleMouseUp = () => setIsResizing(false);
     if (isResizing) {
       window.addEventListener('mousemove', handleMouseMove);
@@ -711,26 +658,6 @@ function HomeContent() {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing]);
-
-  React.useEffect(() => {
-    if (selectedCard) {
-      const match = selectedCard.name.match(/\b([A-Z]{3}\d{3})\b/i);
-      document.title = `DEA TL | ${match ? match[0].toUpperCase() : selectedCard.name}`;
-    } else {
-      document.title = 'DEA TL';
-    }
-  }, [selectedCard]);
-
-  const handleToggleView = () => setView(prev => prev === 'timeline' ? 'summary' : 'timeline');
-
-  const handleSelectTrainingProject = () => {
-    handleCardSelect({
-        id: 'training-rsa999',
-        name: 'Proyecto de Entrenamiento Maestro - RSA999',
-        url: '',
-        desc: 'Proyecto de ejemplo maestro con hitos de referencia para capacitación.'
-    });
-  };
 
   React.useEffect(() => {
     if (displayedMilestones.length > 0) {
@@ -749,8 +676,10 @@ function HomeContent() {
     }
   }, [displayedMilestones]);
 
+  const projectCode = selectedCard ? (selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i)?.[0] || null) : null;
+
   return (
-    <div className="flex h-screen w-full bg-background">
+    <div className="timeline-app-root flex h-screen w-full bg-background font-sans text-foreground">
       <Sidebar 
         categories={categories} 
         onCategoryColorChange={handleCategoryColorChange}
@@ -758,9 +687,9 @@ function HomeContent() {
         onCategoryUpdate={handleCategoryUpdate}
         onCategoryDelete={handleCategoryDelete}
         onCardSelect={handleCardSelect}
-        selectedCard={selectedCard}
+        selectedCard={selectedCard as any}
         onGoHome={handleGoHome}
-        cardFromUrl={cardFromUrl}
+        cardFromUrl={null}
         selectedBoard={selectedBoard}
         onBoardSelect={setSelectedBoard}
         selectedList={selectedList}
@@ -778,7 +707,6 @@ function HomeContent() {
           onGoHome={handleGoHome}
           trelloCardUrl={selectedCard?.url ?? null}
           isProjectLoaded={!!selectedCard}
-          onSelectTrainingProject={handleSelectTrainingProject}
         />
         <div className="flex-1 flex flex-col overflow-hidden relative">
           {selectedCard && (
@@ -829,6 +757,7 @@ function HomeContent() {
                             startDate={dateRange?.start || subMonths(new Date(), 6)}
                             endDate={dateRange?.end || addMonths(new Date(), 6)}
                             onMilestoneClick={handleMilestoneClick}
+                            isDetailOpen={!!selectedMilestone}
                         />
                     </div>
                 ) : (
@@ -847,7 +776,7 @@ function HomeContent() {
                               categories={categories}
                               onMilestoneUpdate={handleMilestoneUpdate}
                               onMilestoneDelete={handleMilestoneDelete}
-                              onClose={handleDetailClose}
+                              onClose={() => setSelectedMilestone(null)}
                               projectName={selectedCard?.name || ''}
                               cardId={selectedCard?.id || null}
                           />
@@ -868,6 +797,7 @@ function HomeContent() {
         isOpen={isUploadOpen}
         onOpenChange={setIsUploadOpen}
         categories={categories}
+        projectCode={projectCode}
         onUpload={handleUpload}
         isUploading={isUploading}
         uploadProgress={uploadProgress}

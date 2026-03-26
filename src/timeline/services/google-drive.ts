@@ -5,7 +5,7 @@ import { Readable } from 'stream';
 
 /**
  * Servicio para gestionar la subida y eliminación de archivos a Google Drive usando OAuth2.
- * Actúa en nombre de la cuenta personal configurada.
+ * Soporta dos raíces: Principal (EIAS_AMBIENTALES) y TL (DEA_TL_archivos).
  */
 
 async function getDriveClient() {
@@ -14,36 +14,34 @@ async function getDriveClient() {
     const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN_TL || '').trim();
 
     if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error('Faltan variables de entorno: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET o GOOGLE_REFRESH_TOKEN.');
+        throw new Error('Faltan variables de entorno de Google.');
     }
 
-    // Usamos el cliente OAuth2 con el Refresh Token de la cuenta personal
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({ refresh_token: refreshToken });
 
     try {
-        // Forzamos el refresco del token para validar credenciales inmediatamente
         await oauth2Client.getAccessToken();
     } catch (error: any) {
-        console.error('ERROR CRÍTICO DE AUTENTICACIÓN GOOGLE:', error.response?.data || error.message);
-        throw new Error(`Error de autenticación Google: ${error.response?.data?.error_description || error.message}. Verifica que el Refresh Token sea válido.`);
+        throw new Error(`Error de autenticación Google: ${error.message}`);
     }
 
     return google.drive({ version: 'v3', auth: oauth2Client });
 }
 
 /**
- * Obtiene o crea la carpeta del proyecto dentro de la RAÍZ ESPECÍFICA de la Línea de Tiempo.
+ * Obtiene o crea la carpeta del proyecto dentro de una raíz específica.
  */
-export async function getOrCreateProjectFolder(projectCode: string | null) {
+export async function getOrCreateProjectFolder(projectCode: string | null, useTLRoot: boolean = true) {
     const drive = await getDriveClient();
     const folderName = projectCode || 'OTROS_PROYECTOS';
     
-    // IMPORTANTE: Se utiliza la raíz específica de la Línea de Tiempo solicitada
-    const rootFolderId = (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID_TL || '').trim();
+    const rootFolderId = useTLRoot 
+        ? (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID_TL || '').trim()
+        : (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '').trim();
     
     if (!rootFolderId) {
-        throw new Error('ID de carpeta raíz de la TL no configurado (GOOGLE_DRIVE_ROOT_FOLDER_ID_TL).');
+        throw new Error(`ID de carpeta raíz no configurado (${useTLRoot ? 'TL' : 'Principal'}).`);
     }
 
     try {
@@ -53,14 +51,12 @@ export async function getOrCreateProjectFolder(projectCode: string | null) {
         const response = await drive.files.list({
             q: query,
             fields: 'files(id, name)',
-            spaces: 'drive',
         });
 
         if (response.data.files && response.data.files.length > 0) {
             return response.data.files[0].id;
         }
 
-        // Si no existe, la creamos dentro de la raíz de la TL
         const fileMetadata = {
             name: folderName,
             mimeType: 'application/vnd.google-apps.folder',
@@ -72,10 +68,81 @@ export async function getOrCreateProjectFolder(projectCode: string | null) {
             fields: 'id',
         });
 
-        return folder.data.id;
+        return folder.data.id!;
     } catch (error: any) {
         console.error('Error al buscar/crear carpeta en Drive:', error.message);
         throw error;
+    }
+}
+
+/**
+ * Crea una carpeta específica para un hito (Intocable).
+ * Formato: YYMMDDHHMMSS_NombreDelHito
+ */
+export async function createMilestoneFolder(parentFolderId: string, milestoneName: string) {
+    const drive = await getDriveClient();
+    const now = new Date();
+    const timestamp = now.getFullYear().toString().slice(-2) + 
+                      (now.getMonth() + 1).toString().padStart(2, '0') + 
+                      now.getDate().toString().padStart(2, '0') + 
+                      now.getHours().toString().padStart(2, '0') + 
+                      now.getMinutes().toString().padStart(2, '0') + 
+                      now.getSeconds().toString().padStart(2, '0');
+    
+    const folderName = `${timestamp}_${milestoneName}`;
+
+    try {
+        const fileMetadata = {
+            name: folderName,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentFolderId],
+        };
+
+        const folder = await drive.files.create({
+            requestBody: fileMetadata,
+            fields: 'id',
+        });
+
+        return folder.data.id!;
+    } catch (error: any) {
+        throw new Error(`Error al crear carpeta de hito: ${error.message}`);
+    }
+}
+
+/**
+ * Lista subcarpetas de una carpeta padre.
+ */
+export async function listSubfolders(parentFolderId: string) {
+    const drive = await getDriveClient();
+    try {
+        const response = await drive.files.list({
+            q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+            fields: 'files(id, name)',
+            orderBy: 'name',
+        });
+        return response.data.files || [];
+    } catch (error) {
+        return [];
+    }
+}
+
+/**
+ * Crea una subcarpeta simple.
+ */
+export async function createSubfolder(parentFolderId: string, folderName: string) {
+    const drive = await getDriveClient();
+    try {
+        const folder = await drive.files.create({
+            requestBody: {
+                name: folderName,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [parentFolderId],
+            },
+            fields: 'id, name',
+        });
+        return folder.data;
+    } catch (error: any) {
+        throw new Error(`Error al crear subcarpeta: ${error.message}`);
     }
 }
 
@@ -90,11 +157,9 @@ export async function findFileInFolder(folderId: string, fileName: string) {
         const response = await drive.files.list({
             q: query,
             fields: 'files(id, name)',
-            spaces: 'drive',
         });
         return response.data.files?.[0] || null;
     } catch (error) {
-        console.error('Error al buscar archivo:', error);
         return null;
     }
 }
@@ -110,7 +175,6 @@ export async function deleteFileFromDrive(fileId: string): Promise<boolean> {
         });
         return true;
     } catch (error: any) {
-        console.error('Error al eliminar archivo de Drive:', error.message);
         return false;
     }
 }
@@ -142,7 +206,6 @@ export async function uploadFileToDrive(
 
         let file;
         if (existingFileId) {
-            // Sobrescribir archivo existente
             file = await drive.files.update({
                 fileId: existingFileId,
                 requestBody: {
@@ -152,13 +215,11 @@ export async function uploadFileToDrive(
                 fields: 'id, webViewLink, name',
             } as any);
         } else {
-            // Crear nuevo archivo
-            const fileMetadata = {
-                name: fileName,
-                parents: [folderId],
-            };
             file = await drive.files.create({
-                requestBody: fileMetadata,
+                requestBody: {
+                    name: fileName,
+                    parents: [folderId],
+                },
                 media: media,
                 fields: 'id, webViewLink, name',
             } as any);
@@ -168,7 +229,6 @@ export async function uploadFileToDrive(
             throw new Error('La subida a Drive falló.');
         }
 
-        // Aseguramos que cualquier persona con el link pueda verlo (política de la app)
         await drive.permissions.create({
             fileId: file.data.id,
             requestBody: { role: 'reader', type: 'anyone' },
@@ -181,7 +241,6 @@ export async function uploadFileToDrive(
         };
 
     } catch (error: any) {
-        console.error('Error crítico en uploadFileToDrive:', error);
-        throw new Error(`Error al subir a Google Drive: ${error.message || 'Error desconocido'}`);
+        throw new Error(`Error al subir a Google Drive: ${error.message}`);
     }
 }
