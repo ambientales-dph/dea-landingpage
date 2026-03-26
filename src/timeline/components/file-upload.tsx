@@ -18,7 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from './ui/textarea';
-import { UploadCloud, X, File as FileIconLucide, CalendarIcon, Loader2, ShieldCheck, FolderEdit, PlusCircle } from 'lucide-react';
+import { UploadCloud, X, File as FileIconLucide, CalendarIcon, Loader2, ShieldCheck, FolderEdit, PlusCircle, Folder, HardDrive } from 'lucide-react';
 import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, isValid, parse } from 'date-fns';
@@ -26,6 +26,7 @@ import { es } from 'date-fns/locale';
 import { ScrollArea } from './ui/scroll-area';
 import { Switch } from './ui/switch';
 import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/timeline/services/google-drive';
+import { Badge } from './ui/badge';
 
 const uploadSchema = z.object({
   name: z.string().min(1, { message: 'El título del hito no puede estar vacío.' }),
@@ -91,7 +92,8 @@ export function FileUpload({
   });
 
   const isFinal = form.watch('isFinalDocument');
-  const formDate = form.watch('occurredAt');
+  const selectedFolderId = form.watch('targetFolderId');
+  const hitoName = form.watch('name');
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -104,16 +106,18 @@ export function FileUpload({
     }
   }, [form, isOpen]);
 
-  // Cargar carpetas cuando se elige "Archivo de trabajo"
   React.useEffect(() => {
     const fetchFolders = async () => {
         if (!isFinal && projectCode && isOpen) {
             setIsLoadingFolders(true);
             try {
+                // Obtenemos la carpeta raíz de trabajo del proyecto
                 const projectFolderId = await getOrCreateProjectFolder(projectCode, false);
                 const folders = await listSubfolders(projectFolderId);
                 setAvailableFolders(folders as any);
-                if (folders.length > 0) {
+                
+                // Si hay carpetas, seleccionamos la primera por defecto si no hay nada seleccionado
+                if (folders.length > 0 && !form.getValues('targetFolderId')) {
                     form.setValue('targetFolderId', folders[0].id!);
                 }
             } catch (error) {
@@ -173,6 +177,11 @@ export function FileUpload({
     if (e.target) e.target.value = '';
   };
 
+  const selectedFolderName = React.useMemo(() => {
+      if (isFinal) return `YYMMDDHHMMSS_${hitoName || 'Hito'}`;
+      return availableFolders.find(f => f.id === selectedFolderId)?.name || '(Carpeta raíz)';
+  }, [isFinal, hitoName, selectedFolderId, availableFolders]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className={cn(
@@ -200,6 +209,19 @@ export function FileUpload({
                       </div>
                       ) : (
                       <fieldset disabled={isUploading} className="space-y-3">
+                          
+                          <div className="bg-white/40 p-3 rounded-lg border border-zinc-400/50 mb-4 space-y-2">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-1">Destino de Carga</p>
+                              <div className="flex items-center gap-2">
+                                  <HardDrive className="h-3.5 w-3.5 text-primary" />
+                                  <span className="text-[10px] font-bold">Raíz: {isFinal ? 'DEA_TL_archivos' : 'EIAS_AMBIENTALES'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                  <Folder className="h-3.5 w-3.5 text-amber-600" />
+                                  <span className="text-[10px] truncate max-w-full">Ruta: {projectCode || 'S/C'} / <span className="font-bold">{selectedFolderName}</span></span>
+                              </div>
+                          </div>
+
                           <FormField
                           control={form.control}
                           name="isFinalDocument"
@@ -212,8 +234,8 @@ export function FileUpload({
                                   </FormLabel>
                                   <FormDescription className="text-[9px] leading-tight text-zinc-600">
                                     {field.value 
-                                      ? 'Se guardará en la carpeta raíz DEA_TL_archivos bajo una carpeta fechada propia del hito.' 
-                                      : 'Se guardará en la raíz EIAS_AMBIENTALES para edición colaborativa.'}
+                                      ? 'Se guarda en TL bajo una carpeta cerrada para el hito.' 
+                                      : 'Se guarda en la carpeta de trabajo del proyecto.'}
                                   </FormDescription>
                                 </div>
                                 <FormControl>
@@ -233,20 +255,19 @@ export function FileUpload({
                                     name="targetFolderId"
                                     render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                            <FormLabel className="text-[10px] uppercase font-bold text-zinc-500">Carpeta de destino en EIAS_AMBIENTALES</FormLabel>
+                                            <FormLabel className="text-[10px] uppercase font-bold text-zinc-500">Subcarpeta de Trabajo (Destino)</FormLabel>
                                             <div className="flex gap-2">
                                                 <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingFolders || isCreatingFolder}>
                                                     <FormControl>
                                                         <SelectTrigger className="h-8 text-xs bg-zinc-100 border-zinc-400">
-                                                            <SelectValue placeholder={isLoadingFolders ? "Cargando carpetas..." : "Selecciona subcarpeta"} />
+                                                            <SelectValue placeholder={isLoadingFolders ? "Cargando carpetas..." : "Selecciona destino"} />
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent className="max-h-[200px]" position="popper">
-                                                        {availableFolders.length > 0 ? availableFolders.map(f => (
+                                                        <SelectItem value="" className="text-xs">(Raíz del proyecto)</SelectItem>
+                                                        {availableFolders.length > 0 && availableFolders.map(f => (
                                                             <SelectItem key={f.id} value={f.id} className="text-xs">{f.name}</SelectItem>
-                                                        )) : (
-                                                            <SelectItem value="none" disabled className="text-xs italic">Sin carpetas (Crea una nueva)</SelectItem>
-                                                        )}
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                                 <Button 
@@ -255,6 +276,7 @@ export function FileUpload({
                                                     size="icon" 
                                                     className="h-8 w-8 shrink-0 border-zinc-400"
                                                     onClick={() => setIsCreatingFolder(!isCreatingFolder)}
+                                                    title="Nueva carpeta"
                                                 >
                                                     <PlusCircle className="h-4 w-4" />
                                                 </Button>

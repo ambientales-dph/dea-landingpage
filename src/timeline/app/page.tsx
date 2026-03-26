@@ -258,7 +258,7 @@ function HomeContent() {
                 if (milestoneChanged) {
                     batch.update(d.ref, { 
                         associatedFiles: validFiles,
-                        history: [...(data.history || []), `${format(new Date(), "PPpp", { locale: es })} - Sincronización: se removió un archivo que ya no está en Trello.`]
+                        history: [...(data.history || []), `${format(new Date(), "PPpp", { locale: es })} - Sincronización: se removió un archivo que ya no existe en Trello.`]
                     });
                     hasChanges = true;
                 }
@@ -500,11 +500,16 @@ function HomeContent() {
         let finalRootId = '';
         
         if (isFinalDocument) {
-            // Raíz de TL
+            // Raíz de TL: Usamos siempre useTLRoot = true
             finalRootId = await getOrCreateProjectFolder(projectCode, true);
         } else {
-            // Raíz Principal - Usar la carpeta de destino seleccionada o la del proyecto
-            finalRootId = targetFolderId || await getOrCreateProjectFolder(projectCode, false);
+            // Raíz Principal: Si el usuario seleccionó una subcarpeta específica, la usamos.
+            // Si no, obtenemos la carpeta raíz de trabajo del proyecto (useTLRoot = false).
+            if (targetFolderId) {
+                finalRootId = targetFolderId;
+            } else {
+                finalRootId = await getOrCreateProjectFolder(projectCode, false);
+            }
         }
 
         if (files && files.length > 0) {
@@ -632,6 +637,11 @@ function HomeContent() {
     deleteDoc(catRef);
   }, [firestore]);
 
+  const [isResizing, setIsResizing] = React.useState(false);
+  const [timelinePanelHeight, setTimelinePanelHeight] = React.useState(40);
+  const resizeContainerRef = React.useRef<HTMLDivElement>(null);
+  const milestoneDateBounds = React.useRef<{start: string; end: string} | null>(null);
+
   const handleResizeMouseDown = (event: React.MouseEvent) => {
     event.preventDefault();
     setIsResizing(true);
@@ -677,6 +687,8 @@ function HomeContent() {
   }, [displayedMilestones]);
 
   const projectCode = selectedCard ? (selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i)?.[0] || null) : null;
+
+  const handleToggleView = () => setView(prev => prev === 'timeline' ? 'summary' : 'timeline');
 
   return (
     <div className="timeline-app-root flex h-screen w-full bg-background font-sans text-foreground">
