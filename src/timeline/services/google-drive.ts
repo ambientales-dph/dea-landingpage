@@ -1,3 +1,4 @@
+
 'use server';
 
 import { google } from 'googleapis';
@@ -33,10 +34,19 @@ async function getDriveClient() {
 /**
  * Obtiene o crea la carpeta del proyecto dentro de una raíz específica.
  * Para archivos de trabajo, busca la carpeta de la cuenca correspondiente.
+ * Ahora usa el formato "CÓDIGO - Nombre".
  */
-export async function getOrCreateProjectFolder(projectCode: string | null, useTLRoot: boolean = true) {
+export async function getOrCreateProjectFolder(projectCode: string | null, fullProjectName: string | null = null, useTLRoot: boolean = true) {
     const drive = await getDriveClient();
-    const folderName = projectCode || 'OTROS_PROYECTOS';
+    
+    // Construimos el nombre de la carpeta: "CÓDIGO - Nombre"
+    let folderName = projectCode || 'OTROS_PROYECTOS';
+    
+    if (projectCode && fullProjectName) {
+        // Limpiamos el nombre de Trello que suele venir como "Nombre (CÓDIGO)"
+        const nameWithoutCode = fullProjectName.replace(/\s*\([^)]+\)$/, '').trim();
+        folderName = `${projectCode} - ${nameWithoutCode}`;
+    }
     
     const rootFolderId = useTLRoot 
         ? (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID_TL || '').trim()
@@ -53,7 +63,6 @@ export async function getOrCreateProjectFolder(projectCode: string | null, useTL
         if (basinCodeMatch) {
             const basinCode = basinCodeMatch[1].toUpperCase();
             const basin = CUENCAS.find(c => c.code === basinCode);
-            // Si encontramos la cuenca y tiene ID de carpeta, la usamos como padre
             if (basin?.driveFolderId) {
                 parentFolderId = basin.driveFolderId;
             }
@@ -61,8 +70,9 @@ export async function getOrCreateProjectFolder(projectCode: string | null, useTL
     }
 
     try {
-        const escapedFolderName = folderName.replace(/'/g, "\\'");
-        const query = `name = '${escapedFolderName}' and mimeType = 'application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed = false`;
+        // Buscamos si existe una carpeta que contenga el código (para ser flexibles con cambios de nombre)
+        const escapedCode = (projectCode || folderName).replace(/'/g, "\\'");
+        const query = `name contains '${escapedCode}' and mimeType = 'application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed = false`;
         
         const response = await drive.files.list({
             q: query,
@@ -70,9 +80,12 @@ export async function getOrCreateProjectFolder(projectCode: string | null, useTL
         });
 
         if (response.data.files && response.data.files.length > 0) {
-            return response.data.files[0].id;
+            // Prioridad a la coincidencia exacta del nuevo formato
+            const exactMatch = response.data.files.find(f => f.name === folderName);
+            return exactMatch ? exactMatch.id : response.data.files[0].id;
         }
 
+        // Si no existe, la creamos con el formato "CÓDIGO - Nombre"
         const fileMetadata = {
             name: folderName,
             mimeType: 'application/vnd.google-apps.folder',

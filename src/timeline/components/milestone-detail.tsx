@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -229,7 +230,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     });
 
     try {
-        const folderId = await getOrCreateProjectFolder(projectCode);
+        const folderId = await getOrCreateProjectFolder(projectCode, projectName);
         const foundConflicts = [];
         for (const file of filesToUpload) {
             const existing = await findFileInFolder(folderId, file.name);
@@ -356,7 +357,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     setIsConflictDialogOpen(false);
     const codeMatch = projectName.match(/\b([A-Z]{3}\d{3})\b/i);
     const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
-    const folderId = await getOrCreateProjectFolder(projectCode);
+    const folderId = await getOrCreateProjectFolder(projectCode, projectName);
     executeFinalFileAdd(pendingFiles, folderId, resolutions);
   };
 

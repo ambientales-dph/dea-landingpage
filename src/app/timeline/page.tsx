@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -527,12 +528,12 @@ function HomeContent() {
         let finalRootId = '';
         
         if (isFinalDocument) {
-            finalRootId = await getOrCreateProjectFolder(projectCode, true);
+            finalRootId = await getOrCreateProjectFolder(projectCode, selectedCard.name, true);
         } else {
             if (targetFolderId && targetFolderId !== 'root') {
                 finalRootId = targetFolderId;
             } else {
-                finalRootId = await getOrCreateProjectFolder(projectCode, false);
+                finalRootId = await getOrCreateProjectFolder(projectCode, selectedCard.name, false);
             }
         }
 
@@ -851,6 +852,7 @@ function HomeContent() {
         onOpenChange={setIsUploadOpen}
         categories={categories}
         projectCode={projectCode}
+        projectName={selectedCard?.name || null}
         onUpload={handleUpload}
         isUploading={isUploading}
         uploadProgress={uploadProgress}

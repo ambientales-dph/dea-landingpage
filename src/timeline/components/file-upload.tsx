@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -48,6 +49,7 @@ interface FileUploadProps {
   onOpenChange: (isOpen: boolean) => void;
   categories: Category[];
   projectCode: string | null;
+  projectName: string | null;
   onUpload: (data: { 
     files?: File[], 
     categoryId: string, 
@@ -67,6 +69,7 @@ export function FileUpload({
   onOpenChange,
   categories,
   projectCode,
+  projectName,
   onUpload,
   isUploading,
   uploadProgress,
@@ -112,7 +115,7 @@ export function FileUpload({
         if (!isFinal && projectCode && isOpen) {
             setIsLoadingFolders(true);
             try {
-                const projectFolderId = await getOrCreateProjectFolder(projectCode, false);
+                const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
                 const folders = await listSubfolders(projectFolderId);
                 setAvailableFolders(folders as any);
                 
@@ -127,13 +130,13 @@ export function FileUpload({
         }
     };
     fetchFolders();
-  }, [isFinal, projectCode, isOpen, form]);
+  }, [isFinal, projectCode, projectName, isOpen, form]);
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim() || !projectCode) return;
     setIsLoadingFolders(true);
     try {
-        const projectFolderId = await getOrCreateProjectFolder(projectCode, false);
+        const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
         const newFolder = await createSubfolder(projectFolderId, newFolderName.trim());
         setAvailableFolders(prev => [{id: newFolder.id!, name: newFolder.name!}, ...prev]);
         form.setValue('targetFolderId', newFolder.id!);
@@ -185,6 +188,13 @@ export function FileUpload({
       return basin ? basin.name : '';
   }, [projectCode]);
 
+  const displayProjectFolderName = React.useMemo(() => {
+      if (!projectCode) return 'S/C';
+      if (!projectName) return projectCode;
+      const cleanName = projectName.replace(/\s*\([^)]+\)$/, '').trim();
+      return `${projectCode} - ${cleanName}`;
+  }, [projectCode, projectName]);
+
   const selectedFolderName = React.useMemo(() => {
       if (isFinal) return `YYMMDDHHMMSS_${hitoName || 'Hito'}`;
       return availableFolders.find(f => f.id === selectedFolderId)?.name || '(Carpeta raíz)';
@@ -232,7 +242,7 @@ export function FileUpload({
                               )}
                               <div className="flex items-center gap-2">
                                   <Folder className="h-3.5 w-3.5 text-amber-600" />
-                                  <span className="text-[10px] truncate max-w-full">Ruta: {projectCode || 'S/C'} / <span className="font-bold">{selectedFolderName}</span></span>
+                                  <span className="text-[10px] truncate max-w-full">Ruta: {displayProjectFolderName} / <span className="font-bold">{selectedFolderName}</span></span>
                               </div>
                           </div>
 
