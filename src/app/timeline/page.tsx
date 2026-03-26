@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -29,7 +28,7 @@ import { FeedbackButton } from '@/timeline/components/feedback-button';
 import { FeedbackDialog } from '@/timeline/components/feedback-dialog';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, doc, setDoc, addDoc, getDocs, writeBatch, deleteDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/timeline/services/google-drive';
+import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive, createMilestoneFolder } from '@/timeline/services/google-drive';
 import { Buffer } from 'buffer';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
@@ -374,8 +373,8 @@ function HomeContent() {
   }, [selectedCard, firestore, user, categories]);
 
 
-  const executeFinalUpload = React.useCallback(async (data: any, folderId: string | null, resolutions: Record<string, ConflictStrategy>) => {
-    const { files, categoryId, name, description, occurredAt } = data;
+  const executeFinalUpload = React.useCallback(async (data: any, finalRootId: string, resolutions: Record<string, ConflictStrategy>) => {
+    const { files, categoryId, name, description, occurredAt, isFinalDocument } = data;
     const category = categories.find((c: any) => c.id === categoryId);
     if (!category || !selectedCard || !firestore) {
         setIsUploading(false);
@@ -384,14 +383,20 @@ function HomeContent() {
 
     setIsUploading(true);
     const { id: toastId, dismiss } = toast({
-      title: "Procesando archivos...",
-      description: "Por favor, espera.",
+      title: "Gestionando Drive...",
+      description: isFinalDocument ? "Creando carpeta de hito intocable." : "Preparando carpeta de trabajo.",
       duration: Infinity,
     });
 
     try {
+      let uploadFolderId = finalRootId;
+
+      if (isFinalDocument) {
+          uploadFolderId = await createMilestoneFolder(finalRootId, name);
+      }
+
       const associatedFiles: AssociatedFile[] = [];
-      if (files && files.length > 0 && folderId) {
+      if (files && files.length > 0) {
         const totalFiles = files.length;
         for (const [index, file] of files.entries()) {
           const strategy = resolutions[file.name] || 'rename';
@@ -414,7 +419,7 @@ function HomeContent() {
              let counter = 1;
              
              while (true) {
-                const check = await findFileInFolder(folderId, currentTryName);
+                const check = await findFileInFolder(uploadFolderId, currentTryName);
                 if (!check) break;
                 currentTryName = `${baseName} (${counter})${ext}`;
                 counter++;
@@ -424,7 +429,7 @@ function HomeContent() {
 
           setUploadText(`Subiendo a Drive: ${targetName}`);
 
-          const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
+          const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, uploadFolderId, existingId);
           
           const trelloAtt = await attachUrlToCard(selectedCard.id, driveResult.name, driveResult.webViewLink);
           
@@ -468,21 +473,20 @@ function HomeContent() {
           description: description,
           occurredAt: finalDate.toISOString(),
           category: { id: category.id, name: category.name, color: category.color },
-          tags: ['manual'],
+          tags: [isFinalDocument ? 'intocable' : 'trabajo', 'manual'],
           associatedFiles: associatedFiles,
           isImportant: false,
-          history: [`${format(new Date(), "PPpp", { locale: es })} - Creación de hito con ${associatedFiles.length} archivo(s) guardados en Drive.`],
+          history: [`${format(new Date(), "PPpp", { locale: es })} - Hito creado como ${isFinalDocument ? 'INTOCABLE' : 'TRABAJO'} con ${associatedFiles.length} archivo(s).`],
       };
 
       const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
       await addDoc(milestonesRef, newMilestoneData);
       
-      // Registrar actividad en la bitácora
-      logTimelineActivity('timeline_milestone_created', `Creó hito: "${name}" (${category.name})`);
+      logTimelineActivity('timeline_milestone_created', `Hito ${isFinalDocument ? 'Intocable' : 'Trabajo'}: "${name}"`);
 
       setIsUploadOpen(false);
       dismiss(toastId);
-      toast({ title: "Hito creado exitosamente" });
+      toast({ title: `Hito ${isFinalDocument ? 'final' : 'de trabajo'} creado.` });
     } catch (error: any) {
         console.error("Upload error:", error);
         dismiss(toastId);
@@ -496,7 +500,15 @@ function HomeContent() {
     }
   }, [categories, selectedCard, firestore, toast, milestones, conflicts, logTimelineActivity]);
 
-  const handleUpload = React.useCallback(async (data: { files?: File[], categoryId: string, name: string, description: string, occurredAt: Date }) => {
+  const handleUpload = React.useCallback(async (data: { 
+    files?: File[], 
+    categoryId: string, 
+    name: string, 
+    description: string, 
+    occurredAt: Date,
+    isFinalDocument: boolean,
+    targetFolderId?: string
+  }) => {
     if (!firestore || !selectedCard) return;
 
     if (selectedCard.id === 'training-rsa999') {
@@ -504,21 +516,30 @@ function HomeContent() {
         return;
     }
 
-    const { files, categoryId } = data;
-    const category = categories.find(c => c.id === categoryId);
-    if (!category) return;
-
+    const { files, isFinalDocument, targetFolderId } = data;
     const codeMatch = selectedCard.name.match(/\b([A-Z]{3}\d{3})\b/i);
     const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
 
-    if (files && files.length > 0) {
-        setIsUploading(true);
-        setUploadText("Buscando carpeta del proyecto en Drive...");
-        try {
-            const folderId = await getOrCreateProjectFolder(projectCode);
+    setIsUploading(true);
+    setUploadText("Escaneando Drive...");
+
+    try {
+        let finalRootId = '';
+        
+        if (isFinalDocument) {
+            finalRootId = await getOrCreateProjectFolder(projectCode, true);
+        } else {
+            if (targetFolderId && targetFolderId !== 'root') {
+                finalRootId = targetFolderId;
+            } else {
+                finalRootId = await getOrCreateProjectFolder(projectCode, false);
+            }
+        }
+
+        if (files && files.length > 0) {
             const foundConflicts = [];
             for (const file of files) {
-                const existing = await findFileInFolder(folderId, file.name);
+                const existing = await findFileInFolder(finalRootId, file.name);
                 if (existing) {
                     foundConflicts.push({ name: file.name, existingId: existing.id });
                 }
@@ -526,25 +547,23 @@ function HomeContent() {
 
             if (foundConflicts.length > 0) {
                 setConflicts(foundConflicts);
-                setPendingUploadData({ ...data, folderId });
+                setPendingUploadData({ ...data, finalRootId });
                 setIsConflictDialogOpen(true);
                 return;
-            } else {
-                executeFinalUpload(data, folderId, {});
             }
-        } catch (error: any) {
-            setIsUploading(false);
-            toast({ variant: "destructive", title: "Error en Drive", description: error.message });
         }
-    } else {
-        executeFinalUpload(data, null, {});
+        
+        executeFinalUpload(data, finalRootId, {});
+    } catch (error: any) {
+        setIsUploading(false);
+        toast({ variant: "destructive", title: "Error de Drive", description: error.message });
     }
-  }, [categories, selectedCard, firestore, toast, executeFinalUpload]);
+  }, [selectedCard, firestore, toast, executeFinalUpload]);
 
   const handleConflictResolve = (resolutions: Record<string, ConflictStrategy>) => {
     setIsConflictDialogOpen(false);
     if (pendingUploadData) {
-        executeFinalUpload(pendingUploadData, pendingUploadData.folderId, resolutions);
+        executeFinalUpload(pendingUploadData, pendingUploadData.finalRootId, resolutions);
     }
   };
 
@@ -593,7 +612,6 @@ function HomeContent() {
             await deleteAction(trelloObjectId);
         }
         
-        // Registrar actividad de eliminación
         logTimelineActivity('timeline_milestone_deleted', `Eliminó hito: "${hitoToDelete.name}"`);
 
         dismiss(toastId);
@@ -710,6 +728,8 @@ function HomeContent() {
   }, [displayedMilestones]);
 
   const handleToggleView = () => setView(prev => prev === 'timeline' ? 'summary' : 'timeline');
+
+  const projectCode = selectedCard ? (selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i)?.[0] || null) : null;
 
   return (
     <div className="timeline-app-root flex h-screen w-full bg-background font-sans text-foreground">
@@ -830,6 +850,7 @@ function HomeContent() {
         isOpen={isUploadOpen}
         onOpenChange={setIsUploadOpen}
         categories={categories}
+        projectCode={projectCode}
         onUpload={handleUpload}
         isUploading={isUploading}
         uploadProgress={uploadProgress}

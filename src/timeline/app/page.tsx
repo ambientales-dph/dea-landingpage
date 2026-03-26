@@ -355,7 +355,7 @@ function HomeContent() {
   }, [selectedCard, firestore, user, categories]);
 
 
-  const executeFinalUpload = React.useCallback(async (data: any, rootFolderId: string, resolutions: Record<string, ConflictStrategy>) => {
+  const executeFinalUpload = React.useCallback(async (data: any, finalRootId: string, resolutions: Record<string, ConflictStrategy>) => {
     const { files, categoryId, name, description, occurredAt, isFinalDocument } = data;
     const category = categories.find((c: any) => c.id === categoryId);
     if (!category || !selectedCard || !firestore) {
@@ -371,11 +371,10 @@ function HomeContent() {
     });
 
     try {
-      let uploadFolderId = rootFolderId;
+      let uploadFolderId = finalRootId;
 
-      // Si es final, creamos la carpeta YYMMDDHHMMSS_Nombre
       if (isFinalDocument) {
-          uploadFolderId = await createMilestoneFolder(rootFolderId, name);
+          uploadFolderId = await createMilestoneFolder(finalRootId, name);
       }
 
       const associatedFiles: AssociatedFile[] = [];
@@ -481,7 +480,15 @@ function HomeContent() {
     }
   }, [categories, selectedCard, firestore, toast, milestones, conflicts, logTimelineActivity]);
 
-  const handleUpload = React.useCallback(async (data: any) => {
+  const handleUpload = React.useCallback(async (data: { 
+    files?: File[], 
+    categoryId: string, 
+    name: string, 
+    description: string, 
+    occurredAt: Date,
+    isFinalDocument: boolean,
+    targetFolderId?: string
+  }) => {
     if (!firestore || !selectedCard) return;
 
     if (selectedCard.id === 'training-rsa999') {
@@ -500,12 +507,9 @@ function HomeContent() {
         let finalRootId = '';
         
         if (isFinalDocument) {
-            // Raíz de TL: Usamos siempre useTLRoot = true
             finalRootId = await getOrCreateProjectFolder(projectCode, true);
         } else {
-            // Raíz Principal: Si el usuario seleccionó una subcarpeta específica, la usamos.
-            // Si no, obtenemos la carpeta raíz de trabajo del proyecto (useTLRoot = false).
-            if (targetFolderId) {
+            if (targetFolderId && targetFolderId !== 'root') {
                 finalRootId = targetFolderId;
             } else {
                 finalRootId = await getOrCreateProjectFolder(projectCode, false);

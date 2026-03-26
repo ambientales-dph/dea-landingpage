@@ -87,7 +87,7 @@ export function FileUpload({
       categoryId: '',
       occurredAt: new Date(),
       isFinalDocument: true,
-      targetFolderId: '',
+      targetFolderId: 'root',
     },
   });
 
@@ -111,13 +111,11 @@ export function FileUpload({
         if (!isFinal && projectCode && isOpen) {
             setIsLoadingFolders(true);
             try {
-                // Obtenemos la carpeta raíz de trabajo del proyecto
                 const projectFolderId = await getOrCreateProjectFolder(projectCode, false);
                 const folders = await listSubfolders(projectFolderId);
                 setAvailableFolders(folders as any);
                 
-                // Si hay carpetas, seleccionamos la primera por defecto si no hay nada seleccionado
-                if (folders.length > 0 && !form.getValues('targetFolderId')) {
+                if (folders.length > 0 && (!form.getValues('targetFolderId') || form.getValues('targetFolderId') === 'root')) {
                     form.setValue('targetFolderId', folders[0].id!);
                 }
             } catch (error) {
@@ -264,7 +262,7 @@ export function FileUpload({
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent className="max-h-[200px]" position="popper">
-                                                        <SelectItem value="" className="text-xs">(Raíz del proyecto)</SelectItem>
+                                                        <SelectItem value="root" className="text-xs">(Raíz del proyecto)</SelectItem>
                                                         {availableFolders.length > 0 && availableFolders.map(f => (
                                                             <SelectItem key={f.id} value={f.id} className="text-xs">{f.name}</SelectItem>
                                                         ))}
