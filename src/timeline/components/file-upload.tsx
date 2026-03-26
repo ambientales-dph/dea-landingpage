@@ -18,7 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from './ui/textarea';
-import { UploadCloud, X, File as FileIconLucide, CalendarIcon, Loader2, ShieldCheck, FolderEdit, PlusCircle, Folder, HardDrive } from 'lucide-react';
+import { UploadCloud, X, File as FileIconLucide, CalendarIcon, Loader2, ShieldCheck, FolderEdit, PlusCircle, Folder, HardDrive, Map } from 'lucide-react';
 import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, isValid, parse } from 'date-fns';
@@ -27,6 +27,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Switch } from './ui/switch';
 import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/timeline/services/google-drive';
 import { Badge } from './ui/badge';
+import { CUENCAS } from '@/lib/cuencas';
 
 const uploadSchema = z.object({
   name: z.string().min(1, { message: 'El título del hito no puede estar vacío.' }),
@@ -175,6 +176,15 @@ export function FileUpload({
     if (e.target) e.target.value = '';
   };
 
+  // Identificar el nombre de la Cuenca para mostrar en la ruta
+  const basinName = React.useMemo(() => {
+      if (!projectCode) return '';
+      const basinCodeMatch = projectCode.match(/^([A-Z]{2,4})/i);
+      if (!basinCodeMatch) return '';
+      const basin = CUENCAS.find(c => c.code === basinCodeMatch[1].toUpperCase());
+      return basin ? basin.name : '';
+  }, [projectCode]);
+
   const selectedFolderName = React.useMemo(() => {
       if (isFinal) return `YYMMDDHHMMSS_${hitoName || 'Hito'}`;
       return availableFolders.find(f => f.id === selectedFolderId)?.name || '(Carpeta raíz)';
@@ -214,6 +224,12 @@ export function FileUpload({
                                   <HardDrive className="h-3.5 w-3.5 text-primary" />
                                   <span className="text-[10px] font-bold">Raíz: {isFinal ? 'DEA_TL_archivos' : 'EIAS_AMBIENTALES'}</span>
                               </div>
+                              {!isFinal && basinName && (
+                                  <div className="flex items-center gap-2">
+                                      <Map className="h-3.5 w-3.5 text-zinc-500" />
+                                      <span className="text-[10px] truncate max-w-full">Cuenca: <span className="font-bold">{basinName}</span></span>
+                                  </div>
+                              )}
                               <div className="flex items-center gap-2">
                                   <Folder className="h-3.5 w-3.5 text-amber-600" />
                                   <span className="text-[10px] truncate max-w-full">Ruta: {projectCode || 'S/C'} / <span className="font-bold">{selectedFolderName}</span></span>
@@ -233,7 +249,7 @@ export function FileUpload({
                                   <FormDescription className="text-[9px] leading-tight text-zinc-600">
                                     {field.value 
                                       ? 'Se guarda en TL bajo una carpeta cerrada para el hito.' 
-                                      : 'Se guarda en la carpeta de trabajo del proyecto.'}
+                                      : 'Se guarda en la carpeta de la cuenca/obra correspondiente.'}
                                   </FormDescription>
                                 </div>
                                 <FormControl>

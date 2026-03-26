@@ -2,6 +2,7 @@
 
 import { google } from 'googleapis';
 import { Readable } from 'stream';
+import { CUENCAS } from '@/lib/cuencas';
 
 /**
  * Servicio para gestionar la subida y eliminación de archivos a Google Drive usando OAuth2.
@@ -31,6 +32,7 @@ async function getDriveClient() {
 
 /**
  * Obtiene o crea la carpeta del proyecto dentro de una raíz específica.
+ * Para archivos de trabajo, busca la carpeta de la cuenca correspondiente.
  */
 export async function getOrCreateProjectFolder(projectCode: string | null, useTLRoot: boolean = true) {
     const drive = await getDriveClient();
@@ -44,9 +46,23 @@ export async function getOrCreateProjectFolder(projectCode: string | null, useTL
         throw new Error(`ID de carpeta raíz no configurado (${useTLRoot ? 'TL' : 'Principal'}).`);
     }
 
+    // Lógica para carpetas de trabajo: Identificar la Cuenca como carpeta padre
+    let parentFolderId = rootFolderId;
+    if (!useTLRoot && projectCode) {
+        const basinCodeMatch = projectCode.match(/^([A-Z]{2,4})/i);
+        if (basinCodeMatch) {
+            const basinCode = basinCodeMatch[1].toUpperCase();
+            const basin = CUENCAS.find(c => c.code === basinCode);
+            // Si encontramos la cuenca y tiene ID de carpeta, la usamos como padre
+            if (basin?.driveFolderId) {
+                parentFolderId = basin.driveFolderId;
+            }
+        }
+    }
+
     try {
         const escapedFolderName = folderName.replace(/'/g, "\\'");
-        const query = `name = '${escapedFolderName}' and mimeType = 'application/vnd.google-apps.folder' and '${rootFolderId}' in parents and trashed = false`;
+        const query = `name = '${escapedFolderName}' and mimeType = 'application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed = false`;
         
         const response = await drive.files.list({
             q: query,
@@ -60,7 +76,7 @@ export async function getOrCreateProjectFolder(projectCode: string | null, useTL
         const fileMetadata = {
             name: folderName,
             mimeType: 'application/vnd.google-apps.folder',
-            parents: [rootFolderId],
+            parents: [parentFolderId],
         };
 
         const folder = await drive.files.create({
