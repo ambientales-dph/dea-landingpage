@@ -94,6 +94,37 @@ export async function getTimelineFolderForProject(projectCode: string, projectNa
 }
 
 /**
+ * Crea una carpeta específica para un hito (Intocable).
+ * Formato: YYMMDDHHMMSS_NombreDelHito
+ */
+export async function createMilestoneFolder(parentFolderId: string, milestoneName: string, date?: Date) {
+    const now = date || new Date();
+    const timestamp = now.getFullYear().toString().slice(-2) + 
+                      (now.getMonth() + 1).toString().padStart(2, '0') + 
+                      now.getDate().toString().padStart(2, '0') + 
+                      now.getHours().toString().padStart(2, '0') + 
+                      now.getMinutes().toString().padStart(2, '0') + 
+                      now.getSeconds().toString().padStart(2, '0');
+    
+    const folderName = `${timestamp}_${milestoneName}`;
+
+    try {
+        const folder = await drive.files.create({
+            requestBody: {
+                name: folderName,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [parentFolderId],
+            },
+            fields: 'id',
+        });
+
+        return folder.data.id!;
+    } catch (error: any) {
+        throw new Error(`Error al crear carpeta de hito: ${error.message}`);
+    }
+}
+
+/**
  * Obtiene el nombre de un recurso (archivo o carpeta) de Google Drive.
  */
 export async function getDriveResourceName(url: string): Promise<{ name: string; isFolder: boolean } | null> {

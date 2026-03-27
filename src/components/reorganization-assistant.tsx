@@ -24,7 +24,7 @@ import {
     CheckCircle2,
     HardDrive
 } from 'lucide-react';
-import { listFolderContents, moveFile, getTimelineFolderForProject, getProjectFolderIdInTL } from '@/services/google-drive';
+import { listFolderContents, moveFile, getTimelineFolderForProject, createMilestoneFolder } from '@/services/google-drive';
 import { useFirestore } from '@/firebase';
 import { collection, query, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { Milestone } from '@/timeline/types';
@@ -128,55 +128,75 @@ export default function ReorganizationAssistant({
 
     try {
         const movedIds = [...selectedFiles];
-        
+        let finalTargetFolderId = '';
+        let targetMilestone: Milestone | null = null;
+
+        // 1. Identificar o Crear Carpeta de Destino
+        if (targetType === 'work') {
+            finalTargetFolderId = workPath[workPath.length - 1].id;
+        } else if (targetType === 'final') {
+            if (!selectedMilestoneId) throw new Error("Debes seleccionar un hito.");
+            targetMilestone = milestones.find(m => m.id === selectedMilestoneId) || null;
+            if (!targetMilestone) throw new Error("Hito no encontrado.");
+            
+            if (!targetMilestone.driveFolderId) {
+                update({ id: toastId, description: "Creando carpeta jerárquica para el hito..." });
+                const codeMatch = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i);
+                const projectCode = codeMatch ? codeMatch[0].toUpperCase() : 'S/C';
+                const tlRootId = await getTimelineFolderForProject(projectCode, projectName);
+                if (!tlRootId) throw new Error("No se pudo localizar la carpeta raíz de la TL.");
+                
+                // Creamos la carpeta usando la fecha original del hito para el prefijo
+                const newFolderId = await createMilestoneFolder(tlRootId, targetMilestone.name, new Date(targetMilestone.occurredAt));
+                
+                // Actualizamos el hito en Firestore con su nueva carpeta vinculada
+                await updateDoc(doc(db, 'timeline_projects', projectId, 'milestones', selectedMilestoneId), {
+                    driveFolderId: newFolderId
+                });
+                
+                finalTargetFolderId = newFolderId;
+                targetMilestone.driveFolderId = newFolderId; // Actualización local para el bucle
+            } else {
+                finalTargetFolderId = targetMilestone.driveFolderId;
+            }
+        }
+
+        const filesToLink: any[] = [];
+
+        // 2. Ejecutar Movimientos de Archivos
         for (const fileId of selectedFiles) {
             const file = looseFiles.find(f => f.id === fileId);
             if (!file) continue;
 
             update({ id: toastId, description: `Moviendo: ${file.name}...` });
-            
-            let targetFolderId = '';
-            if (targetType === 'work') {
-                targetFolderId = workPath[workPath.length - 1].id;
-            } else if (targetType === 'final') {
-                if (!selectedMilestoneId) throw new Error("Debes seleccionar un hito.");
-                const ms = milestones.find(m => m.id === selectedMilestoneId);
-                if (!ms) throw new Error("Hito no encontrado.");
-                
-                if (!ms.driveFolderId) {
-                    const codeMatch = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i);
-                    const projectCode = codeMatch ? codeMatch[0].toUpperCase() : 'S/C';
-                    const tlFolderId = await getTimelineFolderForProject(projectCode, projectName);
-                    if (!tlFolderId) throw new Error("No se pudo localizar la carpeta de TL.");
-                    targetFolderId = tlFolderId;
-                } else {
-                    targetFolderId = ms.driveFolderId;
-                }
-            }
+            await moveFile(fileId, file.parentId, finalTargetFolderId);
 
-            await moveFile(fileId, file.parentId, targetFolderId);
-
-            if (targetType === 'final' && selectedMilestoneId) {
-                const ms = milestones.find(m => m.id === selectedMilestoneId);
-                if (ms) {
-                    const newFile = {
+            if (targetType === 'final' && targetMilestone) {
+                // Verificar si ya está vinculado para no duplicar en el array
+                const alreadyLinked = (targetMilestone.associatedFiles || []).some(f => f.id === fileId);
+                if (!alreadyLinked) {
+                    filesToLink.push({
                         id: fileId,
                         name: file.name,
                         size: '---',
                         type: 'other',
                         url: file.webViewLink,
                         isTimelineFile: true
-                    };
-                    const updatedFiles = [...(ms.associatedFiles || []), newFile];
-                    await updateDoc(doc(db, 'timeline_projects', projectId, 'milestones', selectedMilestoneId), {
-                        associatedFiles: updatedFiles
                     });
                 }
             }
         }
 
+        // 3. Actualizar vínculos de archivos en Firestore si es hito final
+        if (filesToLink.length > 0 && selectedMilestoneId) {
+            const updatedFiles = [...(targetMilestone?.associatedFiles || []), ...filesToLink];
+            await updateDoc(doc(db, 'timeline_projects', projectId, 'milestones', selectedMilestoneId), {
+                associatedFiles: updatedFiles
+            });
+        }
+
         dismiss(toastId);
-        toast({ title: "¡Éxito!", description: "Archivos reubicados correctamente." });
+        toast({ title: "¡Éxito!", description: "Archivos reubicados correctamente en su estructura jerárquica." });
         onReorganized(movedIds);
     } catch (e: any) {
         dismiss(toastId);
