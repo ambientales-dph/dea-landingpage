@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -318,6 +317,190 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const filteredCards = useMemo(() => {
+    const normalizedQuery = removeAccents(query.toLowerCase().trim());
+    if (!normalizedQuery) return [];
+
+    return allCards.filter((card) => {
+      const normalizedName = removeAccents(card.name.toLowerCase());
+      const codeMatch = card.name.match(/\(([A-Z]{2,4}\d{3})\)$/);
+      const code = codeMatch ? codeMatch[1].toLowerCase() : '';
+      
+      return normalizedName.includes(normalizedQuery) || code.includes(normalizedQuery);
+    });
+  }, [allCards, query]);
+
+  const handleSelect = (card: TrelloCard) => {
+    setQuery(card.name);
+    onCardSelect(card);
+    setIsOpen(false);
+    onSummaryOpenChange(true);
+  };
+
+  const handleEditClick = () => {
+    setEditedName(selectedCard?.name || '');
+    setEditedDesc(selectedCard?.desc || '');
+    setEditedBoardId(selectedCard?.boardId || '');
+    setEditedListId(selectedCard?.idList || '');
+    setIsEditing(true);
+  };
+
+  const handleColorChange = async (color: string | null) => {
+    if (!selectedCard) return;
+    try {
+      const updated = await updateTrelloCard({ cardId: selectedCard.id, cover: { color } });
+      onCardSelect(updated);
+      toast({ title: 'Portada actualizada' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error al cambiar color' });
+    }
+  };
+
+  const handleToggleLabel = async (labelId: string, isRemoving: boolean) => {
+    if (!selectedCard) return;
+    try {
+      if (isRemoving) {
+        await removeLabelFromCard({ cardId: selectedCard.id, labelId });
+      } else {
+        await addLabelToCard({ cardId: selectedCard.id, labelId });
+      }
+      fetchCardData();
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error con las etiquetas' });
+    }
+  };
+
+  const handlePostComment = async () => {
+    if (!selectedCard || !newComment.trim()) return;
+    setIsCommenting(true);
+    try {
+      await addCommentToCard({ cardId: selectedCard.id, text: newComment });
+      setNewComment('');
+      fetchCardData();
+      toast({ title: 'Comentario enviado' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error al comentar' });
+    } finally {
+      setIsCommenting(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedCard) return;
+    setIsSaving(true);
+    try {
+      const updated = await updateTrelloCard({ 
+        cardId: selectedCard.id, 
+        name: editedName, 
+        desc: editedDesc,
+        idBoard: editedBoardId,
+        idList: editedListId
+      });
+      onCardSelect(updated);
+      setIsEditing(false);
+      toast({ title: 'Cambios guardados' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error al guardar' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!selectedCard) return;
+    setIsExporting(true);
+    try {
+      const doc = new jsPDF();
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text(selectedCard.name, 20, 20);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Tablero: ${selectedCard.boardName}`, 20, 30);
+      
+      doc.setFontSize(12);
+      doc.text('Descripción:', 20, 45);
+      doc.setFontSize(10);
+      const splitDesc = doc.splitTextToSize(selectedCard.desc || 'Sin descripción', 170);
+      doc.text(splitDesc, 20, 55);
+      
+      let y = 55 + (splitDesc.length * 5) + 10;
+
+      if (exportOptions.includeAttachments && selectedCard.attachments?.length > 0) {
+        if (y > 250) { doc.addPage(); y = 20; }
+        doc.setFont('helvetica', 'bold');
+        doc.text('Archivos Adjuntos:', 20, y);
+        doc.setFont('helvetica', 'normal');
+        y += 7;
+        selectedCard.attachments.forEach(att => {
+          if (y > 280) { doc.addPage(); y = 20; }
+          doc.text(`- ${att.name}: ${att.url}`, 20, y);
+          y += 5;
+        });
+        y += 5;
+      }
+
+      if (exportOptions.includeComments && activity.length > 0) {
+        const comments = activity.filter(a => a.type === 'commentCard');
+        if (comments.length > 0) {
+          if (y > 250) { doc.addPage(); y = 20; }
+          doc.setFont('helvetica', 'bold');
+          doc.text('Comentarios:', 20, y);
+          doc.setFont('helvetica', 'normal');
+          y += 7;
+          comments.forEach(c => {
+            if (y > 270) { doc.addPage(); y = 20; }
+            const date = format(new Date(c.date), 'dd/MM/yyyy HH:mm');
+            const text = `${c.memberCreator.fullName} (${date}): ${c.data.text}`;
+            const splitText = doc.splitTextToSize(text, 170);
+            doc.text(splitText, 20, y);
+            y += (splitText.length * 5) + 2;
+          });
+        }
+      }
+
+      doc.save(`Ficha-${selectedCard.name}.pdf`);
+      setIsExportDialogOpen(false);
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error al exportar PDF' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const commentsOnly = useMemo(() => activity.filter(a => a.type === 'commentCard'), [activity]);
+
+  useEffect(() => {
+    if (isEditing) {
+      const loadBoards = async () => {
+        setIsBoardsLoading(true);
+        try {
+          const b = await getTrelloBoards();
+          setAllBoards(b);
+        } finally {
+          setIsBoardsLoading(false);
+        }
+      };
+      loadBoards();
+    }
+  }, [isEditing]);
+
+  useEffect(() => {
+    if (isEditing && editedBoardId) {
+      const loadLists = async () => {
+        setIsListsLoading(true);
+        try {
+          const l = await getListsOnBoard(editedBoardId);
+          setBoardLists(l);
+        } finally {
+          setIsListsLoading(false);
+        }
+      };
+      loadLists();
+    }
+  }, [isEditing, editedBoardId]);
+
   useEffect(() => {
     if (!isSummaryOpen) {
       const cleanup = () => {
@@ -338,7 +521,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setTlFolderId(null);
   }, [selectedCard?.id, isSummaryOpen]);
 
-  // Determinar si estamos navegando en la rama de Línea de Tiempo
   const isCurrentlyInTL = useMemo(() => {
     if (inspectionPath.length === 0) return false;
     return inspectionPath[0].name === 'Línea de Tiempo';
@@ -558,21 +740,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const sortedAttachments = useMemo(() => {
     const attachments = selectedCard?.attachments || [];
     
-    // Ocultamos TODOS los archivos sueltos de Drive de la lista principal
-    // Solo permitimos carpetas principales (Carpeta de Obra)
     const filtered = attachments.filter(att => {
         const isFolder = isDriveFolder(att.url);
         const isDrive = isDriveFile(att.url) || att.url.includes('drive.google.com');
         
         if (isFolder) return true;
-        if (isDrive) return false; // Bloqueamos archivos sueltos
+        if (isDrive) return false; 
         
         return true;
     });
 
     const result = [...filtered];
 
-    // Inyectamos la carpeta virtual de Línea de Tiempo si tenemos el ID
     if (tlFolderId) {
         result.push({
             id: 'tl-virtual-folder',
