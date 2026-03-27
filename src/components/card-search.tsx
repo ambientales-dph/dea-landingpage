@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, HardDrive, History } from 'lucide-react';
+import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, HardDrive, History, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -69,6 +69,7 @@ import jsPDF from 'jspdf';
 import { getDriveResourceName, extractIdFromUrl, listFolderContents, getTimelineFolderForProject } from '@/services/google-drive';
 import { sendProjectEmail } from '@/app/actions/email-actions';
 import { useProject } from '@/providers/project-provider';
+import ReorganizationAssistant from './reorganization-assistant';
 
 interface CardSearchProps {
   onCardSelect: (card: TrelloCard | null) => void;
@@ -314,6 +315,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   });
   const [isExporting, setIsExporting] = useState(false);
 
+  // Estados para el asistente de reorganización
+  const [looseFiles, setLooseFiles] = useState<any[]>([]);
+  const [isReorgAssistantOpen, setIsReorgAssistantOpen] = useState(false);
+  const [projectRootId, setProjectRootId] = useState<string | null>(null);
+
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -519,6 +525,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setNextPageToken(null);
     setIsInspecting(false);
     setTlFolderId(null);
+    setLooseFiles([]);
+    setProjectRootId(null);
   }, [selectedCard?.id, isSummaryOpen]);
 
   const isCurrentlyInTL = useMemo(() => {
@@ -723,6 +731,20 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         setActivity(cardActivity);
         setBoardLabels(labels || []);
         setTlFolderId(tlId);
+
+        // Buscar archivos sueltos para el asistente de reorganización
+        if (refreshedCard.attachments) {
+            const folderAtt = refreshedCard.attachments.find(a => isDriveFolder(a.url));
+            if (folderAtt) {
+                const rootId = await extractIdFromUrl(folderAtt.url);
+                if (rootId) {
+                    setProjectRootId(rootId);
+                    const contents = await listFolderContents(rootId);
+                    const files = contents.files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+                    setLooseFiles(files);
+                }
+            }
+        }
     } catch (error) {
         console.error('Error refreshing card data:', error);
     } finally {
@@ -879,6 +901,23 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             )}
                         </div>
                     </DialogHeader>
+
+                    {looseFiles.length > 0 && (
+                        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-amber-800 text-[10px] font-bold uppercase tracking-tight">
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                <span>Se detectaron {looseFiles.length} archivos antiguos fuera de estructura</span>
+                            </div>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-7 text-[10px] bg-white border-amber-300 text-amber-800 hover:bg-amber-100"
+                                onClick={() => setIsReorgAssistantOpen(true)}
+                            >
+                                Reorganizar ahora
+                            </Button>
+                        </div>
+                    )}
 
                     <ScrollArea className="flex-1 overflow-y-auto w-full max-w-full box-border">
                         <div className="p-6 w-full max-w-full overflow-hidden box-border min-w-0">
@@ -1127,6 +1166,21 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             </DialogFooter>
         </DialogContent>
       </DialogUI>
+
+      {selectedCard && (
+          <ReorganizationAssistant 
+            isOpen={isReorgAssistantOpen}
+            onOpenChange={setIsReorgAssistantOpen}
+            looseFiles={looseFiles}
+            projectRootId={projectRootId}
+            projectId={selectedCard.id}
+            projectName={selectedCard.name}
+            onReorganized={() => {
+                setIsReorgAssistantOpen(false);
+                fetchCardData();
+            }}
+          />
+      )}
     </div>
   );
 }

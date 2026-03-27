@@ -1,4 +1,3 @@
-
 'use server';
 
 import { google } from 'googleapis';
@@ -194,5 +193,33 @@ export async function shareFolderWithEmails(folderId: string, emails: string[]):
 
     if (errors.length > 0) {
         throw new Error(`No se pudo compartir con: ${errors.join('; ')}`);
+    }
+}
+
+/**
+ * Mueve un archivo de una carpeta a otra en Google Drive.
+ */
+export async function moveFile(fileId: string, currentParentId: string, newParentId: string) {
+    try {
+        // Retrieve the existing parents to remove
+        const file = await drive.files.get({
+            fileId: fileId,
+            fields: 'parents'
+        });
+        
+        const previousParents = (file.data.parents || [currentParentId]).join(',');
+
+        // Move the file to the new folder
+        const movedFile = await drive.files.update({
+            fileId: fileId,
+            addParents: newParentId,
+            removeParents: previousParents,
+            fields: 'id, parents, name, webViewLink'
+        });
+
+        return movedFile.data;
+    } catch (error: any) {
+        console.error('Error moving file:', error.message);
+        throw new Error(`Error al mover archivo en Drive: ${error.message}`);
     }
 }
