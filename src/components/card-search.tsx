@@ -850,7 +850,19 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             </Command>
           </PopoverContent>
         </Popover>
-        {query && <Button variant="ghost" size="icon" onClick={onClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"><X className="h-5 w-5" /></Button>}
+        {query && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => {
+              setQuery('');
+              onClear();
+            }} 
+            className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       {selectedCard && (

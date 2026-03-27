@@ -32,6 +32,7 @@ import {
   Zap,
   MousePointer2,
   FileSearch,
+  X,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -690,24 +691,35 @@ function HomeContent() {
         <main className="flex-1 flex flex-col p-4 md:p-16 overflow-y-auto min-h-0">
           <div className="w-full md:w-4/5 mx-auto flex flex-col gap-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg overflow-hidden transition-all duration-500">
+              <div className="relative h-32 bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg overflow-hidden transition-all duration-500">
                 {selectedCard ? (
-                  <div className="space-y-1">
-                    {(() => {
-                      const { code, nameWithoutCode } = getProjectInfo(selectedCard.name);
-                      return (
-                        <>
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#9FCCE3] opacity-90">Proyecto Cargado</p>
-                            {code && <span className="text-[10px] font-bold text-[#9FCCE3] font-mono select-none bg-[#9FCCE3]/10 px-1.5 py-0.5 rounded border border-[#9FCCE3]/20">{code.toUpperCase()}</span>}
-                          </div>
-                          <h2 className="text-white text-sm font-headline leading-tight text-justify line-clamp-4">
-                            <span className="font-medium">{nameWithoutCode}</span>
-                          </h2>
-                        </>
-                      );
-                    })()}
-                  </div>
+                  <>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={handleClearSelection}
+                      className="absolute top-2 right-2 h-6 w-6 text-[#9FCCE3] hover:bg-white/10 hover:text-white"
+                      title="Limpiar proyecto"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <div className="space-y-1">
+                      {(() => {
+                        const { code, nameWithoutCode } = getProjectInfo(selectedCard.name);
+                        return (
+                          <>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#9FCCE3] opacity-90">Proyecto Cargado</p>
+                              {code && <span className="text-[10px] font-bold text-[#9FCCE3] font-mono select-none bg-[#9FCCE3]/10 px-1.5 py-0.5 rounded border border-[#9FCCE3]/20">{code.toUpperCase()}</span>}
+                            </div>
+                            <h2 className="text-white text-sm font-headline leading-tight text-justify line-clamp-4 pr-4">
+                              <span className="font-medium">{nameWithoutCode}</span>
+                            </h2>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </>
                 ) : (
                   <>
                     <h2 className="text-xl font-bold mb-2 text-[#9FCCE3] shrink-0">Búsqueda de proyectos</h2>
