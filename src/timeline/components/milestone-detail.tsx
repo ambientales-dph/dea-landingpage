@@ -53,6 +53,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
 
   const [showCalendar, setShowCalendar] = React.useState(false);
   const [manualDateText, setManualDateText] = React.useState('');
+  const [manualTimeText, setManualTimeText] = React.useState('');
 
   const [isConflictDialogOpen, setIsConflictDialogOpen] = React.useState(false);
   const [conflicts, setConflicts] = React.useState<any[]>([]);
@@ -63,9 +64,11 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
 
   React.useEffect(() => {
     if (milestone) {
+      const date = parseISO(milestone.occurredAt);
       setEditableTitle(milestone.name);
       setEditableDescription(milestone.description);
-      setManualDateText(format(parseISO(milestone.occurredAt), "dd/MM/yyyy"));
+      setManualDateText(format(date, "dd/MM/yyyy"));
+      setManualTimeText(format(date, "HH:mm:ss"));
       setNewTag('');
       setIsEditingTitle(false);
       setIsEditingDescription(false);
@@ -142,14 +145,10 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
 
   const handleDateChange = (newDate: Date | undefined) => {
     if (newDate && milestone) {
-      const now = new Date();
-      let finalDate = new Date(newDate);
-
-      if (isSameDay(finalDate, now)) {
-        finalDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
-      } else {
-        finalDate.setHours(7, 0, 0, 0);
-      }
+      const current = parseISO(milestone.occurredAt);
+      const finalDate = new Date(newDate);
+      // Preservamos la hora actual al cambiar el día en el calendario
+      finalDate.setHours(current.getHours(), current.getMinutes(), current.getSeconds(), current.getMilliseconds());
 
       if (finalDate.toISOString() !== milestone.occurredAt) {
         onMilestoneUpdate({
@@ -169,7 +168,39 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     if (cleaned.length === 10) {
       const parsedDate = parse(cleaned, "dd/MM/yyyy", new Date());
       if (isValid(parsedDate)) {
-        handleDateChange(parsedDate);
+        const current = parseISO(milestone.occurredAt);
+        const finalDate = new Date(parsedDate);
+        finalDate.setHours(current.getHours(), current.getMinutes(), current.getSeconds(), current.getMilliseconds());
+        
+        if (finalDate.toISOString() !== milestone.occurredAt) {
+          onMilestoneUpdate({
+            ...milestone,
+            occurredAt: finalDate.toISOString(),
+            history: [...milestone.history, createLogEntry(`Fecha cambiada a ${cleaned}`)],
+          });
+        }
+      }
+    }
+  };
+
+  const handleManualTimeChange = (val: string) => {
+    const cleaned = val.replace(/[^0-9:]/g, "");
+    setManualTimeText(cleaned);
+    
+    if (cleaned.length === 8) { // HH:mm:ss
+      const parts = cleaned.split(':').map(Number);
+      if (parts.length === 3 && parts[0] >= 0 && parts[0] < 24 && parts[1] >= 0 && parts[1] < 60 && parts[2] >= 0 && parts[2] < 60) {
+        const currentDate = parseISO(milestone.occurredAt);
+        const newDate = new Date(currentDate);
+        newDate.setHours(parts[0], parts[1], parts[2]);
+        
+        if (isValid(newDate) && newDate.toISOString() !== milestone.occurredAt) {
+          onMilestoneUpdate({
+            ...milestone,
+            occurredAt: newDate.toISOString(),
+            history: [...milestone.history, createLogEntry(`Hora cambiada a ${cleaned}`)],
+          });
+        }
       }
     }
   };
@@ -462,6 +493,12 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                             value={manualDateText}
                             onChange={(e) => handleManualDateChange(e.target.value)}
                           />
+                          <Input 
+                            placeholder="HH:mm:ss" 
+                            className="h-7 text-[10px] w-24 bg-zinc-100 text-black border-zinc-400"
+                            value={manualTimeText}
+                            onChange={(e) => handleManualTimeChange(e.target.value)}
+                          />
                           <button 
                               onClick={() => setShowCalendar(!showCalendar)}
                               className={cn(
@@ -473,7 +510,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                           </button>
                         </div>
                         <span className="text-[10px] text-zinc-500 italic">
-                          {format(parseISO(milestone.occurredAt), "PPP", { locale: es })}
+                          {format(parseISO(milestone.occurredAt), "PPP ppp", { locale: es })}
                         </span>
                     </div>
 
