@@ -742,8 +742,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     const contents = await listFolderContents(rootId);
                     const files = contents.files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
                     setLooseFiles(files);
+                } else {
+                    setLooseFiles([]);
                 }
+            } else {
+                setLooseFiles([]);
             }
+        } else {
+            setLooseFiles([]);
         }
     } catch (error) {
         console.error('Error refreshing card data:', error);
@@ -906,7 +912,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between">
                             <div className="flex items-center gap-2 text-amber-800 text-[10px] font-bold uppercase tracking-tight">
                                 <AlertTriangle className="h-3.5 w-3.5" />
-                                <span>Se detectaron {looseFiles.length} archivos antiguos fuera de estructura</span>
+                                <span>Se detectaron {looseFiles.length} {looseFiles.length === 1 ? 'archivo antiguo fuera' : 'archivos antiguos fuera'} de estructura</span>
                             </div>
                             <Button 
                                 variant="outline" 
@@ -1175,9 +1181,12 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             projectRootId={projectRootId}
             projectId={selectedCard.id}
             projectName={selectedCard.name}
-            onReorganized={() => {
+            onReorganized={(movedIds) => {
+                // Actualización instantánea del estado local para quitar archivos procesados
+                setLooseFiles(prev => prev.filter(f => !movedIds.includes(f.id)));
                 setIsReorgAssistantOpen(false);
-                fetchCardData();
+                // Refetch de seguridad después de un breve delay para dar tiempo a Drive de asentar los cambios
+                setTimeout(() => fetchCardData(), 1500);
             }}
           />
       )}

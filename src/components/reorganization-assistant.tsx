@@ -38,7 +38,7 @@ interface ReorganizationAssistantProps {
   projectRootId: string | null;
   projectId: string;
   projectName: string;
-  onReorganized: () => void;
+  onReorganized: (movedIds: string[]) => void;
 }
 
 export default function ReorganizationAssistant({
@@ -70,6 +70,8 @@ export default function ReorganizationAssistant({
     if (isOpen && projectRootId) {
         setWorkPath([{ id: projectRootId, name: 'Raíz' }]);
         fetchMilestones();
+        setSelectedFiles([]);
+        setTargetType(null);
     }
   }, [isOpen, projectRootId]);
 
@@ -118,6 +120,7 @@ export default function ReorganizationAssistant({
 
     try {
         let targetFolderId = '';
+        const movedIds = [...selectedFiles];
         
         if (targetType === 'work') {
             targetFolderId = workPath[workPath.length - 1].id;
@@ -126,13 +129,12 @@ export default function ReorganizationAssistant({
             const ms = milestones.find(m => m.id === selectedMilestoneId);
             if (!ms) throw new Error("Hito no encontrado.");
             
-            // Si el hito no tiene carpeta física aún, error (debería tenerla si es final)
             if (!ms.driveFolderId) {
                 const codeMatch = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i);
                 const projectCode = codeMatch ? codeMatch[0].toUpperCase() : 'S/C';
                 const tlRootId = await getTimelineFolderForProject(projectCode, projectName);
                 if (!tlRootId) throw new Error("No se pudo localizar la carpeta de TL.");
-                targetFolderId = tlRootId; // Por ahora a la raíz de TL si no hay carpeta de hito
+                targetFolderId = tlRootId;
             } else {
                 targetFolderId = ms.driveFolderId;
             }
@@ -144,7 +146,6 @@ export default function ReorganizationAssistant({
             
             await moveFile(fileId, projectRootId, targetFolderId);
 
-            // Si es hito final, actualizar Firestore para que reconozca el nuevo archivo como parte del hito
             if (targetType === 'final' && selectedMilestoneId) {
                 const ms = milestones.find(m => m.id === selectedMilestoneId);
                 if (ms) {
@@ -167,7 +168,7 @@ export default function ReorganizationAssistant({
 
         dismiss(toastId);
         toast({ title: "¡Éxito!", description: "Archivos reubicados correctamente." });
-        onReorganized();
+        onReorganized(movedIds);
     } catch (e: any) {
         dismiss(toastId);
         toast({ variant: "destructive", title: "Error al reorganizar", description: e.message });
