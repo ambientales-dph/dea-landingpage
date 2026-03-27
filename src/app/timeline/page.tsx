@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -313,7 +312,7 @@ function HomeContent() {
             const statusChangeCategory = categories.find(c => c.name.toLowerCase().includes('cambio de estado')) || { id: 'cat-status', name: 'Cambio de Estado', color: '#f59e0b' };
             const activityCategory = categories.find(c => c.id === 'cat-11') || { id: 'cat-11', name: 'Actividad de Tarjeta', color: '#9E9E9E' };
 
-            const actionMilestones: Milestone[] = actionMilestones = actions
+            const actionMilestones: Milestone[] = actions
               .filter(action => !existingHitosByTrelloId.has(action.id))
               .map(action => {
                 let milestone: Milestone | null = null;
