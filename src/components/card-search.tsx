@@ -66,7 +66,7 @@ import { WHITELIST, AuthorizedUser } from '@/lib/auth-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
-import { getDriveResourceName, extractIdFromUrl, listFolderContents, getTimelineFolderForProject } from '@/services/google-drive';
+import { getDriveResourceName, extractIdFromUrl, listFolderContents, getTimelineFolderForProject, getProjectFolderIdInTL } from '@/services/google-drive';
 import { sendProjectEmail } from '@/app/actions/email-actions';
 import { useProject } from '@/providers/project-provider';
 import ReorganizationAssistant from './reorganization-assistant';
@@ -318,7 +318,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   // Estados para el asistente de reorganización
   const [looseFiles, setLooseFiles] = useState<any[]>([]);
   const [isReorgAssistantOpen, setIsReorgAssistantOpen] = useState(false);
-  const [projectRootId, setProjectRootId] = useState<string | null>(null);
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -526,7 +525,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setIsInspecting(false);
     setTlFolderId(null);
     setLooseFiles([]);
-    setProjectRootId(null);
   }, [selectedCard?.id, isSummaryOpen]);
 
   const isCurrentlyInTL = useMemo(() => {
@@ -721,36 +719,48 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         const codeMatch = selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i);
         const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
 
-        const [refreshedCard, cardActivity, labels, tlId] = await Promise.all([
+        const [refreshedCard, cardActivity, labels, tlId, tlProjectRootId] = await Promise.all([
             getCardById(selectedCard.id),
             getCardActivity(selectedCard.id),
             getBoardLabels(selectedCard.boardId),
-            projectCode ? getTimelineFolderForProject(projectCode, selectedCard.name) : Promise.resolve(null)
+            projectCode ? getTimelineFolderForProject(projectCode, selectedCard.name) : Promise.resolve(null),
+            projectCode ? getProjectFolderIdInTL(projectCode, selectedCard.name) : Promise.resolve(null)
         ]);
+        
         onCardSelect(refreshedCard);
         setActivity(cardActivity);
         setBoardLabels(labels || []);
         setTlFolderId(tlId);
 
-        // Buscar archivos sueltos para el asistente de reorganización
-        if (refreshedCard.attachments) {
-            const folderAtt = refreshedCard.attachments.find(a => isDriveFolder(a.url));
-            if (folderAtt) {
-                const rootId = await extractIdFromUrl(folderAtt.url);
-                if (rootId) {
-                    setProjectRootId(rootId);
-                    const contents = await listFolderContents(rootId);
-                    const files = contents.files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
-                    setLooseFiles(files);
-                } else {
-                    setLooseFiles([]);
-                }
-            } else {
-                setLooseFiles([]);
+        // --- Búsqueda Exhaustiva de Archivos Sueltos (Multiraíz) ---
+        let allLooseFiles: any[] = [];
+        
+        // 1. Escanear Carpeta de Trabajo (vinculada a Trello)
+        const workFolderAtt = refreshedCard.attachments?.find(a => isDriveFolder(a.url));
+        if (workFolderAtt) {
+            const workRootId = await extractIdFromUrl(workFolderAtt.url);
+            if (workRootId) {
+                const workContents = await listFolderContents(workRootId);
+                const workLoose = workContents.files
+                    .filter(f => f.mimeType !== 'application/vnd.google-apps.folder')
+                    .map(f => ({ ...f, parentId: workRootId }));
+                allLooseFiles = [...allLooseFiles, ...workLoose];
             }
-        } else {
-            setLooseFiles([]);
         }
+
+        // 2. Escanear Raíz de Proyecto en TL
+        if (tlProjectRootId) {
+            const tlContents = await listFolderContents(tlProjectRootId);
+            const tlLoose = tlContents.files
+                .filter(f => f.mimeType !== 'application/vnd.google-apps.folder')
+                .map(f => ({ ...f, parentId: tlProjectRootId }));
+            allLooseFiles = [...allLooseFiles, ...tlLoose];
+        }
+
+        // Deduplicar por ID de Drive
+        const uniqueLoose = Array.from(new Map(allLooseFiles.map(f => [f.id, f])).values());
+        setLooseFiles(uniqueLoose);
+
     } catch (error) {
         console.error('Error refreshing card data:', error);
     } finally {
@@ -1178,7 +1188,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             isOpen={isReorgAssistantOpen}
             onOpenChange={setIsReorgAssistantOpen}
             looseFiles={looseFiles}
-            projectRootId={projectRootId}
             projectId={selectedCard.id}
             projectName={selectedCard.name}
             onReorganized={(movedIds) => {

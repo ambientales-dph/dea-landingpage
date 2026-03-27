@@ -35,9 +35,9 @@ export async function extractIdFromUrl(url: string): Promise<string | null> {
 }
 
 /**
- * Busca o crea la carpeta de Línea de Tiempo para un proyecto.
+ * Obtiene el ID de la carpeta del proyecto en la raíz de la TL (la que contiene "Línea de tiempo").
  */
-export async function getTimelineFolderForProject(projectCode: string, projectName: string) {
+export async function getProjectFolderIdInTL(projectCode: string, projectName: string) {
     const rootTL = (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID_TL || '').trim();
     if (!rootTL) return null;
 
@@ -45,22 +45,36 @@ export async function getTimelineFolderForProject(projectCode: string, projectNa
     const folderName = `${projectCode} - ${cleanName}`;
 
     try {
-        // 1. Buscar carpeta del proyecto en la raíz de TL
-        const qProject = `name contains '${projectCode}' and mimeType = 'application/vnd.google-apps.folder' and '${rootTL}' in parents and trashed = false`;
+        const escapedCode = projectCode.replace(/'/g, "\\'");
+        const qProject = `name contains '${escapedCode}' and mimeType = 'application/vnd.google-apps.folder' and '${rootTL}' in parents and trashed = false`;
         const resProject = await drive.files.list({ q: qProject, fields: 'files(id, name)' });
         
-        let projectId = '';
         if (resProject.data.files && resProject.data.files.length > 0) {
-            projectId = resProject.data.files[0].id!;
+            // Preferir coincidencia exacta si existe
+            const exactMatch = resProject.data.files.find(f => f.name === folderName);
+            return exactMatch ? exactMatch.id! : resProject.data.files[0].id!;
         } else {
             const newProject = await drive.files.create({
                 requestBody: { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [rootTL] },
                 fields: 'id'
             });
-            projectId = newProject.data.id!;
+            return newProject.data.id!;
         }
+    } catch (e) {
+        console.error("Error fetching project folder in TL:", e);
+        return null;
+    }
+}
 
-        // 2. Buscar/Crear subcarpeta "Línea de tiempo"
+/**
+ * Busca o crea la carpeta de Línea de Tiempo para un proyecto.
+ */
+export async function getTimelineFolderForProject(projectCode: string, projectName: string) {
+    try {
+        const projectId = await getProjectFolderIdInTL(projectCode, projectName);
+        if (!projectId) return null;
+
+        // Buscar/Crear subcarpeta "Línea de tiempo"
         const qTL = `name = 'Línea de tiempo' and mimeType = 'application/vnd.google-apps.folder' and '${projectId}' in parents and trashed = false`;
         const resTL = await drive.files.list({ q: qTL, fields: 'files(id)' });
 

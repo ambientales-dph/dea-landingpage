@@ -24,7 +24,7 @@ import {
     CheckCircle2,
     HardDrive
 } from 'lucide-react';
-import { listFolderContents, moveFile, getTimelineFolderForProject } from '@/services/google-drive';
+import { listFolderContents, moveFile, getTimelineFolderForProject, getProjectFolderIdInTL } from '@/services/google-drive';
 import { useFirestore } from '@/firebase';
 import { collection, query, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { Milestone } from '@/timeline/types';
@@ -35,7 +35,6 @@ interface ReorganizationAssistantProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   looseFiles: any[];
-  projectRootId: string | null;
   projectId: string;
   projectName: string;
   onReorganized: (movedIds: string[]) => void;
@@ -45,7 +44,6 @@ export default function ReorganizationAssistant({
   isOpen,
   onOpenChange,
   looseFiles,
-  projectRootId,
   projectId,
   projectName,
   onReorganized,
@@ -67,13 +65,18 @@ export default function ReorganizationAssistant({
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isOpen && projectRootId) {
-        setWorkPath([{ id: projectRootId, name: 'Raíz' }]);
+    if (isOpen) {
+        setWorkPath([]);
         fetchMilestones();
         setSelectedFiles([]);
         setTargetType(null);
+        
+        // Intentar inicializar el path de trabajo si hay archivos sueltos
+        if (looseFiles.length > 0) {
+            setWorkPath([{ id: looseFiles[0].parentId, name: 'Raíz Proyecto' }]);
+        }
     }
-  }, [isOpen, projectRootId]);
+  }, [isOpen, looseFiles]);
 
   useEffect(() => {
     if (workPath.length > 0) {
@@ -109,7 +112,7 @@ export default function ReorganizationAssistant({
   };
 
   const handleExecuteMove = async () => {
-    if (selectedFiles.length === 0 || !projectRootId) return;
+    if (selectedFiles.length === 0) return;
     setIsProcessing(true);
 
     const { id: toastId, dismiss, update } = toast({
@@ -119,43 +122,44 @@ export default function ReorganizationAssistant({
     });
 
     try {
-        let targetFolderId = '';
         const movedIds = [...selectedFiles];
         
-        if (targetType === 'work') {
-            targetFolderId = workPath[workPath.length - 1].id;
-        } else if (targetType === 'final') {
-            if (!selectedMilestoneId) throw new Error("Debes seleccionar un hito.");
-            const ms = milestones.find(m => m.id === selectedMilestoneId);
-            if (!ms) throw new Error("Hito no encontrado.");
-            
-            if (!ms.driveFolderId) {
-                const codeMatch = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i);
-                const projectCode = codeMatch ? codeMatch[0].toUpperCase() : 'S/C';
-                const tlRootId = await getTimelineFolderForProject(projectCode, projectName);
-                if (!tlRootId) throw new Error("No se pudo localizar la carpeta de TL.");
-                targetFolderId = tlRootId;
-            } else {
-                targetFolderId = ms.driveFolderId;
-            }
-        }
-
         for (const fileId of selectedFiles) {
             const file = looseFiles.find(f => f.id === fileId);
-            update({ id: toastId, description: `Moviendo: ${file?.name || 'archivo'}...` });
+            if (!file) continue;
+
+            update({ id: toastId, description: `Moviendo: ${file.name}...` });
             
-            await moveFile(fileId, projectRootId, targetFolderId);
+            let targetFolderId = '';
+            if (targetType === 'work') {
+                targetFolderId = workPath[workPath.length - 1].id;
+            } else if (targetType === 'final') {
+                if (!selectedMilestoneId) throw new Error("Debes seleccionar un hito.");
+                const ms = milestones.find(m => m.id === selectedMilestoneId);
+                if (!ms) throw new Error("Hito no encontrado.");
+                
+                if (!ms.driveFolderId) {
+                    const codeMatch = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i);
+                    const projectCode = codeMatch ? codeMatch[0].toUpperCase() : 'S/C';
+                    const tlFolderId = await getTimelineFolderForProject(projectCode, projectName);
+                    if (!tlFolderId) throw new Error("No se pudo localizar la carpeta de TL.");
+                    targetFolderId = tlFolderId;
+                } else {
+                    targetFolderId = ms.driveFolderId;
+                }
+            }
+
+            await moveFile(fileId, file.parentId, targetFolderId);
 
             if (targetType === 'final' && selectedMilestoneId) {
                 const ms = milestones.find(m => m.id === selectedMilestoneId);
                 if (ms) {
-                    const fileData = looseFiles.find(f => f.id === fileId);
                     const newFile = {
                         id: fileId,
-                        name: fileData.name,
+                        name: file.name,
                         size: '---',
                         type: 'other',
-                        url: fileData.webViewLink,
+                        url: file.webViewLink,
                         isTimelineFile: true
                     };
                     const updatedFiles = [...(ms.associatedFiles || []), newFile];
@@ -194,7 +198,7 @@ export default function ReorganizationAssistant({
           {/* Columna Izquierda: Archivos Sueltos */}
           <div className="w-1/3 border-r border-zinc-200 flex flex-col">
             <div className="p-4 bg-zinc-200/50 border-b border-zinc-200">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Archivos en Raíz ({looseFiles.length})</h3>
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Archivos detectados ({looseFiles.length})</h3>
             </div>
             <ScrollArea className="flex-1 p-2">
                 <div className="space-y-1">
@@ -243,7 +247,7 @@ export default function ReorganizationAssistant({
                 {!targetType ? (
                     <div className="h-full flex flex-col items-center justify-center text-center text-zinc-400 space-y-4">
                         <Move className="h-12 w-12 opacity-20" />
-                        <p className="text-sm italic">Selecciona arriba si quieres mover a una carpeta de trabajo o archivar como hito final.</p>
+                        <p className="text-sm italic px-8">Selecciona arriba si quieres mover a una carpeta de trabajo o archivar como hito final en la Línea de Tiempo.</p>
                     </div>
                 ) : targetType === 'work' ? (
                     <div className="space-y-4">
@@ -253,7 +257,7 @@ export default function ReorganizationAssistant({
                         </div>
                         
                         <div className="bg-zinc-200/50 p-2 rounded-md flex flex-wrap gap-1 items-center border border-zinc-300">
-                            {workPath.map((f, idx) => (
+                            {workPath.length > 0 ? workPath.map((f, idx) => (
                                 <React.Fragment key={f.id}>
                                     {idx > 0 && <ChevronRight className="h-3 w-3 text-zinc-400" />}
                                     <button 
@@ -263,12 +267,14 @@ export default function ReorganizationAssistant({
                                         {f.name}
                                     </button>
                                 </React.Fragment>
-                            ))}
+                            )) : (
+                                <span className="text-[10px] text-zinc-400 italic">No hay raíz seleccionada</span>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
                             {isLoadingFolders ? (
-                                <Loader2 className="h-6 w-6 animate-spin text-zinc-300" />
+                                <div className="col-span-2 py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-zinc-300" /></div>
                             ) : workFolders.map(folder => (
                                 <button 
                                     key={folder.id}
@@ -280,7 +286,7 @@ export default function ReorganizationAssistant({
                                 </button>
                             ))}
                         </div>
-                        {workFolders.length === 0 && !isLoadingFolders && (
+                        {workFolders.length === 0 && !isLoadingFolders && workPath.length > 0 && (
                             <p className="text-xs text-zinc-500 italic">No hay más subcarpetas aquí.</p>
                         )}
                     </div>
@@ -324,10 +330,10 @@ export default function ReorganizationAssistant({
                     {selectedFiles.length > 0 ? (
                         <>
                             <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full">{selectedFiles.length}</span>
-                            <span>archivos seleccionados</span>
+                            <span>{selectedFiles.length === 1 ? 'archivo seleccionado' : 'archivos seleccionados'}</span>
                             <ArrowRight className="h-3 w-3 text-zinc-400" />
                             <span className="text-primary font-bold">
-                                {targetType === 'work' ? `Mover a ${workPath[workPath.length-1].name}` : selectedMilestoneId ? `Vincular a Hito` : 'Seleccionar destino'}
+                                {targetType === 'work' ? `Mover a ${workPath[workPath.length-1]?.name || 'destino'}` : selectedMilestoneId ? `Vincular a Hito` : 'Seleccionar destino'}
                             </span>
                         </>
                     ) : (
