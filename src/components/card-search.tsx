@@ -391,7 +391,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       const id = await extractIdFromUrl(att.url);
       if (id) handleEnterFolder(id, att.name);
     } else {
-      window.open(att.url, '_blank');
+      // Los archivos finales de hito no permiten apertura directa, solo descarga
+      const isTLFile = att.url.includes('DEA_TL_archivos');
+      if (!isTLFile) {
+        window.open(att.url, '_blank');
+      }
     }
   };
 
@@ -403,12 +407,23 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
   };
 
-  const handleDownloadFile = (file: any) => {
-    const downloadUrl = file.webContentLink || file.url;
+  const handleDownloadFile = async (file: any) => {
+    let downloadUrl = file.webContentLink;
+    
+    // Si no tenemos el enlace de contenido directo (como en Trello), intentamos generarlo
+    if (!downloadUrl && file.url) {
+        const id = await extractIdFromUrl(file.url);
+        if (id) {
+            downloadUrl = `https://drive.google.com/uc?export=download&id=${id}`;
+        } else {
+            downloadUrl = file.url;
+        }
+    }
+
     if (downloadUrl) {
       window.open(downloadUrl, '_blank');
     } else {
-      toast({ variant: 'destructive', title: 'Descarga no disponible', description: 'Este archivo no permite descarga directa.' });
+      toast({ variant: 'destructive', title: 'Descarga no disponible', description: 'No se pudo generar el enlace de descarga.' });
     }
   };
 
@@ -694,20 +709,22 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
   const sortedAttachments = useMemo(() => {
     const attachments = selectedCard?.attachments || [];
-    // FILTRO: No mostramos archivos sueltos que parezcan ser de la carpeta de trabajo del proyecto
-    // para mantener la vista limpia. Solo mostramos carpetas o links de LT si están ahí.
-    const codeMatch = selectedCard?.name.match(/\b([A-Z]{2,4}\d{3})\b/i);
-    const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
-
+    
+    // REGLA DE FILTRADO ESTRICTO:
+    // Solo mostramos en la lista de Trello las carpetas raíz y los archivos de la Línea de Tiempo.
+    // Los archivos de trabajo "sueltos" se ocultan para evitar duplicidad, ya que se acceden vía carpeta.
     const filtered = attachments.filter(att => {
         const isFolder = isDriveFolder(att.url);
-        if (isFolder) return true; // Siempre mostramos las carpetas raíz de los proyectos
+        const isTL = att.url.includes('DEA_TL_archivos');
+        const isDrive = att.url.includes('drive.google.com');
         
-        // Si el archivo contiene el código del proyecto en su nombre pero es un archivo suelto,
-        // probablemente sea un duplicado de lo que ya está en la carpeta de Drive.
-        if (projectCode && att.name.includes(projectCode) && !att.url.includes('DEA_TL_archivos')) {
-            return false;
-        }
+        if (isFolder || isTL) return true;
+        
+        // Si es un archivo de Drive pero no es de la Línea de Tiempo, lo ocultamos
+        // para que solo aparezca dentro de la inspección de carpetas.
+        if (isDrive) return false;
+        
+        // Enlaces externos (no Drive) se mantienen visibles
         return true;
     });
 
