@@ -340,7 +340,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setQuery(card.name);
     onCardSelect(card);
     setIsOpen(false);
-    onSummaryOpenChange(true);
+    // Ya no abrimos automáticamente la ficha técnica al seleccionar del buscador
   };
 
   const handleEditClick = () => {
@@ -982,7 +982,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                   {attachmentSort === 'name' ? 'Nombre' : 'Tipo'}
                                 </Button>
                               </div>
-                              <CollapsibleContent className="space-y-1 w-full max-w-full overflow-hidden flex flex-col min-w-0 box-border border rounded-md p-2 bg-muted/5">
+                              <CollapsibleContent className="space-y-1 w-full max-w-full overflow-hidden min-w-0 box-border border rounded-md p-2 bg-muted/5">
                                 {isInspecting ? (
                                   <div className="flex items-center justify-center p-8">
                                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
