@@ -17,7 +17,7 @@ const INTERNAL_STAFF: AuthorizedUser[] = [
   { name: 'Eugenia Agabios', email: 'eugeniaagabios@gmail.com', phone: '+549 221 590-9901' },
   { name: 'Alan Santamarina', email: 'alansantamarina@gmail.com', phone: '+549 11 4047-6695' },
   { name: 'Canela Castro', email: 'canelamdq@gmail.com', phone: '+549 221 643-7878' },
-  { name: 'Cintia Di Grazia', email: 'cdigrazia.dph@gmail.com', phone: '+549 221 614-2863' },
+  { name: 'Cintia Di Grazia', email: 'cintiadigrazia@gmail.com', phone: '+549 221 614-2863' },
   { name: 'Mariano Mediavilla', email: 'marianomediavilla.pba@gmail.com', phone: '+549 11 6210-8377' },
   { name: 'Marina Raggio', email: 'marinaraggioambientales@gmail.com', phone: '+549 221 418-4274' },
   { name: 'Luciana Lugones', email: 'lucianalugones@gsuite.fcnym.unlp.edu.ar', phone: '+549 221 543-5150' },

@@ -585,6 +585,9 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                         <ul className="space-y-1.5 border border-zinc-400 rounded-md p-2 bg-zinc-200">
                            {uniqueFiles.map(file => {
                                 const isTL = file.isTimelineFile || milestone.tags?.includes('intocable');
+                                // Construimos un enlace de descarga directa si el campo downloadUrl falta
+                                const finalDownloadUrl = file.downloadUrl || (file.driveId || file.id ? `https://drive.google.com/uc?export=download&id=${file.driveId || file.id}` : null);
+                                
                                 return (
                                 <li key={file.id} className="group/file flex items-center justify-between p-1.5 bg-zinc-100 rounded-md hover:bg-zinc-50 transition-colors">
                                     <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -594,16 +597,20 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                                     <div className="flex items-center shrink-0 ml-2 gap-2">
                                         <span className="text-[10px] text-zinc-500">{file.size}</span>
                                         <div className="flex items-center gap-1">
-                                            {/* Si es de TL, solo permitimos descargar el archivo directo */}
-                                            {file.downloadUrl ? (
-                                                <a href={file.downloadUrl} className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Descargar archivo">
+                                            {/* Control de Descarga (Siempre visible) */}
+                                            {finalDownloadUrl && (
+                                                <a href={finalDownloadUrl} className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Descargar archivo">
                                                     <Download className="h-3.5 w-3.5" />
                                                 </a>
-                                            ) : file.url && !isTL && (
+                                            )}
+                                            
+                                            {/* Control de Abrir en Drive (Solo si NO es hito intocable) */}
+                                            {file.url && !isTL && (
                                                 <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Abrir en Drive">
                                                     <ExternalLink className="h-3.5 w-3.5" />
                                                 </a>
                                             )}
+                                            
                                             <button onClick={() => setFileToDelete(file)} className="p-1 rounded-md hover:bg-destructive/10 text-zinc-500 hover:text-destructive transition-colors" title="Eliminar">
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </button>
