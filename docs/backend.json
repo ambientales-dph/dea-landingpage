@@ -83,7 +83,8 @@
         "tags": { "type": "array", "items": { "type": "string" } },
         "associatedFiles": { "type": "array", "items": { "type": "object" } },
         "isImportant": { "type": "boolean" },
-        "history": { "type": "array", "items": { "type": "string" } }
+        "history": { "type": "array", "items": { "type": "string" } },
+        "driveFolderId": { "type": "string" }
       }
     },
     "TimelineCategory": {

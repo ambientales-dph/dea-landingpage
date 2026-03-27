@@ -206,7 +206,6 @@ function HomeContent() {
     }
   }, [user, firestore, selectedCard]);
 
-  // Sincronización Trello -> Firestore
   React.useEffect(() => {
     const syncTrelloToFirestore = async () => {
         if (!selectedCard || !firestore || !user || syncPerformedForCard.current === selectedCard.id) {
@@ -332,7 +331,7 @@ function HomeContent() {
                         history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] 
                     };
                 } else if (action.type === 'updateCard' && action.data.listAfter && action.data.listBefore) {
-                    milestone = { id: `hito-${action.id}`, name: `Tarjeta movida`, description: `Movida de "${action.data.listBefore.name}" a "${action.data.listAfter.name}" por ${action.memberCreator.fullName}.`, occurredAt: action.date, category: activityCategory, tags: ['actividad', 'movimiento'], associatedFiles: [], isImportant: false, history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] };
+                    milestone = { id: `hito-${action.id}`, name: `Tarjeta movida`, description: `Movida de "${action.data.listBefore.name}" a "${action.data.listAfter.name}" por ${action.memberCreator.fullName}.`, occurredAt: action.date, category: activityCategory, tags: ['activity', 'movimiento'], associatedFiles: [], isImportant: false, history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] };
                 }
                 return milestone;
             }).filter((m): m is Milestone => m !== null);
@@ -412,7 +411,6 @@ function HomeContent() {
 
           const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, uploadFolderId, existingId);
           
-          // SOLO ADJUNTAMOS A TRELLO SI ES DOCUMENTO FINAL
           let trelloId: string | undefined = undefined;
           if (isFinalDocument) {
               const trelloAtt = await attachUrlToCard(selectedCard.id, driveResult.name, driveResult.webViewLink);
@@ -465,6 +463,7 @@ function HomeContent() {
           associatedFiles: associatedFiles,
           isImportant: false,
           history: [`${format(new Date(), "PPpp", { locale: es })} - Hito creado como ${isFinalDocument ? 'INTOCABLE' : 'TRABAJO'} con ${associatedFiles.length} archivo(s).`],
+          driveFolderId: isFinalDocument ? uploadFolderId : null
       };
 
       const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
@@ -577,11 +576,23 @@ function HomeContent() {
     });
 
     try {
+        // Primero borramos los adjuntos de Trello (indispensable)
         for (const file of hitoToDelete.associatedFiles) {
             if (file.trelloId) await deleteAttachmentFromCard(selectedCard.id, file.trelloId);
-            const driveId = file.driveId || file.id;
-            if (driveId) await deleteFileFromDrive(driveId);
         }
+
+        // Luego borramos el contenido de Drive
+        if (hitoToDelete.driveFolderId) {
+            // Si tiene carpeta de hito (intocable), volamos la carpeta entera junto con sus archivos
+            await deleteFileFromDrive(hitoToDelete.driveFolderId);
+        } else {
+            // Si es de trabajo, borramos archivo por archivo (porque comparten carpeta de proyecto)
+            for (const file of hitoToDelete.associatedFiles) {
+                const driveId = file.driveId || file.id;
+                if (driveId) await deleteFileFromDrive(driveId);
+            }
+        }
+
         if (milestoneId.startsWith('hito-') && hitoToDelete.tags?.includes('comentario')) {
             const trelloObjectId = milestoneId.replace('hito-', '');
             await deleteAction(trelloObjectId);
@@ -610,10 +621,6 @@ function HomeContent() {
     if (rangeType === '1D') setDateRange({ start: startOfDay(now), end: endOfDay(now) });
     else if (rangeType === '1M') setDateRange({ start: subMonths(now, 1), end: now });
     else if (rangeType === '1Y') setDateRange({ start: subYears(now, 1), end: now });
-  }, []);
-
-  const handleMilestoneClick = React.useCallback((milestone: Milestone) => {
-    setSelectedMilestone(milestone);
   }, []);
 
   const handleGoHome = React.useCallback(() => {
@@ -780,7 +787,7 @@ function HomeContent() {
                             milestones={filteredMilestones} 
                             startDate={dateRange?.start || subMonths(new Date(), 6)}
                             endDate={dateRange?.end || addMonths(new Date(), 6)}
-                            onMilestoneClick={handleMilestoneClick}
+                            onMilestoneClick={(m) => setSelectedMilestone(m)}
                             isDetailOpen={!!selectedMilestone}
                         />
                     </div>

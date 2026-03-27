@@ -1,11 +1,14 @@
+
 export interface AssociatedFile {
   id: string;
   name: string;
   size: string;
   type: 'document' | 'image' | 'video' | 'audio' | 'other';
   url?: string;
+  downloadUrl?: string;
   driveId?: string;
   trelloId?: string;
+  isTimelineFile?: boolean;
 }
 
 export interface Milestone {
@@ -18,6 +21,7 @@ export interface Milestone {
   associatedFiles: AssociatedFile[];
   isImportant: boolean;
   history: string[];
+  driveFolderId?: string;
 }
 
 export interface Category {
