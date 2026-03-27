@@ -30,6 +30,8 @@ import { collection, query, onSnapshot, doc, updateDoc } from 'firebase/firestor
 import { Milestone } from '@/timeline/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface ReorganizationAssistantProps {
   isOpen: boolean;
@@ -97,10 +99,13 @@ export default function ReorganizationAssistant({
   }, [workPath]);
 
   const fetchMilestones = () => {
+    if (!db || !projectId) return () => {};
     const q = collection(db, 'timeline_projects', projectId, 'milestones');
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const ms = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Milestone));
         setMilestones(ms.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()));
+    }, (error) => {
+        console.error("Error fetching milestones:", error);
     });
     return unsubscribe;
   };
