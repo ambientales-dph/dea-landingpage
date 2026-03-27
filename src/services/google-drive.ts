@@ -22,6 +22,7 @@ const drive = google.drive({
  * Extrae el ID de un archivo o carpeta desde una URL de Google Drive.
  */
 export async function extractIdFromUrl(url: string): Promise<string | null> {
+    if (!url) return null;
     const folderMatch = url.match(/folders\/([a-zA-Z0-9_-]+)/);
     if (folderMatch) return folderMatch[1];
     
@@ -32,6 +33,51 @@ export async function extractIdFromUrl(url: string): Promise<string | null> {
     if (idParamMatch) return idParamMatch[1];
 
     return null;
+}
+
+/**
+ * Busca o crea la carpeta de Línea de Tiempo para un proyecto.
+ */
+export async function getTimelineFolderForProject(projectCode: string, projectName: string) {
+    const rootTL = (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID_TL || '').trim();
+    if (!rootTL) return null;
+
+    const cleanName = projectName.replace(/\s*\([^)]+\)$/, '').trim();
+    const folderName = `${projectCode} - ${cleanName}`;
+
+    try {
+        // 1. Buscar carpeta del proyecto en la raíz de TL
+        const qProject = `name contains '${projectCode}' and mimeType = 'application/vnd.google-apps.folder' and '${rootTL}' in parents and trashed = false`;
+        const resProject = await drive.files.list({ q: qProject, fields: 'files(id, name)' });
+        
+        let projectId = '';
+        if (resProject.data.files && resProject.data.files.length > 0) {
+            projectId = resProject.data.files[0].id!;
+        } else {
+            const newProject = await drive.files.create({
+                requestBody: { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [rootTL] },
+                fields: 'id'
+            });
+            projectId = newProject.data.id!;
+        }
+
+        // 2. Buscar/Crear subcarpeta "Línea de tiempo"
+        const qTL = `name = 'Línea de tiempo' and mimeType = 'application/vnd.google-apps.folder' and '${projectId}' in parents and trashed = false`;
+        const resTL = await drive.files.list({ q: qTL, fields: 'files(id)' });
+
+        if (resTL.data.files && resTL.data.files.length > 0) {
+            return resTL.data.files[0].id!;
+        } else {
+            const newTL = await drive.files.create({
+                requestBody: { name: 'Línea de tiempo', mimeType: 'application/vnd.google-apps.folder', parents: [projectId] },
+                fields: 'id'
+            });
+            return newTL.data.id!;
+        }
+    } catch (e) {
+        console.error("Error fetching TL folder:", e);
+        return null;
+    }
 }
 
 /**
@@ -52,14 +98,12 @@ export async function getDriveResourceName(url: string): Promise<{ name: string;
             isFolder: response.data.mimeType === 'application/vnd.google-apps.folder',
         };
     } catch (error) {
-        console.error('Error fetching resource name from Drive:', error);
         return null;
     }
 }
 
 /**
  * Lista el contenido de una carpeta de Google Drive con soporte para paginación.
- * Se aumenta el pageSize a 1000 para proyectos con gran volumen de archivos técnicos.
  */
 export async function listFolderContents(folderId: string, pageToken?: string) {
   try {

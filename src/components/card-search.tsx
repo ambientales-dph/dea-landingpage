@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink } from 'lucide-react';
+import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, HardDrive, History } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -67,7 +67,7 @@ import { WHITELIST, AuthorizedUser } from '@/lib/auth-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
-import { getDriveResourceName, extractIdFromUrl, listFolderContents } from '@/services/google-drive';
+import { getDriveResourceName, extractIdFromUrl, listFolderContents, getTimelineFolderForProject } from '@/services/google-drive';
 import { sendProjectEmail } from '@/app/actions/email-actions';
 import { useProject } from '@/providers/project-provider';
 
@@ -301,6 +301,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [editedListId, setEditedListId] = useState('');
   const [driveNames, setDriveNames] = useState<Record<string, { name: string, isFolder: boolean }>>({});
 
+  const [tlFolderId, setTlFolderId] = useState<string | null>(null);
   const [inspectionPath, setInspectionPath] = useState<{ id: string, name: string }[]>([]);
   const [folderContents, setFolderContents] = useState<any[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
@@ -334,7 +335,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setFolderContents([]);
     setNextPageToken(null);
     setIsInspecting(false);
+    setTlFolderId(null);
   }, [selectedCard?.id, isSummaryOpen]);
+
+  // Determinar si estamos navegando en la rama de Línea de Tiempo
+  const isCurrentlyInTL = useMemo(() => {
+    if (inspectionPath.length === 0) return false;
+    return inspectionPath[0].name === 'Línea de Tiempo';
+  }, [inspectionPath]);
 
   useEffect(() => {
     const fetchContents = async () => {
@@ -387,21 +395,20 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   };
 
   const handleAttachmentClick = async (att: any) => {
-    if (isDriveFolder(att.url)) {
-      const id = await extractIdFromUrl(att.url);
-      if (id) handleEnterFolder(id, att.name);
-    } else {
-      const isTLFile = isDriveFile(att.url);
-      if (!isTLFile) {
-        window.open(att.url, '_blank');
-      }
+    const isTL = att.name === 'Línea de Tiempo';
+    const id = await extractIdFromUrl(att.url);
+    
+    if (isTL && tlFolderId) {
+        handleEnterFolder(tlFolderId, 'Línea de Tiempo');
+    } else if (isDriveFolder(att.url) && id) {
+        handleEnterFolder(id, att.name);
     }
   };
 
   const handleDriveFileClick = (file: any) => {
     if (file.mimeType === 'application/vnd.google-apps.folder') {
       handleEnterFolder(file.id, file.name);
-    } else {
+    } else if (!isCurrentlyInTL) {
       window.open(file.webViewLink, '_blank');
     }
   };
@@ -409,19 +416,17 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const handleDownloadFile = async (file: any) => {
     let downloadUrl = file.webContentLink;
     
-    if (!downloadUrl && file.url) {
-        const id = await extractIdFromUrl(file.url);
+    if (!downloadUrl) {
+        const id = file.id || await extractIdFromUrl(file.url);
         if (id) {
             downloadUrl = `https://drive.google.com/uc?export=download&id=${id}`;
-        } else {
-            downloadUrl = file.url;
         }
     }
 
     if (downloadUrl) {
       window.open(downloadUrl, '_blank');
     } else {
-      toast({ variant: 'destructive', title: 'Descarga no disponible', description: 'No se pudo generar el enlace de descarga.' });
+      toast({ variant: 'destructive', title: 'Descarga no disponible', description: 'No se pudo generar el enlace.' });
     }
   };
 
@@ -518,49 +523,24 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>);
   };
 
-  const logPortalActivity = useCallback(async (actionType: string, detail: string) => {
-    if (user && db && selectedCard) {
-      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
-      const realName = authorizedUser?.name || user.displayName || 'Usuario';
-
-      const activityData: any = {
-        userId: user.uid,
-        userName: realName,
-        userEmail: user.email,
-        userPhoto: user.photoURL || '',
-        actionType: actionType,
-        projectName: selectedCard.name,
-        detail: detail,
-        cardId: selectedCard.id,
-        timestamp: serverTimestamp(),
-      };
-
-      try {
-        await addDoc(collection(db, 'app_activities'), activityData);
-      } catch (error) {
-         const permissionError = new FirestorePermissionError({
-            path: 'app_activities',
-            operation: 'create',
-            requestResourceData: activityData,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-      }
-    }
-  }, [user, db, selectedCard]);
-
   const fetchCardData = useCallback(async () => {
     if (!selectedCard) return;
     setIsRefreshing(true);
     setIsActivityLoading(true);
     try {
-        const [refreshedCard, cardActivity, labels] = await Promise.all([
+        const codeMatch = selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i);
+        const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
+
+        const [refreshedCard, cardActivity, labels, tlId] = await Promise.all([
             getCardById(selectedCard.id),
             getCardActivity(selectedCard.id),
-            getBoardLabels(selectedCard.boardId)
+            getBoardLabels(selectedCard.boardId),
+            projectCode ? getTimelineFolderForProject(projectCode, selectedCard.name) : Promise.resolve(null)
         ]);
         onCardSelect(refreshedCard);
         setActivity(cardActivity);
         setBoardLabels(labels || []);
+        setTlFolderId(tlId);
     } catch (error) {
         console.error('Error refreshing card data:', error);
     } finally {
@@ -575,315 +555,35 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
   }, [isSummaryOpen, selectedCard?.id, fetchCardData]);
 
-  useEffect(() => {
-    setQuery(selectedCard?.name || '');
-  }, [selectedCard?.id]);
-
-  const filteredCards = useMemo(() => {
-    if (!query || (selectedCard && query === selectedCard.name)) return [];
-    const normalizedQuery = removeAccents(query.toLowerCase());
-    
-    const uniqueCardsMap = new Map<string, TrelloCard>();
-    allCards.forEach(card => {
-        if (!uniqueCardsMap.has(card.id)) {
-            const matchesName = removeAccents(card.name.toLowerCase()).includes(normalizedQuery);
-            const matchesDesc = removeAccents(card.desc || '').toLowerCase().includes(normalizedQuery);
-            if (matchesName || matchesDesc) {
-                uniqueCardsMap.set(card.id, card);
-            }
-        }
-    });
-    
-    return Array.from(uniqueCardsMap.values());
-  }, [query, allCards, selectedCard?.id]);
-  
-  const handleSelect = (card: TrelloCard) => {
-    onCardSelect(card);
-    setQuery(card.name);
-    setIsOpen(false);
-  };
-  
-  const handleEditClick = async () => {
-    if (selectedCard) {
-        setEditedName(selectedCard.name);
-        setEditedDesc(selectedCard.desc);
-        setEditedBoardId(selectedCard.boardId);
-        setEditedListId(selectedCard.idList);
-        setIsEditing(true);
-        setIsBoardsLoading(true);
-        try {
-            const boards = await getTrelloBoards();
-            setAllBoards(boards);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsBoardsLoading(false);
-        }
-    }
-  };
-
-  useEffect(() => {
-    if (isEditing && editedBoardId) {
-      const fetchLists = async () => {
-        setIsListsLoading(true);
-        try {
-          const lists = await getListsOnBoard(editedBoardId);
-          setBoardLists(lists);
-          if (!lists.some(l => l.id === editedListId)) setEditedListId(lists[0]?.id || '');
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsListsLoading(false);
-        }
-      };
-      fetchLists();
-    }
-  }, [isEditing, editedBoardId, editedListId]);
-
-  const handleSaveEdit = async () => {
-    if (!selectedCard) return;
-    setIsSaving(true);
-    try {
-        await updateTrelloCard({ 
-          cardId: selectedCard.id, 
-          name: editedName, 
-          desc: editedDesc, 
-          idBoard: editedBoardId, 
-          idList: editedListId 
-        });
-        await logPortalActivity('update_project', `Editó título/descripción`);
-        toast({ title: '¡Éxito!', description: 'Tarjeta actualizada correctamente.' });
-        setIsEditing(false);
-        fetchCardData();
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error al actualizar' });
-    } finally {
-        setIsSaving(false);
-    }
-  };
-
-  const handleColorChange = async (color: string | null) => {
-    if (!selectedCard) return;
-    try {
-      await updateTrelloCard({ cardId: selectedCard.id, cover: { color } });
-      await logPortalActivity('update_cover', `Cambió el color de portada a ${color || 'ninguno'}`);
-      fetchCardData();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error al cambiar color' });
-    }
-  };
-
-  const handleToggleLabel = async (labelId: string, isCurrentlyOn: boolean) => {
-    if (!selectedCard) return;
-    try {
-      const labelName = boardLabels.find(l => l.id === labelId)?.name || 'Etiqueta';
-      if (isCurrentlyOn) {
-        await removeLabelFromCard({ cardId: selectedCard.id, labelId });
-        await logPortalActivity('update_labels', `Quitó la etiqueta "${labelName}"`);
-      } else {
-        await addLabelToCard({ cardId: selectedCard.id, labelId });
-        await logPortalActivity('update_labels', `Añadió la etiqueta "${labelName}"`);
-      }
-      fetchCardData();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error con etiquetas' });
-    }
-  };
-
-  const handlePostComment = async () => {
-    if (!selectedCard || !newComment.trim()) return;
-    setIsCommenting(true);
-    try {
-      await addCommentToCard({ cardId: selectedCard.id, text: newComment });
-      await logPortalActivity('add_comment', `Comentó: ${newComment.substring(0, 30)}${newComment.length > 30 ? '...' : ''}`);
-      setNewComment('');
-      fetchCardData();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error al comentar' });
-    } finally {
-      setIsCommenting(false);
-    }
-  };
-
   const sortedAttachments = useMemo(() => {
     const attachments = selectedCard?.attachments || [];
+    
+    // Ocultamos TODOS los archivos sueltos de Drive de la lista principal
+    // Solo permitimos carpetas principales (Carpeta de Obra)
     const filtered = attachments.filter(att => {
         const isFolder = isDriveFolder(att.url);
         const isDrive = isDriveFile(att.url) || att.url.includes('drive.google.com');
         
         if (isFolder) return true;
-        
-        // Si es un archivo de Drive pero no está en la raíz de TL, se oculta de la lista externa
-        // Esto permite que el usuario vea los archivos TL (que sí están adjuntos) pero no los de trabajo (que no deberían estar adjuntos)
-        if (isDrive && !att.url.includes('DEA_TL_archivos')) return false;
+        if (isDrive) return false; // Bloqueamos archivos sueltos
         
         return true;
     });
 
-    return [...filtered].sort((a, b) => {
-      if (attachmentSort === 'name') return a.name.localeCompare(b.name);
-      const extA = a.url.split('.').pop() || '';
-      const extB = b.url.split('.').pop() || '';
-      return extA.localeCompare(extB);
-    });
-  }, [selectedCard, attachmentSort]);
+    const result = [...filtered];
 
-  const handleExport = async () => {
-    if (!selectedCard) return;
-    setIsExporting(true);
-    
-    try {
-        const fileName = `DEA-Ficha-${selectedCard.name.replace(/[/\\?%*:|"<>]/g, '-')}`;
-        const doc = new jsPDF('p', 'mm', 'a4');
-        const pageWidth = doc.internal.pageSize.width;
-        const margin = 15;
-        let y = 20;
-
-        const coverColor = trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#3182ce';
-        const isLight = ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '');
-        const titleLines = doc.splitTextToSize(selectedCard.name, pageWidth - (margin * 2) - 10);
-        const headerHeight = Math.max(15, (titleLines.length * 5) + 6);
-
-        doc.setFillColor(coverColor);
-        doc.rect(margin, y, pageWidth - (margin * 2), headerHeight, 'F');
-        doc.setTextColor(isLight ? '#172b4d' : '#ffffff');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        const titleStartY = y + (headerHeight / 2) + 1 - ((titleLines.length - 1) * 2.5);
-        doc.text(titleLines, margin + 5, titleStartY);
-        y += headerHeight + 10;
-
-        doc.setTextColor('#333333');
-        doc.setFontSize(8);
-        const labels = selectedCard.labels || [];
-        if (labels.length > 0) {
-            doc.text('ETIQUETAS:', margin, y);
-            y += 5;
-            let lx = margin;
-            labels.forEach(label => {
-                const labelColor = label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc';
-                doc.setFillColor(labelColor);
-                const labelWidth = doc.getTextWidth(label.name) + 4;
-                if (lx + labelWidth > pageWidth - margin) { lx = margin; y += 6; }
-                doc.rect(lx, y - 4, labelWidth, 5, 'F');
-                doc.setTextColor('#ffffff');
-                doc.text(label.name, lx + 2, y - 0.5);
-                lx += labelWidth + 2;
-            });
-            y += 10;
-        }
-
-        doc.setTextColor('#000000');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text('DESCRIPCIÓN:', margin, y);
-        y += 7;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-
-        const descLines = (selectedCard.desc || 'Sin descripción').split('\n');
-        descLines.forEach(line => {
-            const trimmedLine = line.trim();
-            if (/:\s*\*\*\s*\*\*/.test(trimmedLine) || trimmedLine === '****' || trimmedLine === '** **') return;
-            if (y > 275) { doc.addPage(); y = 20; }
-
-            const regex = /\[([^\][]*?)\]\((.*?)\)|(https?:\/\/drive\.google\.com\/\S+)/gi;
-            let lineX = margin;
-            const segments: { text: string; isBold: boolean; link?: string }[] = [];
-            const boldParts = line.split('**');
-            let isBold = false;
-            
-            boldParts.forEach(part => {
-                if (part === '') { isBold = !isBold; return; }
-                let sIdx = 0;
-                let linkMatch;
-                while ((linkMatch = regex.exec(part)) !== null) {
-                    if (linkMatch.index > sIdx) segments.push({ text: part.substring(sIdx, linkMatch.index), isBold });
-                    const [full, mText, mUrl, sDriveUrl] = linkMatch;
-                    if (mText !== undefined) segments.push({ text: mText || driveNames[mUrl]?.name || 'Link', isBold, link: mUrl });
-                    else if (sDriveUrl !== undefined) {
-                        const driveData = driveNames[sDriveUrl];
-                        const label = driveData?.name || (isDriveFolder(sDriveUrl) ? '[CARPETA DRIVE]' : '[ARCHIVO DRIVE]');
-                        segments.push({ text: label, isBold, link: sDriveUrl });
-                    }
-                    sIdx = regex.lastIndex;
-                }
-                if (sIdx < part.length) segments.push({ text: part.substring(sIdx), isBold });
-                isBold = !isBold;
-            });
-
-            segments.forEach(seg => {
-                doc.setFont('helvetica', seg.isBold ? 'bold' : 'normal');
-                if (seg.link) doc.setTextColor('#3182ce'); else doc.setTextColor('#000000');
-                const segText = seg.text;
-                const segWidth = doc.getTextWidth(segText);
-                if (lineX + segWidth > pageWidth - margin) { y += 5; lineX = margin; if (y > 275) { doc.addPage(); y = 20; } }
-                doc.text(segText, lineX, y);
-                if (seg.link) doc.link(lineX, y - 3, segWidth, 4, { url: seg.link });
-                lineX += segWidth;
-            });
-            y += 5;
+    // Inyectamos la carpeta virtual de Línea de Tiempo si tenemos el ID
+    if (tlFolderId) {
+        result.push({
+            id: 'tl-virtual-folder',
+            name: 'Línea de Tiempo',
+            url: `https://drive.google.com/drive/folders/${tlFolderId}`,
+            previews: []
         });
-        y += 5;
-
-        const attachments = selectedCard.attachments || [];
-        if (exportOptions.includeAttachments && attachments.length > 0) {
-            if (y > 250) { doc.addPage(); y = 20; }
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor('#000000');
-            doc.text(`ADJUNTOS (${attachments.length}):`, margin, y);
-            y += 7;
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-            attachments.forEach(att => {
-                if (y > 270) { doc.addPage(); y = 20; }
-                doc.text(`• ${att.name}`, margin + 2, y);
-                y += 5; doc.setTextColor('#3182ce'); doc.text(att.url, margin + 5, y);
-                if (att.url) doc.link(margin + 5, y - 3, doc.getTextWidth(att.url), 4, { url: att.url });
-                doc.setTextColor('#000000'); y += 6;
-            });
-            y += 5;
-        }
-
-        if (exportOptions.includeComments && activity.length > 0) {
-            if (y > 250) { doc.addPage(); y = 20; }
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-            doc.text('COMENTARIOS:', margin, y);
-            y += 7;
-            const commentsOnly = activity.filter(a => a.type === 'commentCard');
-            commentsOnly.forEach(action => {
-                if (y > 260) { doc.addPage(); y = 20; }
-                doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-                const dateStr = format(new Date(action.date), 'dd/MM/yyyy HH:mm', { locale: es });
-                const authorName = action.memberCreator?.fullName || 'Usuario';
-                doc.text(`${authorName} - ${dateStr}`, margin, y);
-                y += 4;
-                doc.setFont('helvetica', 'normal');
-                const commentLines = doc.splitTextToSize(action.data.text || '', pageWidth - (margin * 2) - 5);
-                doc.text(commentLines, margin + 2, y);
-                y += (commentLines.length * 4) + 6;
-            });
-        }
-
-        const pageCount = (doc as any).internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i); doc.setFontSize(7); doc.setTextColor('#999999');
-            doc.text(`Generado por Portal DEA - ${format(new Date(), 'dd/MM/yyyy HH:mm')} - Página ${i} de ${pageCount}`, margin, 285);
-        }
-
-        doc.save(`${fileName}.pdf`);
-        await logPortalActivity('export_card', `Exportó ficha técnica como PDF`);
-        toast({ title: '¡Exportación exitosa!', description: `Se ha descargado la ficha de "${selectedCard.name}" en formato PDF.` });
-        setIsExportDialogOpen(false);
-    } catch (error) {
-        console.error('Export error:', error);
-        toast({ variant: 'destructive', title: 'Error al exportar' });
-    } finally {
-        setIsExporting(false);
     }
-};
 
-  const commentsOnly = useMemo(() => {
-    return activity.filter(a => a.type === 'commentCard' && a.data?.text);
-  }, [activity]);
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [selectedCard, tlFolderId]);
 
   return (
     <div className="flex w-full flex-col">
@@ -1007,7 +707,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden leading-relaxed text-left">{renderDescription(selectedCard.desc)}</div>}
                         </div>
 
-                        {(selectedCard.attachments || []).length > 0 && !isEditing && (
+                        {sortedAttachments.length > 0 && !isEditing && (
                           <div className="p-6 pt-0 w-full max-w-full overflow-hidden box-border min-w-0">
                             <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
                               <div className="flex items-center justify-between mb-4">
@@ -1020,11 +720,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                   <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80">
                                     {inspectionPath.length > 0 ? (
                                       <span className="flex items-center gap-1">
-                                        <Folder className="h-3 w-3" />
+                                        {isCurrentlyInTL ? <History className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
                                         {inspectionPath[inspectionPath.length - 1].name}
                                       </span>
                                     ) : (
-                                      `Adjuntos (${sortedAttachments.length})`
+                                      `Portales de Archivos (${sortedAttachments.length})`
                                     )}
                                     <ChevronDown className="h-3 w-3" />
                                   </CollapsibleTrigger>
@@ -1042,47 +742,19 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 ) : (
                                   <>
                                     {inspectionPath.length === 0 ? (
-                                      sortedAttachments.map(att => {
-                                        const isTLFile = isDriveFile(att.url) || att.url.includes('DEA_TL_archivos');
-                                        return (
-                                        <ContextMenu key={att.id}>
-                                          <ContextMenuTrigger asChild>
-                                            <button 
-                                              onClick={() => handleAttachmentClick(att)}
-                                              disabled={isTLFile && !isDriveFolder(att.url)}
-                                              className={cn(
-                                                "flex items-start gap-2 p-2 rounded-md text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors",
-                                                isTLFile && !isDriveFolder(att.url) ? "cursor-default opacity-80" : "hover:bg-muted"
-                                              )}
-                                            >
-                                              {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
-                                              <div className="flex flex-col flex-1 min-w-0">
-                                                <span className="min-w-0 break-words whitespace-normal">{att.name}</span>
-                                                {isTLFile && <span className="text-[8px] font-bold text-primary uppercase">Línea de Tiempo (Solo Descarga)</span>}
-                                              </div>
-                                            </button>
-                                          </ContextMenuTrigger>
-                                          <ContextMenuContent className="w-48">
-                                            {isDriveFolder(att.url) ? (
-                                              <ContextMenuItem onClick={() => window.open(att.url, '_blank')}>
-                                                <ExternalLink className="mr-2 h-4 w-4" /> Abrir en la Web
-                                              </ContextMenuItem>
-                                            ) : (
-                                              <>
-                                                {!isTLFile && (
-                                                  <ContextMenuItem onClick={() => window.open(att.url, '_blank')}>
-                                                    <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
-                                                  </ContextMenuItem>
-                                                )}
-                                                <ContextMenuItem onClick={() => handleDownloadFile(att)}>
-                                                  <Download className="mr-2 h-4 w-4" /> Descargar
-                                                </ContextMenuItem>
-                                              </>
-                                            )}
-                                          </ContextMenuContent>
-                                        </ContextMenu>
-                                        )
-                                      })
+                                      sortedAttachments.map(att => (
+                                        <button 
+                                          key={att.id}
+                                          onClick={() => handleAttachmentClick(att)}
+                                          className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                        >
+                                          {att.name === 'Línea de Tiempo' ? <History className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" /> : <Folder className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />}
+                                          <div className="flex flex-col flex-1 min-w-0">
+                                            <span className="font-bold min-w-0 break-words whitespace-normal">{att.name}</span>
+                                            {att.name === 'Línea de Tiempo' && <span className="text-[8px] text-zinc-500 uppercase">Documentación Final • Solo Descarga</span>}
+                                          </div>
+                                        </button>
+                                      ))
                                     ) : (
                                       <>
                                         {folderContents.length === 0 ? (
@@ -1093,25 +765,47 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                               <ContextMenuTrigger asChild>
                                                 <button 
                                                   onClick={() => handleDriveFileClick(file)}
-                                                  className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                                  className={cn(
+                                                    "flex items-start gap-2 p-2 rounded-md text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors",
+                                                    isCurrentlyInTL && file.mimeType !== 'application/vnd.google-apps.folder' ? "cursor-default opacity-80" : "hover:bg-muted"
+                                                  )}
                                                 >
                                                   {file.mimeType === 'application/vnd.google-apps.folder' ? (
                                                     <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                                                   ) : (
                                                     <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
                                                   )}
-                                                  <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
+                                                  <div className="flex flex-col flex-1 min-w-0">
+                                                    <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
+                                                    {isCurrentlyInTL && file.mimeType !== 'application/vnd.google-apps.folder' && (
+                                                        <span className="text-[8px] font-bold text-primary uppercase">Archivo de Hito</span>
+                                                    )}
+                                                  </div>
                                                 </button>
                                               </ContextMenuTrigger>
                                               <ContextMenuContent className="w-48">
                                                 {file.mimeType === 'application/vnd.google-apps.folder' ? (
-                                                  <ContextMenuItem onClick={() => window.open(file.webViewLink, '_blank')}>
-                                                    <ExternalLink className="mr-2 h-4 w-4" /> Abrir en la Web
-                                                  </ContextMenuItem>
+                                                  <>
+                                                    {!isCurrentlyInTL && (
+                                                        <ContextMenuItem onClick={() => window.open(file.webViewLink, '_blank')}>
+                                                            <ExternalLink className="mr-2 h-4 w-4" /> Abrir en la Web
+                                                        </ContextMenuItem>
+                                                    )}
+                                                    <ContextMenuItem disabled className="text-zinc-400">
+                                                        <Folder className="mr-2 h-4 w-4" /> Navegar carpeta
+                                                    </ContextMenuItem>
+                                                  </>
                                                 ) : (
-                                                  <ContextMenuItem onClick={() => handleDownloadFile(file)}>
-                                                    <Download className="mr-2 h-4 w-4" /> Descargar
-                                                  </ContextMenuItem>
+                                                  <>
+                                                    {!isCurrentlyInTL && (
+                                                      <ContextMenuItem onClick={() => window.open(file.webViewLink, '_blank')}>
+                                                        <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
+                                                      </ContextMenuItem>
+                                                    )}
+                                                    <ContextMenuItem onClick={() => handleDownloadFile(file)}>
+                                                      <Download className="mr-2 h-4 w-4" /> Descargar Archivo
+                                                    </ContextMenuItem>
+                                                  </>
                                                 )}
                                               </ContextMenuContent>
                                             </ContextMenu>
