@@ -12,14 +12,13 @@ import {
 } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import type { Category } from '@/timeline/types';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from './ui/textarea';
-import { UploadCloud, X, File as FileIconLucide, CalendarIcon, Loader2, ShieldCheck, FolderEdit, PlusCircle, Folder, HardDrive, Map } from 'lucide-react';
+import { UploadCloud, X, File as FileIconLucide, CalendarIcon, Loader2, ShieldCheck, FolderEdit, PlusCircle, Folder, HardDrive, Map, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, isValid, parse } from 'date-fns';
@@ -29,6 +28,7 @@ import { Switch } from './ui/switch';
 import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/timeline/services/google-drive';
 import { Badge } from './ui/badge';
 import { CUENCAS } from '@/lib/cuencas';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const uploadSchema = z.object({
   name: z.string().min(1, { message: 'El título del hito no puede estar vacío.' }),
@@ -77,10 +77,13 @@ export function FileUpload({
 }: FileUploadProps) {
   const [showCalendar, setShowCalendar] = React.useState(false);
   const [manualDateText, setManualDateText] = React.useState('');
-  const [availableFolders, setAvailableFolders] = React.useState<{id: string, name: string}[]>([]);
   const [isLoadingFolders, setIsLoadingFolders] = React.useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = React.useState(false);
   const [newFolderName, setNewFolderName] = React.useState('');
+  
+  // Navegación de carpetas
+  const [navigationStack, setNavigationStack] = React.useState<{id: string, name: string}[]>([]);
+  const [currentSubfolders, setCurrentSubfolders] = React.useState<{id: string, name: string}[]>([]);
 
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
@@ -96,50 +99,78 @@ export function FileUpload({
   });
 
   const isFinal = form.watch('isFinalDocument');
-  const selectedFolderId = form.watch('targetFolderId');
   const hitoName = form.watch('name');
 
+  // Reset al cerrar
   React.useEffect(() => {
     if (!isOpen) {
       form.reset();
       form.setValue('occurredAt', new Date());
       setManualDateText(format(new Date(), "dd/MM/yyyy"));
       setShowCalendar(false);
-      setAvailableFolders([]);
       setIsCreatingFolder(false);
+      setNavigationStack([]);
+      setCurrentSubfolders([]);
     }
   }, [form, isOpen]);
 
+  // Cargar carpeta inicial del proyecto
   React.useEffect(() => {
-    const fetchFolders = async () => {
-        if (!isFinal && projectCode && isOpen) {
+    const initExplorer = async () => {
+        if (!isFinal && projectCode && isOpen && navigationStack.length === 0) {
             setIsLoadingFolders(true);
             try {
                 const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
-                const folders = await listSubfolders(projectFolderId);
-                setAvailableFolders(folders as any);
-                
-                if (folders.length > 0 && (!form.getValues('targetFolderId') || form.getValues('targetFolderId') === 'root')) {
-                    form.setValue('targetFolderId', folders[0].id!);
-                }
+                const rootEntry = { id: projectFolderId, name: projectCode || 'Proyecto' };
+                setNavigationStack([rootEntry]);
+                form.setValue('targetFolderId', projectFolderId);
             } catch (error) {
-                console.error("Error loading subfolders:", error);
+                console.error("Error al iniciar explorador:", error);
             } finally {
                 setIsLoadingFolders(false);
             }
         }
     };
-    fetchFolders();
-  }, [isFinal, projectCode, projectName, isOpen, form]);
+    initExplorer();
+  }, [isFinal, projectCode, projectName, isOpen, navigationStack.length, form]);
+
+  // Cargar subcarpetas cuando cambia el nivel actual
+  React.useEffect(() => {
+    const fetchSubfolders = async () => {
+        if (navigationStack.length > 0) {
+            const currentFolder = navigationStack[navigationStack.length - 1];
+            setIsLoadingFolders(true);
+            try {
+                const subfolders = await listSubfolders(currentFolder.id);
+                setCurrentSubfolders(subfolders.map(f => ({ id: f.id!, name: f.name! })));
+            } catch (error) {
+                console.error("Error al listar subcarpetas:", error);
+            } finally {
+                setIsLoadingFolders(false);
+            }
+        }
+    };
+    fetchSubfolders();
+  }, [navigationStack]);
+
+  const handleNavigateIn = (folder: {id: string, name: string}) => {
+    setNavigationStack(prev => [...prev, folder]);
+    form.setValue('targetFolderId', folder.id);
+  };
+
+  const handleNavigateBack = (index: number) => {
+    const newStack = navigationStack.slice(0, index + 1);
+    setNavigationStack(newStack);
+    form.setValue('targetFolderId', newStack[newStack.length - 1].id);
+  };
 
   const handleCreateFolder = async () => {
-    if (!newFolderName.trim() || !projectCode) return;
+    if (!newFolderName.trim() || navigationStack.length === 0) return;
     setIsLoadingFolders(true);
     try {
-        const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
-        const newFolder = await createSubfolder(projectFolderId, newFolderName.trim());
-        setAvailableFolders(prev => [{id: newFolder.id!, name: newFolder.name!}, ...prev]);
-        form.setValue('targetFolderId', newFolder.id!);
+        const currentFolder = navigationStack[navigationStack.length - 1];
+        const newFolder = await createSubfolder(currentFolder.id, newFolderName.trim());
+        setCurrentSubfolders(prev => [{id: newFolder.id!, name: newFolder.name!}, ...prev]);
         setNewFolderName('');
         setIsCreatingFolder(false);
     } catch (error) {
@@ -164,7 +195,8 @@ export function FileUpload({
   const onSubmit = (data: UploadFormValues) => {
     onUpload({
         ...data,
-        description: data.description || ''
+        description: data.description || '',
+        targetFolderId: isFinal ? undefined : navigationStack[navigationStack.length - 1]?.id
     });
   };
   
@@ -179,7 +211,6 @@ export function FileUpload({
     if (e.target) e.target.value = '';
   };
 
-  // Identificar el nombre de la Cuenca para mostrar en la ruta
   const basinName = React.useMemo(() => {
       if (!projectCode) return '';
       const basinCodeMatch = projectCode.match(/^([A-Z]{2,4})/i);
@@ -188,23 +219,19 @@ export function FileUpload({
       return basin ? basin.name : '';
   }, [projectCode]);
 
-  const displayProjectFolderName = React.useMemo(() => {
-      if (!projectCode) return 'S/C';
-      if (!projectName) return projectCode;
-      const cleanName = projectName.replace(/\s*\([^)]+\)$/, '').trim();
-      return `${projectCode} - ${cleanName}`;
-  }, [projectCode, projectName]);
-
-  const selectedFolderName = React.useMemo(() => {
-      if (isFinal) return `YYMMDDHHMMSS_${hitoName || 'Hito'}`;
-      return availableFolders.find(f => f.id === selectedFolderId)?.name || '(Carpeta raíz)';
-  }, [isFinal, hitoName, selectedFolderId, availableFolders]);
+  const fullPathString = React.useMemo(() => {
+      if (isFinal) {
+          const cleanName = (projectName || projectCode || '').replace(/\s*\([^)]+\)$/, '').trim();
+          return `${projectCode} - ${cleanName} / YYMMDDHHMMSS_${hitoName || 'Hito'}`;
+      }
+      return navigationStack.map(f => f.name).join(' / ');
+  }, [isFinal, navigationStack, projectName, projectCode, hitoName]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className={cn(
         "bg-zinc-300 text-black p-0 transition-all duration-300 overflow-hidden",
-        showCalendar ? "sm:max-w-[800px]" : "sm:max-w-[480px]"
+        showCalendar ? "sm:max-w-[800px]" : "sm:max-w-[550px]"
       )}>
         <ScrollArea className="max-h-[90vh]">
           <div className="flex flex-col sm:flex-row h-full">
@@ -240,9 +267,9 @@ export function FileUpload({
                                       <span className="text-[10px] truncate max-w-full">Cuenca: <span className="font-bold">{basinName}</span></span>
                                   </div>
                               )}
-                              <div className="flex items-center gap-2">
-                                  <Folder className="h-3.5 w-3.5 text-amber-600" />
-                                  <span className="text-[10px] truncate max-w-full">Ruta: {displayProjectFolderName} / <span className="font-bold">{selectedFolderName}</span></span>
+                              <div className="flex items-start gap-2">
+                                  <Folder className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+                                  <span className="text-[10px] leading-tight break-all">Ruta: <span className="font-bold">{fullPathString}</span></span>
                               </div>
                           </div>
 
@@ -273,52 +300,79 @@ export function FileUpload({
                           />
 
                           {!isFinal && (
-                              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                  <FormField
-                                    control={form.control}
-                                    name="targetFolderId"
-                                    render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                            <FormLabel className="text-[10px] uppercase font-bold text-zinc-500">Subcarpeta de Trabajo (Destino)</FormLabel>
-                                            <div className="flex gap-2">
-                                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingFolders || isCreatingFolder}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="h-8 text-xs bg-zinc-100 border-zinc-400">
-                                                            <SelectValue placeholder={isLoadingFolders ? "Cargando carpetas..." : "Selecciona destino"} />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent className="max-h-[200px]" position="popper">
-                                                        <SelectItem value="root" className="text-xs">(Raíz del proyecto)</SelectItem>
-                                                        {availableFolders.length > 0 && availableFolders.map(f => (
-                                                            <SelectItem key={f.id} value={f.id} className="text-xs">{f.name}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <Button 
-                                                    type="button" 
-                                                    variant="outline" 
-                                                    size="icon" 
-                                                    className="h-8 w-8 shrink-0 border-zinc-400"
-                                                    onClick={() => setIsCreatingFolder(!isCreatingFolder)}
-                                                    title="Nueva carpeta"
-                                                >
-                                                    <PlusCircle className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                            {isCreatingFolder && (
-                                                <div className="flex gap-1 mt-2 p-2 bg-white/50 rounded-md border border-zinc-400 animate-in zoom-in-95">
-                                                    <Input 
-                                                        placeholder="Nombre de la carpeta..." 
-                                                        className="h-7 text-xs bg-white" 
-                                                        value={newFolderName}
-                                                        onChange={(e) => setNewFolderName(e.target.value)}
-                                                    />
-                                                    <Button type="button" size="sm" className="h-7 text-[10px]" onClick={handleCreateFolder} disabled={!newFolderName.trim()}>Crear</Button>
-                                                </div>
-                                            )}
-                                        </FormItem>
-                                    )}
-                                  />
+                              <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Navegador de Carpetas</Label>
+                                      <Button 
+                                          type="button" 
+                                          variant="ghost" 
+                                          size="xs" 
+                                          className="h-6 text-[9px] gap-1 border border-zinc-400 px-2 hover:bg-zinc-100"
+                                          onClick={() => setIsCreatingFolder(!isCreatingFolder)}
+                                      >
+                                          <PlusCircle className="h-3 w-3" /> Nueva carpeta aquí
+                                      </Button>
+                                  </div>
+
+                                  <div className="bg-white/60 rounded-md border border-zinc-400 overflow-hidden">
+                                      {/* Breadcrumbs de navegación */}
+                                      <div className="bg-zinc-100/80 px-2 py-1.5 border-b border-zinc-300 flex items-center flex-wrap gap-1">
+                                          {navigationStack.map((folder, idx) => (
+                                              <React.Fragment key={folder.id}>
+                                                  {idx > 0 && <ChevronRight className="h-3 w-3 text-zinc-400" />}
+                                                  <button 
+                                                      type="button" 
+                                                      onClick={() => handleNavigateBack(idx)}
+                                                      className={cn(
+                                                          "text-[10px] hover:text-primary transition-colors truncate max-w-[80px]",
+                                                          idx === navigationStack.length - 1 ? "font-bold text-zinc-800" : "text-zinc-500"
+                                                      )}
+                                                  >
+                                                      {folder.name}
+                                                  </button>
+                                              </React.Fragment>
+                                          ))}
+                                      </div>
+
+                                      {isCreatingFolder && (
+                                          <div className="flex gap-1 p-2 bg-primary/5 border-b border-zinc-300 animate-in zoom-in-95">
+                                              <Input 
+                                                  placeholder="Nombre de la carpeta..." 
+                                                  className="h-7 text-xs bg-white border-zinc-400" 
+                                                  value={newFolderName}
+                                                  onChange={(e) => setNewFolderName(e.target.value)}
+                                                  autoFocus
+                                              />
+                                              <Button type="button" size="sm" className="h-7 text-[10px]" onClick={handleCreateFolder} disabled={!newFolderName.trim()}>Crear</Button>
+                                              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setIsCreatingFolder(false)}><X className="h-3 w-3" /></Button>
+                                          </div>
+                                      )}
+
+                                      <ScrollArea className="h-[120px]">
+                                          {isLoadingFolders ? (
+                                              <div className="flex items-center justify-center h-full py-8">
+                                                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                              </div>
+                                          ) : currentSubfolders.length > 0 ? (
+                                              <div className="p-1 space-y-0.5">
+                                                  {currentSubfolders.map(folder => (
+                                                      <button 
+                                                          key={folder.id}
+                                                          type="button"
+                                                          onClick={() => handleNavigateIn(folder)}
+                                                          className="w-full flex items-center gap-2 p-1.5 hover:bg-primary/10 rounded text-left transition-colors group"
+                                                      >
+                                                          <Folder className="h-3.5 w-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
+                                                          <span className="text-xs truncate">{folder.name}</span>
+                                                          <ChevronRight className="h-3 w-3 ml-auto text-zinc-300 opacity-0 group-hover:opacity-100" />
+                                                      </button>
+                                                  ))}
+                                              </div>
+                                          ) : (
+                                              <div className="p-8 text-center text-[10px] text-zinc-400 italic">Esta carpeta está vacía.</div>
+                                          )}
+                                      </ScrollArea>
+                                  </div>
                               </div>
                           )}
 
