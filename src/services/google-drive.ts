@@ -59,6 +59,7 @@ export async function getDriveResourceName(url: string): Promise<{ name: string;
 
 /**
  * Lista el contenido de una carpeta de Google Drive con soporte para paginación.
+ * Se aumenta el pageSize a 1000 para proyectos con gran volumen de archivos técnicos.
  */
 export async function listFolderContents(folderId: string, pageToken?: string) {
   try {
@@ -66,7 +67,7 @@ export async function listFolderContents(folderId: string, pageToken?: string) {
       q: `'${folderId}' in parents and trashed = false`,
       fields: 'nextPageToken, files(id, name, mimeType, webViewLink, webContentLink, iconLink)',
       orderBy: 'folder,name',
-      pageSize: 100,
+      pageSize: 1000,
       pageToken: pageToken || undefined,
     });
     
@@ -130,7 +131,6 @@ export async function shareFolderWithEmails(folderId: string, emails: string[]):
 
     const errors: string[] = [];
 
-    // Procesamos de forma secuencial para tener mejor control de errores
     for (const email of validEmails) {
         try {
             await drive.permissions.create({

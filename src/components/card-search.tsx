@@ -110,8 +110,8 @@ const trelloColorToStyle = (color: string | null | undefined): React.CSSProperti
     };
 };
 
-const isDriveFolder = (url: string) => url.includes('drive.google.com') && (url.includes('/folders/') || url.includes('id='));
-const isDriveFile = (url: string) => url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('/open?id='));
+const isDriveFolder = (url: string) => url.includes('drive.google.com') && (url.includes('/folders/') || (url.includes('id=') && !url.includes('/file/')));
+const isDriveFile = (url: string) => (url.includes('drive.google.com') || url.includes('docs.google.com')) && (url.includes('/file/d/') || url.includes('/open?id=') || url.includes('/document/d/'));
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -391,8 +391,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       const id = await extractIdFromUrl(att.url);
       if (id) handleEnterFolder(id, att.name);
     } else {
-      // Los archivos finales de hito no permiten apertura directa, solo descarga
-      const isTLFile = att.url.includes('DEA_TL_archivos');
+      const isTLFile = isDriveFile(att.url);
       if (!isTLFile) {
         window.open(att.url, '_blank');
       }
@@ -410,7 +409,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const handleDownloadFile = async (file: any) => {
     let downloadUrl = file.webContentLink;
     
-    // Si no tenemos el enlace de contenido directo (como en Trello), intentamos generarlo
     if (!downloadUrl && file.url) {
         const id = await extractIdFromUrl(file.url);
         if (id) {
@@ -709,22 +707,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
   const sortedAttachments = useMemo(() => {
     const attachments = selectedCard?.attachments || [];
-    
-    // REGLA DE FILTRADO ESTRICTO:
-    // Solo mostramos en la lista de Trello las carpetas raíz y los archivos de la Línea de Tiempo.
-    // Los archivos de trabajo "sueltos" se ocultan para evitar duplicidad, ya que se acceden vía carpeta.
     const filtered = attachments.filter(att => {
         const isFolder = isDriveFolder(att.url);
-        const isTL = att.url.includes('DEA_TL_archivos');
-        const isDrive = att.url.includes('drive.google.com');
+        const isDrive = isDriveFile(att.url) || att.url.includes('drive.google.com');
         
-        if (isFolder || isTL) return true;
+        if (isFolder) return true;
         
-        // Si es un archivo de Drive pero no es de la Línea de Tiempo, lo ocultamos
-        // para que solo aparezca dentro de la inspección de carpetas.
-        if (isDrive) return false;
+        // Si es un archivo de Drive pero no está en la raíz de TL, se oculta de la lista externa
+        // Esto permite que el usuario vea los archivos TL (que sí están adjuntos) pero no los de trabajo (que no deberían estar adjuntos)
+        if (isDrive && !att.url.includes('DEA_TL_archivos')) return false;
         
-        // Enlaces externos (no Drive) se mantienen visibles
         return true;
     });
 
@@ -1051,7 +1043,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                   <>
                                     {inspectionPath.length === 0 ? (
                                       sortedAttachments.map(att => {
-                                        const isTLFile = att.url.includes('DEA_TL_archivos');
+                                        const isTLFile = isDriveFile(att.url) || att.url.includes('DEA_TL_archivos');
                                         return (
                                         <ContextMenu key={att.id}>
                                           <ContextMenuTrigger asChild>
