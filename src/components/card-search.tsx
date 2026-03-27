@@ -941,27 +941,40 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                         ) : (
                                           folderContents.map(file => (
                                             <ContextMenu key={file.id}>
-                                              <ContextMenuTrigger asChild>
-                                                <button 
-                                                  onClick={() => handleDriveFileClick(file)}
-                                                  className={cn(
-                                                    "flex items-start gap-2 p-2 rounded-md text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors",
-                                                    isCurrentlyInTL && file.mimeType !== 'application/vnd.google-apps.folder' ? "cursor-default opacity-80" : "hover:bg-muted"
-                                                  )}
-                                                >
-                                                  {file.mimeType === 'application/vnd.google-apps.folder' ? (
-                                                    <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                                  ) : (
-                                                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                                                  )}
-                                                  <div className="flex flex-col flex-1 min-w-0">
-                                                    <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
-                                                    {isCurrentlyInTL && file.mimeType !== 'application/vnd.google-apps.folder' && (
-                                                        <span className="text-[8px] font-bold text-primary uppercase">Archivo de Hito</span>
+                                              <div className="flex items-center group w-full pr-2">
+                                                <ContextMenuTrigger asChild>
+                                                  <button 
+                                                    onClick={() => handleDriveFileClick(file)}
+                                                    className={cn(
+                                                      "flex items-start gap-2 p-2 rounded-md text-xs flex-1 min-w-0 box-border break-words whitespace-normal text-left transition-colors",
+                                                      isCurrentlyInTL && file.mimeType !== 'application/vnd.google-apps.folder' ? "cursor-default opacity-80" : "hover:bg-muted"
                                                     )}
-                                                  </div>
-                                                </button>
-                                              </ContextMenuTrigger>
+                                                  >
+                                                    {file.mimeType === 'application/vnd.google-apps.folder' ? (
+                                                      <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                                    ) : (
+                                                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                                                    )}
+                                                    <div className="flex flex-col flex-1 min-w-0">
+                                                      <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
+                                                      {isCurrentlyInTL && file.mimeType !== 'application/vnd.google-apps.folder' && (
+                                                          <span className="text-[8px] font-bold text-primary uppercase">Archivo de Hito • Solo Descarga</span>
+                                                      )}
+                                                    </div>
+                                                  </button>
+                                                </ContextMenuTrigger>
+                                                {file.mimeType !== 'application/vnd.google-apps.folder' && (
+                                                  <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                                    onClick={(e) => { e.stopPropagation(); handleDownloadFile(file); }}
+                                                    title="Descargar archivo"
+                                                  >
+                                                    <Download className="h-3.5 w-3.5" />
+                                                  </Button>
+                                                )}
+                                              </div>
                                               <ContextMenuContent className="w-48">
                                                 {file.mimeType === 'application/vnd.google-apps.folder' ? (
                                                   <>
