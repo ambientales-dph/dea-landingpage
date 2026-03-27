@@ -303,7 +303,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
   const [inspectionPath, setInspectionPath] = useState<{ id: string, name: string }[]>([]);
   const [folderContents, setFolderContents] = useState<any[]>([]);
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [isInspecting, setIsInspecting] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportOptions, setExportOptions] = useState({
@@ -330,6 +332,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   useEffect(() => {
     setInspectionPath([]);
     setFolderContents([]);
+    setNextPageToken(null);
     setIsInspecting(false);
   }, [selectedCard?.id, isSummaryOpen]);
 
@@ -338,14 +341,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
       if (inspectionPath.length === 0) {
         setIsInspecting(false);
         setFolderContents([]);
+        setNextPageToken(null);
         return;
       }
 
       setIsInspecting(true);
       const currentFolder = inspectionPath[inspectionPath.length - 1];
       try {
-        const files = await listFolderContents(currentFolder.id);
-        setFolderContents(files);
+        const result = await listFolderContents(currentFolder.id);
+        setFolderContents(result.files);
+        setNextPageToken(result.nextPageToken);
       } catch (error) {
         toast({ variant: 'destructive', title: 'Error al leer carpeta', description: 'No se pudieron cargar los archivos.' });
         setInspectionPath(prev => prev.slice(0, -1));
@@ -356,6 +361,22 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
     fetchContents();
   }, [inspectionPath, toast]);
+
+  const handleLoadMore = async () => {
+    if (!nextPageToken || isInspecting || isLoadingMore) return;
+    
+    setIsLoadingMore(true);
+    const currentFolder = inspectionPath[inspectionPath.length - 1];
+    try {
+      const result = await listFolderContents(currentFolder.id, nextPageToken);
+      setFolderContents(prev => [...prev, ...result.files]);
+      setNextPageToken(result.nextPageToken);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error al cargar más', description: 'No se pudieron traer más archivos.' });
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   const handleEnterFolder = async (id: string, name: string) => {
     setInspectionPath(prev => [...prev, { id, name }]);
@@ -1054,38 +1075,52 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                         )
                                       })
                                     ) : (
-                                      folderContents.length === 0 ? (
-                                        <div className="p-4 text-center text-[10px] text-muted-foreground italic">Carpeta vacía</div>
-                                      ) : (
-                                        folderContents.map(file => (
-                                          <ContextMenu key={file.id}>
-                                            <ContextMenuTrigger asChild>
-                                              <button 
-                                                onClick={() => handleDriveFileClick(file)}
-                                                className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
-                                              >
+                                      <>
+                                        {folderContents.length === 0 ? (
+                                          <div className="p-4 text-center text-[10px] text-muted-foreground italic">Carpeta vacía</div>
+                                        ) : (
+                                          folderContents.map(file => (
+                                            <ContextMenu key={file.id}>
+                                              <ContextMenuTrigger asChild>
+                                                <button 
+                                                  onClick={() => handleDriveFileClick(file)}
+                                                  className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                                >
+                                                  {file.mimeType === 'application/vnd.google-apps.folder' ? (
+                                                    <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                                  ) : (
+                                                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                                                  )}
+                                                  <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
+                                                </button>
+                                              </ContextMenuTrigger>
+                                              <ContextMenuContent className="w-48">
                                                 {file.mimeType === 'application/vnd.google-apps.folder' ? (
-                                                  <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                                  <ContextMenuItem onClick={() => window.open(file.webViewLink, '_blank')}>
+                                                    <ExternalLink className="mr-2 h-4 w-4" /> Abrir en la Web
+                                                  </ContextMenuItem>
                                                 ) : (
-                                                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                                                  <ContextMenuItem onClick={() => handleDownloadFile(file)}>
+                                                    <Download className="mr-2 h-4 w-4" /> Descargar
+                                                  </ContextMenuItem>
                                                 )}
-                                                <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
-                                              </button>
-                                            </ContextMenuTrigger>
-                                            <ContextMenuContent className="w-48">
-                                              {file.mimeType === 'application/vnd.google-apps.folder' ? (
-                                                <ContextMenuItem onClick={() => window.open(file.webViewLink, '_blank')}>
-                                                  <ExternalLink className="mr-2 h-4 w-4" /> Abrir en la Web
-                                                </ContextMenuItem>
-                                              ) : (
-                                                <ContextMenuItem onClick={() => handleDownloadFile(file)}>
-                                                  <Download className="mr-2 h-4 w-4" /> Descargar
-                                                </ContextMenuItem>
-                                              )}
-                                            </ContextMenuContent>
-                                          </ContextMenu>
-                                        ))
-                                      )
+                                              </ContextMenuContent>
+                                            </ContextMenu>
+                                          ))
+                                        )}
+                                        {nextPageToken && (
+                                          <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="w-full text-[10px] mt-2 h-8 hover:bg-primary/5 text-primary font-bold gap-2"
+                                            onClick={handleLoadMore}
+                                            disabled={isLoadingMore}
+                                          >
+                                            {isLoadingMore ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronDown className="h-3 w-3" />}
+                                            MOSTRAR MÁS ARCHIVOS
+                                          </Button>
+                                        )}
+                                      </>
                                     )}
                                   </>
                                 )}

@@ -58,16 +58,22 @@ export async function getDriveResourceName(url: string): Promise<{ name: string;
 }
 
 /**
- * Lista el contenido de una carpeta de Google Drive.
+ * Lista el contenido de una carpeta de Google Drive con soporte para paginación.
  */
-export async function listFolderContents(folderId: string) {
+export async function listFolderContents(folderId: string, pageToken?: string) {
   try {
     const response = await drive.files.list({
       q: `'${folderId}' in parents and trashed = false`,
-      fields: 'files(id, name, mimeType, webViewLink, webContentLink, iconLink)',
+      fields: 'nextPageToken, files(id, name, mimeType, webViewLink, webContentLink, iconLink)',
       orderBy: 'folder,name',
+      pageSize: 100,
+      pageToken: pageToken || undefined,
     });
-    return response.data.files || [];
+    
+    return {
+      files: response.data.files || [],
+      nextPageToken: response.data.nextPageToken || null
+    };
   } catch (error) {
     console.error('Error listing folder contents:', error);
     throw new Error('No se pudo leer el contenido de la carpeta.');
