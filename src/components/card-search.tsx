@@ -318,6 +318,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   // Estados para el asistente de reorganización
   const [looseFiles, setLooseFiles] = useState<any[]>([]);
   const [isReorgAssistantOpen, setIsReorgAssistantOpen] = useState(false);
+  const recentlyMovedIds = useRef<Set<string>>(new Set());
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -525,6 +526,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setIsInspecting(false);
     setTlFolderId(null);
     setLooseFiles([]);
+    recentlyMovedIds.current.clear();
   }, [selectedCard?.id, isSummaryOpen]);
 
   const isCurrentlyInTL = useMemo(() => {
@@ -735,16 +737,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         // --- Búsqueda Exhaustiva de Archivos Sueltos (Multiraíz) ---
         let allLooseFiles: any[] = [];
         
-        // 1. Escanear Carpeta de Trabajo (vinculada a Trello)
-        const workFolderAtt = refreshedCard.attachments?.find(a => isDriveFolder(a.url));
-        if (workFolderAtt) {
-            const workRootId = await extractIdFromUrl(workFolderAtt.url);
-            if (workRootId) {
-                const workContents = await listFolderContents(workRootId);
-                const workLoose = workContents.files
-                    .filter(f => f.mimeType !== 'application/vnd.google-apps.folder')
-                    .map(f => ({ ...f, parentId: workRootId }));
-                allLooseFiles = [...allLooseFiles, ...workLoose];
+        // 1. Escanear Carpeta de Trabajo (Todas las carpetas vinculadas a Trello)
+        const workFolderAtts = refreshedCard.attachments?.filter(a => isDriveFolder(a.url)) || [];
+        for (const att of workFolderAtts) {
+            const rootId = await extractIdFromUrl(att.url);
+            if (rootId) {
+                const contents = await listFolderContents(rootId);
+                const loose = contents.files
+                    .filter(f => f.mimeType !== 'application/vnd.google-apps.folder' && !recentlyMovedIds.current.has(f.id))
+                    .map(f => ({ ...f, parentId: rootId }));
+                allLooseFiles = [...allLooseFiles, ...loose];
             }
         }
 
@@ -752,7 +754,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         if (tlProjectRootId) {
             const tlContents = await listFolderContents(tlProjectRootId);
             const tlLoose = tlContents.files
-                .filter(f => f.mimeType !== 'application/vnd.google-apps.folder')
+                .filter(f => f.mimeType !== 'application/vnd.google-apps.folder' && !recentlyMovedIds.current.has(f.id))
                 .map(f => ({ ...f, parentId: tlProjectRootId }));
             allLooseFiles = [...allLooseFiles, ...tlLoose];
         }
@@ -922,7 +924,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between">
                             <div className="flex items-center gap-2 text-amber-800 text-[10px] font-bold uppercase tracking-tight">
                                 <AlertTriangle className="h-3.5 w-3.5" />
-                                <span>Se detectaron {looseFiles.length} {looseFiles.length === 1 ? 'archivo antiguo fuera' : 'archivos antiguos fuera'} de estructura</span>
+                                <span>{`Se detectaron ${looseFiles.length} ${looseFiles.length === 1 ? 'archivo antiguo fuera' : 'archivos antiguos fuera'} de estructura`}</span>
                             </div>
                             <Button 
                                 variant="outline" 
@@ -1192,10 +1194,15 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             projectName={selectedCard.name}
             onReorganized={(movedIds) => {
                 // Actualización instantánea del estado local para quitar archivos procesados
+                movedIds.forEach(id => recentlyMovedIds.current.add(id));
                 setLooseFiles(prev => prev.filter(f => !movedIds.includes(f.id)));
                 setIsReorgAssistantOpen(false);
-                // Refetch de seguridad después de un breve delay para dar tiempo a Drive de asentar los cambios
-                setTimeout(() => fetchCardData(), 1500);
+                // Refetch de seguridad después de un delay mayor para dar tiempo a Drive de asentar los cambios (consistencia eventual)
+                setTimeout(() => {
+                    fetchCardData();
+                    // Limpiar memoria de movidos después de un tiempo prudencial
+                    setTimeout(() => recentlyMovedIds.current.clear(), 10000);
+                }, 4000);
             }}
           />
       )}
