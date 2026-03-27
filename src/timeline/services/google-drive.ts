@@ -28,22 +28,27 @@ async function getDriveClient() {
         throw new Error(`Error de autenticación Google: ${error.message}`);
     }
 
+    return google.gmail({ version: 'v3', auth: oauth2Client }); // Error tipográfico corregido a drive en la siguiente línea
+}
+
+async function getActualDriveClient() {
+    const clientId = (process.env.GOOGLE_CLIENT_ID_TL || '').trim();
+    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET_TL || '').trim();
+    const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN_TL || '').trim();
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
     return google.drive({ version: 'v3', auth: oauth2Client });
 }
 
 /**
  * Obtiene o crea la carpeta del proyecto dentro de una raíz específica.
- * Para archivos de trabajo, busca la carpeta de la cuenca correspondiente.
- * Ahora usa el formato "CÓDIGO - Nombre".
+ * Si es TL, asegura que exista la subcarpeta "Línea de tiempo".
  */
 export async function getOrCreateProjectFolder(projectCode: string | null, fullProjectName: string | null = null, useTLRoot: boolean = true) {
-    const drive = await getDriveClient();
+    const drive = await getActualDriveClient();
     
-    // Construimos el nombre de la carpeta: "CÓDIGO - Nombre"
     let folderName = projectCode || 'OTROS_PROYECTOS';
-    
     if (projectCode && fullProjectName) {
-        // Limpiamos el nombre de Trello que suele venir como "Nombre (CÓDIGO)"
         const nameWithoutCode = fullProjectName.replace(/\s*\([^)]+\)$/, '').trim();
         folderName = `${projectCode} - ${nameWithoutCode}`;
     }
@@ -53,10 +58,9 @@ export async function getOrCreateProjectFolder(projectCode: string | null, fullP
         : (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '').trim();
     
     if (!rootFolderId) {
-        throw new Error(`ID de carpeta raíz no configurado (${useTLRoot ? 'TL' : 'Principal'}).`);
+        throw new Error(`ID de carpeta raíz no configurado.`);
     }
 
-    // Lógica para carpetas de trabajo: Identificar la Cuenca como carpeta padre
     let parentFolderId = rootFolderId;
     if (!useTLRoot && projectCode) {
         const basinCodeMatch = projectCode.match(/^([A-Z]{2,4})/i);
@@ -70,7 +74,6 @@ export async function getOrCreateProjectFolder(projectCode: string | null, fullP
     }
 
     try {
-        // Buscamos si existe una carpeta que contenga el código (para ser flexibles con cambios de nombre)
         const escapedCode = (projectCode || folderName).replace(/'/g, "\\'");
         const query = `name contains '${escapedCode}' and mimeType = 'application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed = false`;
         
@@ -79,25 +82,44 @@ export async function getOrCreateProjectFolder(projectCode: string | null, fullP
             fields: 'files(id, name)',
         });
 
+        let projectFolderId: string;
+
         if (response.data.files && response.data.files.length > 0) {
-            // Prioridad a la coincidencia exacta del nuevo formato
             const exactMatch = response.data.files.find(f => f.name === folderName);
-            return exactMatch ? exactMatch.id : response.data.files[0].id;
+            projectFolderId = exactMatch ? exactMatch.id! : response.data.files[0].id!;
+        } else {
+            const folder = await drive.files.create({
+                requestBody: {
+                    name: folderName,
+                    mimeType: 'application/vnd.google-apps.folder',
+                    parents: [parentFolderId],
+                },
+                fields: 'id',
+            });
+            projectFolderId = folder.data.id!;
         }
 
-        // Si no existe, la creamos con el formato "CÓDIGO - Nombre"
-        const fileMetadata = {
-            name: folderName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [parentFolderId],
-        };
+        // Si es TL, buscamos/creamos la carpeta "Línea de tiempo" adentro
+        if (useTLRoot) {
+            const tlQuery = `name = 'Línea de tiempo' and mimeType = 'application/vnd.google-apps.folder' and '${projectFolderId}' in parents and trashed = false`;
+            const tlResponse = await drive.files.list({ q: tlQuery, fields: 'files(id)' });
+            
+            if (tlResponse.data.files && tlResponse.data.files.length > 0) {
+                return tlResponse.data.files[0].id!;
+            } else {
+                const tlFolder = await drive.files.create({
+                    requestBody: {
+                        name: 'Línea de tiempo',
+                        mimeType: 'application/vnd.google-apps.folder',
+                        parents: [projectFolderId],
+                    },
+                    fields: 'id',
+                });
+                return tlFolder.data.id!;
+            }
+        }
 
-        const folder = await drive.files.create({
-            requestBody: fileMetadata,
-            fields: 'id',
-        });
-
-        return folder.data.id!;
+        return projectFolderId;
     } catch (error: any) {
         console.error('Error al buscar/crear carpeta en Drive:', error.message);
         throw error;
@@ -109,7 +131,7 @@ export async function getOrCreateProjectFolder(projectCode: string | null, fullP
  * Formato: YYMMDDHHMMSS_NombreDelHito
  */
 export async function createMilestoneFolder(parentFolderId: string, milestoneName: string) {
-    const drive = await getDriveClient();
+    const drive = await getActualDriveClient();
     const now = new Date();
     const timestamp = now.getFullYear().toString().slice(-2) + 
                       (now.getMonth() + 1).toString().padStart(2, '0') + 
@@ -121,14 +143,12 @@ export async function createMilestoneFolder(parentFolderId: string, milestoneNam
     const folderName = `${timestamp}_${milestoneName}`;
 
     try {
-        const fileMetadata = {
-            name: folderName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [parentFolderId],
-        };
-
         const folder = await drive.files.create({
-            requestBody: fileMetadata,
+            requestBody: {
+                name: folderName,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [parentFolderId],
+            },
             fields: 'id',
         });
 
@@ -142,7 +162,7 @@ export async function createMilestoneFolder(parentFolderId: string, milestoneNam
  * Lista subcarpetas de una carpeta padre.
  */
 export async function listSubfolders(parentFolderId: string) {
-    const drive = await getDriveClient();
+    const drive = await getActualDriveClient();
     try {
         const response = await drive.files.list({
             q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
@@ -159,7 +179,7 @@ export async function listSubfolders(parentFolderId: string) {
  * Crea una subcarpeta simple.
  */
 export async function createSubfolder(parentFolderId: string, folderName: string) {
-    const drive = await getDriveClient();
+    const drive = await getActualDriveClient();
     try {
         const folder = await drive.files.create({
             requestBody: {
@@ -179,7 +199,7 @@ export async function createSubfolder(parentFolderId: string, folderName: string
  * Busca si un archivo existe en una carpeta específica.
  */
 export async function findFileInFolder(folderId: string, fileName: string) {
-    const drive = await getDriveClient();
+    const drive = await getActualDriveClient();
     try {
         const escapedName = fileName.replace(/'/g, "\\'");
         const query = `name = '${escapedName}' and '${folderId}' in parents and trashed = false`;
@@ -198,7 +218,7 @@ export async function findFileInFolder(folderId: string, fileName: string) {
  */
 export async function deleteFileFromDrive(fileId: string): Promise<boolean> {
     try {
-        const drive = await getDriveClient();
+        const drive = await getActualDriveClient();
         await drive.files.delete({
             fileId: fileId,
         });
@@ -211,6 +231,7 @@ export async function deleteFileFromDrive(fileId: string): Promise<boolean> {
 export interface DriveUploadResult {
     id: string;
     webViewLink: string;
+    webContentLink?: string;
     name: string;
 }
 
@@ -222,7 +243,7 @@ export async function uploadFileToDrive(
     existingFileId?: string
 ): Promise<DriveUploadResult> {
     try {
-        const drive = await getDriveClient();
+        const drive = await getActualDriveClient();
         const buffer = Buffer.from(base64Data, 'base64');
         const bufferStream = new Readable();
         bufferStream.push(buffer);
@@ -237,11 +258,9 @@ export async function uploadFileToDrive(
         if (existingFileId) {
             file = await drive.files.update({
                 fileId: existingFileId,
-                requestBody: {
-                    name: fileName
-                },
+                requestBody: { name: fileName },
                 media: media,
-                fields: 'id, webViewLink, name',
+                fields: 'id, webViewLink, webContentLink, name',
             } as any);
         } else {
             file = await drive.files.create({
@@ -250,7 +269,7 @@ export async function uploadFileToDrive(
                     parents: [folderId],
                 },
                 media: media,
-                fields: 'id, webViewLink, name',
+                fields: 'id, webViewLink, webContentLink, name',
             } as any);
         }
 
@@ -266,6 +285,7 @@ export async function uploadFileToDrive(
         return {
             id: file.data.id,
             webViewLink: file.data.webViewLink,
+            webContentLink: (file.data as any).webContentLink,
             name: file.data.name || fileName
         };
 

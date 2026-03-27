@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Paperclip, Tag, X, Star, Pencil, History, UploadCloud, Clock, ExternalLink, Trash2, CalendarIcon } from 'lucide-react';
+import { Paperclip, Tag, X, Star, Pencil, History, UploadCloud, Clock, ExternalLink, Trash2, CalendarIcon, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isSameDay, isValid, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -220,7 +220,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     const filesToUpload = Array.from(e.target.files);
     if (e.target) e.target.value = '';
 
-    const codeMatch = projectName.match(/\b([A-Z]{3}\d{3})\b/i);
+    const codeMatch = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i);
     const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
 
     const { id: toastId, dismiss } = toast({
@@ -230,8 +230,8 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     });
 
     try {
-        const isWorkMilestone = milestone.tags?.includes('trabajo');
-        const folderId = await getOrCreateProjectFolder(projectCode, projectName, !isWorkMilestone);
+        const isFinalMilestone = milestone.tags?.includes('intocable') || !milestone.tags?.includes('trabajo');
+        const folderId = await getOrCreateProjectFolder(projectCode, projectName, isFinalMilestone);
         const foundConflicts = [];
         for (const file of filesToUpload) {
             const existing = await findFileInFolder(folderId, file.name);
@@ -247,7 +247,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             setPendingFiles(filesToUpload);
             setIsConflictDialogOpen(true);
         } else {
-            executeFinalFileAdd(filesToUpload, folderId, {});
+            executeFinalFileAdd(filesToUpload, folderId, isFinalMilestone);
         }
     } catch (error: any) {
         dismiss(toastId);
@@ -255,7 +255,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     }
   };
 
-  const executeFinalFileAdd = async (files: File[], folderId: string, resolutions: Record<string, ConflictStrategy>) => {
+  const executeFinalFileAdd = async (files: File[], folderId: string, isFinal: boolean, resolutions: Record<string, ConflictStrategy> = {}) => {
     if (!milestone) return;
 
     const { id: toastId, update, dismiss } = toast({
@@ -278,10 +278,8 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             const nameParts = file.name.split('.');
             const ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
             const baseName = nameParts.join('.');
-            
             let currentTryName = file.name;
             let counter = 1;
-            
             while (true) {
                const check = await findFileInFolder(folderId, currentTryName);
                if (!check) break;
@@ -298,15 +296,10 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         
         const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
         
-        update({ id: toastId, title: "Actualizando Trello...", description: `Vinculando link de: ${driveResult.name}` });
         let trelloId: string | undefined = undefined;
-        if (cardId) {
-            const currentTrelloAttachments = await getCardAttachments(cardId);
-            const duplicates = currentTrelloAttachments.filter(a => a.fileName === targetName);
-            for (const dup of duplicates) {
-                await deleteAttachmentFromCard(cardId, dup.id);
-            }
-
+        // Solo adjuntamos a Trello si es hito final
+        if (cardId && isFinal) {
+            update({ id: toastId, title: "Actualizando Trello...", description: `Vinculando link de: ${driveResult.name}` });
             const trelloAtt = await attachUrlToCard(cardId, driveResult.name, driveResult.webViewLink);
             if (trelloAtt) trelloId = trelloAtt.id;
         }
@@ -317,28 +310,19 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
           size: `${(file.size / 1024).toFixed(2)} KB`,
           type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => file.type.includes(t)) ? 'document' : 'other',
           url: driveResult.webViewLink,
+          downloadUrl: driveResult.webContentLink,
           driveId: driveResult.id,
-          trelloId: trelloId
+          trelloId: trelloId,
+          isTimelineFile: isFinal
         });
       }
 
       if (newAssociatedFiles.length > 0) {
-        const newFileNames = new Set(newAssociatedFiles.map(f => f.name));
-        const newDriveIds = new Set(newAssociatedFiles.map(f => f.driveId).filter(Boolean));
-
-        const cleanedOldFiles = (milestone.associatedFiles || []).filter(f => {
-            const fid = f.driveId || f.id;
-            const isDuplicate = newFileNames.has(f.name) || newDriveIds.has(fid);
-            return !isDuplicate;
-        });
-
         onMilestoneUpdate({
           ...milestone,
-          associatedFiles: [...cleanedOldFiles, ...newAssociatedFiles],
-          history: [...milestone.history, createLogEntry(`Se añadieron ${newAssociatedFiles.length} archivo(s) a Drive y se vincularon como link en Trello.`)],
+          associatedFiles: [...(milestone.associatedFiles || []), ...newAssociatedFiles],
+          history: [...milestone.history, createLogEntry(`Se añadieron ${newAssociatedFiles.length} archivo(s).`)],
         });
-
-        // Registrar carga de archivos en la bitácora
         logActivity('milestone_files_added', `Subió ${newAssociatedFiles.length} archivo(s) al hito: "${milestone.name}"`);
       }
 
@@ -356,11 +340,11 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
 
   const handleConflictResolve = async (resolutions: Record<string, ConflictStrategy>) => {
     setIsConflictDialogOpen(false);
-    const codeMatch = projectName.match(/\b([A-Z]{3}\d{3})\b/i);
+    const codeMatch = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i);
     const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
-    const isWorkMilestone = milestone.tags?.includes('trabajo');
-    const folderId = await getOrCreateProjectFolder(projectCode, projectName, !isWorkMilestone);
-    executeFinalFileAdd(pendingFiles, folderId, resolutions);
+    const isFinal = milestone.tags?.includes('intocable') || !milestone.tags?.includes('trabajo');
+    const folderId = await getOrCreateProjectFolder(projectCode, projectName, isFinal);
+    executeFinalFileAdd(pendingFiles, folderId, isFinal, resolutions);
   };
 
   const handleDeleteConfirmed = () => {
@@ -368,11 +352,6 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
       onMilestoneDelete(milestone.id);
       setIsDeleteDialogOpen(false);
     }
-  };
-
-  const handleFileDeleteRequest = (file: AssociatedFile) => {
-    setFileToDelete(file);
-    setFileDeleteConfirmation('');
   };
 
   const handleFileDeleteConfirm = async () => {
@@ -406,13 +385,10 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             history: [...milestone.history, createLogEntry(`Archivo eliminado: "${fileToRem.name}"`)],
         });
 
-        // Registrar eliminación de archivo en bitácora
         logActivity('milestone_file_deleted', `Eliminó el archivo "${fileToRem.name}" del hito "${milestone.name}"`);
-
         dismiss(toastId);
-        toast({ title: "Archivo eliminado permanentemente" });
+        toast({ title: "Archivo eliminado" });
     } catch (error: any) {
-        console.error("Error deleting file:", error);
         dismiss(toastId);
         toast({ variant: "destructive", title: "Error al eliminar archivo", description: error.message });
     }
@@ -468,10 +444,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                             {categories.map(category => (
                                 <SelectItem key={category.id} value={category.id}>
                                     <div className="flex items-center">
-                                        <div
-                                            className="w-2 h-2 rounded-full mr-2"
-                                            style={{ backgroundColor: category.color }}
-                                        />
+                                        <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: category.color }} />
                                         {category.name}
                                     </div>
                                 </SelectItem>
@@ -510,9 +483,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                                 mode="single"
                                 selected={parseISO(milestone.occurredAt)}
                                 onSelect={handleDateChange}
-                                disabled={(date) =>
-                                    date > new Date() || date < new Date("1900-01-01")
-                                }
+                                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                                 captionLayout="dropdown"
                                 fromYear={1900}
                                 toYear={new Date().getFullYear()}
@@ -602,56 +573,48 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                 <div className="space-y-2">
                     <h3 className="font-semibold flex items-center justify-between gap-2 text-sm text-black">
                         <div className="flex items-center gap-2">
-                            <Paperclip className="h-4 w-4" /> Archivos en Drive
+                            <Paperclip className="h-4 w-4" /> Archivos del Hito
                         </div>
                         <Button variant="outline" size="sm" className="h-7 text-black border-zinc-400 hover:bg-zinc-200" onClick={() => fileInputRef.current?.click()}>
                             <UploadCloud className="mr-2 h-3 w-3"/>
-                            Subir a Drive
+                            Subir
                         </Button>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            multiple
-                            onChange={handleFileAdd}
-                        />
+                        <input type="file" ref={fileInputRef} className="hidden" multiple onChange={handleFileAdd} />
                     </h3>
                     {uniqueFiles.length > 0 ? (
                         <ul className="space-y-1.5 border border-zinc-400 rounded-md p-2 bg-zinc-200">
-                           {uniqueFiles.map(file => (
+                           {uniqueFiles.map(file => {
+                                const isTL = file.isTimelineFile || milestone.tags?.includes('intocable');
+                                return (
                                 <li key={file.id} className="group/file flex items-center justify-between p-1.5 bg-zinc-100 rounded-md hover:bg-zinc-50 transition-colors">
                                     <div className="flex items-center gap-2 min-w-0 flex-1">
                                         <FileIcon type={file.type} />
                                         <span className="text-xs font-medium truncate text-black" title={file.name}>{file.name}</span>
                                     </div>
                                     <div className="flex items-center shrink-0 ml-2 gap-2">
-                                        <span className="text-xs text-zinc-700">{file.size}</span>
+                                        <span className="text-[10px] text-zinc-500">{file.size}</span>
                                         <div className="flex items-center gap-1">
-                                            {file.url && (
-                                                <a 
-                                                    href={file.url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer" 
-                                                    className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors"
-                                                    title="Abrir en Drive"
-                                                >
+                                            {/* Si es de TL, solo permitimos descargar el archivo directo */}
+                                            {file.downloadUrl ? (
+                                                <a href={file.downloadUrl} className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Descargar archivo">
+                                                    <Download className="h-3.5 w-3.5" />
+                                                </a>
+                                            ) : file.url && !isTL && (
+                                                <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Abrir en Drive">
                                                     <ExternalLink className="h-3.5 w-3.5" />
                                                 </a>
                                             )}
-                                            <button 
-                                                onClick={() => handleFileDeleteRequest(file)}
-                                                className="p-1 rounded-md hover:bg-destructive/10 text-zinc-500 hover:text-destructive transition-colors"
-                                                title="Eliminar de Drive y Trello"
-                                            >
+                                            <button onClick={() => setFileToDelete(file)} className="p-1 rounded-md hover:bg-destructive/10 text-zinc-500 hover:text-destructive transition-colors" title="Eliminar">
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </button>
                                         </div>
                                     </div>
                                 </li>
-                            ))}
+                                )
+                            })}
                         </ul>
                     ) : (
-                        <p className="text-xs text-zinc-700 italic">No hay archivos guardados en Drive para este hito.</p>
+                        <p className="text-xs text-zinc-700 italic">No hay archivos guardados para este hito.</p>
                     )}
                 </div>
                 
@@ -680,11 +643,11 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             <DialogContent className="sm:max-w-[400px] bg-zinc-100 text-black border-zinc-400">
                 <DialogHeader>
                     <DialogTitle className="text-destructive flex items-center gap-2">
-                        <Trash2 className="h-5 w-5" /> Confirmar Eliminación del Hito
+                        <Trash2 className="h-5 w-5" /> Confirmar Eliminación
                     </DialogTitle>
-                    <DialogDescription className="text-zinc-700 pt-2">
-                        Esta acción es irreversible y eliminará el hito permanentemente. 
-                        Para confirmar, escribí <span className="font-bold text-black select-none">borralo</span> a continuación:
+                    <DialogDescription className="text-zinc-700 pt-2 text-xs">
+                        Esta acción es irreversible y eliminará el hito permanentemente de Firestore y Drive. 
+                        Escribí <span className="font-bold text-black select-none">borralo</span> para confirmar:
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
@@ -693,22 +656,13 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                         onChange={(e) => setDeleteConfirmation(e.target.value)}
                         onPaste={(e) => e.preventDefault()}
                         placeholder="Escribí aquí..."
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 bg-white border-zinc-400 text-black focus:ring-destructive focus:border-destructive"
+                        className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background border-zinc-400 text-black focus:ring-destructive focus:border-destructive"
                         autoFocus
                     />
                 </div>
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="border-zinc-400 text-black hover:bg-zinc-200">
-                        Cancelar
-                    </Button>
-                    <Button 
-                        variant="destructive" 
-                        onClick={handleDeleteConfirmed} 
-                        disabled={deleteConfirmation !== 'borralo'}
-                        className="disabled:opacity-50"
-                    >
-                        Eliminar hito
-                    </Button>
+                <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="border-zinc-400 text-black hover:bg-zinc-200">Cancelar</Button>
+                    <Button variant="destructive" onClick={handleDeleteConfirmed} disabled={deleteConfirmation !== 'borralo'}>Eliminar hito</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -717,11 +671,11 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             <DialogContent className="sm:max-w-[400px] bg-zinc-100 text-black border-zinc-400">
                 <DialogHeader>
                     <DialogTitle className="text-destructive flex items-center gap-2">
-                        <Trash2 className="h-5 w-5" /> Confirmar Eliminación de Archivo
+                        <Trash2 className="h-5 w-5" /> Eliminar Archivo
                     </DialogTitle>
-                    <DialogDescription className="text-zinc-700 pt-2">
-                        Se eliminará el archivo <span className="font-bold text-black">{fileToDelete?.name}</span> de Drive y el link de Trello.
-                        Para confirmar, escribí <span className="font-bold text-black select-none">borralo</span> a continuación:
+                    <DialogDescription className="text-zinc-700 pt-2 text-xs">
+                        Se borrará <span className="font-bold text-black">{fileToDelete?.name}</span> de Drive y Trello.
+                        Escribí <span className="font-bold text-black select-none">borralo</span> para confirmar:
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
@@ -730,22 +684,13 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                         onChange={(e) => setFileDeleteConfirmation(e.target.value)}
                         onPaste={(e) => e.preventDefault()}
                         placeholder="Escribí aquí..."
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 bg-white border-zinc-400 text-black focus:ring-destructive focus:border-destructive"
+                        className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background border-zinc-400 text-black focus:ring-destructive focus:border-destructive"
                         autoFocus
                     />
                 </div>
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={() => setFileToDelete(null)} className="border-zinc-400 text-black hover:bg-zinc-200">
-                        Cancelar
-                    </Button>
-                    <Button 
-                        variant="destructive" 
-                        onClick={handleFileDeleteConfirm} 
-                        disabled={fileDeleteConfirmation !== 'borralo'}
-                        className="disabled:opacity-50"
-                    >
-                        Eliminar archivo
-                    </Button>
+                <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => setFileToDelete(null)} className="border-zinc-400 text-black hover:bg-zinc-200">Cancelar</Button>
+                    <Button variant="destructive" onClick={handleFileDeleteConfirm} disabled={fileDeleteConfirmation !== 'borralo'}>Eliminar archivo</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -754,11 +699,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             isOpen={isConflictDialogOpen}
             conflicts={conflicts}
             onResolve={handleConflictResolve}
-            onCancel={() => {
-                setIsConflictDialogOpen(false);
-                setConflicts([]);
-                setPendingFiles([]);
-            }}
+            onCancel={() => { setIsConflictDialogOpen(false); setConflicts([]); setPendingFiles([]); }}
         />
     </div>
   );

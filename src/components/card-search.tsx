@@ -125,7 +125,6 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
     const [isSending, setIsSending] = useState(false);
     const { toast } = useToast();
 
-    // Asegurar que el body recupere interactividad al cerrar o abrir modales
     useEffect(() => {
         if (!isOpen) {
             const cleanup = () => {
@@ -244,7 +243,6 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
                                 className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-primary/20 hover:text-primary transition-colors"
                                 onClick={(e) => { 
                                     e.stopPropagation(); 
-                                    // Pequeño delay para asegurar que cualquier otro UI state se asiente
                                     setTimeout(() => setIsEmailOpen(true), 100);
                                 }}
                                 title={`Enviar mail a ${participant.name}`}
@@ -551,7 +549,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     if (!query || (selectedCard && query === selectedCard.name)) return [];
     const normalizedQuery = removeAccents(query.toLowerCase());
     
-    // Deduplicar localmente por ID por seguridad extra
     const uniqueCardsMap = new Map<string, TrelloCard>();
     allCards.forEach(card => {
         if (!uniqueCardsMap.has(card.id)) {
@@ -676,13 +673,30 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
   const sortedAttachments = useMemo(() => {
     const attachments = selectedCard?.attachments || [];
-    return [...attachments].sort((a, b) => {
+    // FILTRO: No mostramos archivos sueltos que parezcan ser de la carpeta de trabajo del proyecto
+    // para mantener la vista limpia. Solo mostramos carpetas o links de LT si están ahí.
+    const codeMatch = selectedCard?.name.match(/\b([A-Z]{2,4}\d{3})\b/i);
+    const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
+
+    const filtered = attachments.filter(att => {
+        const isFolder = isDriveFolder(att.url);
+        if (isFolder) return true; // Siempre mostramos las carpetas raíz de los proyectos
+        
+        // Si el archivo contiene el código del proyecto en su nombre pero es un archivo suelto,
+        // probablemente sea un duplicado de lo que ya está en la carpeta de Drive.
+        if (projectCode && att.name.includes(projectCode) && !att.url.includes('DEA_TL_archivos')) {
+            return false;
+        }
+        return true;
+    });
+
+    return [...filtered].sort((a, b) => {
       if (attachmentSort === 'name') return a.name.localeCompare(b.name);
       const extA = a.url.split('.').pop() || '';
       const extB = b.url.split('.').pop() || '';
       return extA.localeCompare(extB);
     });
-  }, [selectedCard?.attachments, attachmentSort]);
+  }, [selectedCard, attachmentSort]);
 
   const handleExport = async () => {
     if (!selectedCard) return;
@@ -980,7 +994,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                         {inspectionPath[inspectionPath.length - 1].name}
                                       </span>
                                     ) : (
-                                      `Adjuntos (${(selectedCard.attachments || []).length})`
+                                      `Adjuntos (${sortedAttachments.length})`
                                     )}
                                     <ChevronDown className="h-3 w-3" />
                                   </CollapsibleTrigger>
@@ -998,15 +1012,24 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 ) : (
                                   <>
                                     {inspectionPath.length === 0 ? (
-                                      sortedAttachments.map(att => (
+                                      sortedAttachments.map(att => {
+                                        const isTLFile = att.url.includes('DEA_TL_archivos');
+                                        return (
                                         <ContextMenu key={att.id}>
                                           <ContextMenuTrigger asChild>
                                             <button 
                                               onClick={() => handleAttachmentClick(att)}
-                                              className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                              disabled={isTLFile && !isDriveFolder(att.url)}
+                                              className={cn(
+                                                "flex items-start gap-2 p-2 rounded-md text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors",
+                                                isTLFile && !isDriveFolder(att.url) ? "cursor-default opacity-80" : "hover:bg-muted"
+                                              )}
                                             >
                                               {isDriveFolder(att.url) ? <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
-                                              <span className="flex-1 min-w-0 break-words whitespace-normal">{att.name}</span>
+                                              <div className="flex flex-col flex-1 min-w-0">
+                                                <span className="min-w-0 break-words whitespace-normal">{att.name}</span>
+                                                {isTLFile && <span className="text-[8px] font-bold text-primary uppercase">Línea de Tiempo (Solo Descarga)</span>}
+                                              </div>
                                             </button>
                                           </ContextMenuTrigger>
                                           <ContextMenuContent className="w-48">
@@ -1015,13 +1038,21 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                 <ExternalLink className="mr-2 h-4 w-4" /> Abrir en la Web
                                               </ContextMenuItem>
                                             ) : (
-                                              <ContextMenuItem onClick={() => handleDownloadFile(att)}>
-                                                <Download className="mr-2 h-4 w-4" /> Descargar
-                                              </ContextMenuItem>
+                                              <>
+                                                {!isTLFile && (
+                                                  <ContextMenuItem onClick={() => window.open(att.url, '_blank')}>
+                                                    <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
+                                                  </ContextMenuItem>
+                                                )}
+                                                <ContextMenuItem onClick={() => handleDownloadFile(att)}>
+                                                  <Download className="mr-2 h-4 w-4" /> Descargar
+                                                </ContextMenuItem>
+                                              </>
                                             )}
                                           </ContextMenuContent>
                                         </ContextMenu>
-                                      ))
+                                        )
+                                      })
                                     ) : (
                                       folderContents.length === 0 ? (
                                         <div className="p-4 text-center text-[10px] text-muted-foreground italic">Carpeta vacía</div>

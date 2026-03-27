@@ -412,7 +412,12 @@ function HomeContent() {
 
           const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, uploadFolderId, existingId);
           
-          const trelloAtt = await attachUrlToCard(selectedCard.id, driveResult.name, driveResult.webViewLink);
+          // SOLO ADJUNTAMOS A TRELLO SI ES DOCUMENTO FINAL
+          let trelloId: string | undefined = undefined;
+          if (isFinalDocument) {
+              const trelloAtt = await attachUrlToCard(selectedCard.id, driveResult.name, driveResult.webViewLink);
+              if (trelloAtt) trelloId = trelloAtt.id;
+          }
           
           associatedFiles.push({
             id: driveResult.id,
@@ -420,8 +425,10 @@ function HomeContent() {
             size: `${(file.size / 1024).toFixed(2)} KB`,
             type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => file.type.includes(t)) ? 'document' : 'other',
             url: driveResult.webViewLink,
+            downloadUrl: driveResult.webContentLink,
             driveId: driveResult.id,
-            trelloId: trelloAtt?.id
+            trelloId: trelloId,
+            isTimelineFile: isFinalDocument
           });
           
           setUploadProgress(((index + 1) / totalFiles) * 100);
