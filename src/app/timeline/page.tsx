@@ -40,6 +40,7 @@ import {
 import { FileConflictDialog, type ConflictStrategy } from '@/timeline/components/file-conflict-dialog';
 import { useProject } from '@/providers/project-provider';
 import { WHITELIST } from '@/lib/auth-data';
+import { type FileConfig } from '@/timeline/components/add-files-dialog';
 
 function getTrelloObjectCreationDate(trelloId: string): Date {
     const timestampHex = trelloId.substring(0, 8);
@@ -354,8 +355,8 @@ function HomeContent() {
   }, [selectedCard, firestore, user, categories]);
 
 
-  const executeFinalUpload = React.useCallback(async (data: any, finalRootId: string, resolutions: Record<string, ConflictStrategy>) => {
-    const { files, categoryId, name, description, occurredAt, isFinalDocument } = data;
+  const executeFinalUpload = React.useCallback(async (data: any, finalRootId: string, workFolderId: string, resolutions: Record<string, ConflictStrategy>) => {
+    const { fileConfigs, categoryId, name, description, occurredAt } = data;
     const category = categories.find((c: any) => c.id === categoryId);
     if (!category || !selectedCard || !firestore) {
         setIsUploading(false);
@@ -363,42 +364,46 @@ function HomeContent() {
     }
 
     setIsUploading(true);
-    const { id: toastId, dismiss } = toast({
-      title: "Gestionando Drive...",
-      description: isFinalDocument ? "Creando carpeta de hito intocable." : "Preparando carpeta de trabajo.",
+    const { id: toastId, dismiss, update } = toast({
+      title: "Procesando archivos mixtos...",
+      description: "Preparando carpetas en Drive.",
       duration: Infinity,
     });
 
     try {
-      let uploadFolderId = finalRootId;
+      const hasFinal = fileConfigs.some((c: any) => c.isFinal);
+      let milestoneFolderId = '';
 
-      if (isFinalDocument) {
-          uploadFolderId = await createMilestoneFolder(finalRootId, name);
+      if (hasFinal) {
+          update({ id: toastId, description: "Creando carpeta de hito en TL..." });
+          milestoneFolderId = await createMilestoneFolder(finalRootId, name);
       }
 
       const associatedFiles: AssociatedFile[] = [];
-      if (files && files.length > 0) {
-        const totalFiles = files.length;
-        for (const [index, file] of files.entries()) {
-          const strategy = resolutions[file.name] || 'rename';
+      const totalFiles = fileConfigs.length;
+
+      for (const [index, config] of (fileConfigs as FileConfig[]).entries()) {
+          const strategy = resolutions[config.file.name] || 'rename';
           if (strategy === 'omit') continue;
 
           setUploadProgress(((index) / totalFiles) * 100);
           
-          const arrayBuffer = await file.arrayBuffer();
+          const arrayBuffer = await config.file.arrayBuffer();
           const base64Data = Buffer.from(arrayBuffer).toString('base64');
           
-          let targetName = file.name;
-          let existingId = strategy === 'overwrite' ? conflicts.find(c => c.name === file.name)?.existingId : undefined;
+          let targetName = config.file.name;
+          const folderToUse = config.isFinal ? milestoneFolderId : workFolderId;
+          
+          let existingId = strategy === 'overwrite' ? conflicts.find(c => c.name === config.file.name)?.existingId : undefined;
 
           if (strategy === 'rename') {
-             const nameParts = file.name.split('.');
+             const nameParts = config.file.name.split('.');
              const ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
              const baseName = nameParts.join('.');
-             let currentTryName = file.name;
+             let currentTryName = config.file.name;
              let counter = 1;
              while (true) {
-                const check = await findFileInFolder(uploadFolderId, currentTryName);
+                const check = await findFileInFolder(folderToUse, currentTryName);
                 if (!check) break;
                 currentTryName = `${baseName} (${counter})${ext}`;
                 counter++;
@@ -406,12 +411,12 @@ function HomeContent() {
              targetName = currentTryName;
           }
 
-          setUploadText(`Subiendo a Drive: ${targetName}`);
+          setUploadText(`Subiendo (${config.isFinal ? 'Final' : 'Trabajo'}): ${targetName}`);
 
-          const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, uploadFolderId, existingId);
+          const driveResult = await uploadFileToDrive(targetName, config.file.type, base64Data, folderToUse, existingId);
           
           let trelloId: string | undefined = undefined;
-          if (isFinalDocument) {
+          if (config.isFinal) {
               const trelloAtt = await attachUrlToCard(selectedCard.id, driveResult.name, driveResult.webViewLink);
               if (trelloAtt) trelloId = trelloAtt.id;
           }
@@ -419,17 +424,16 @@ function HomeContent() {
           associatedFiles.push({
             id: driveResult.id,
             name: driveResult.name,
-            size: `${(file.size / 1024).toFixed(2)} KB`,
-            type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => file.type.includes(t)) ? 'document' : 'other',
+            size: `${(config.file.size / 1024).toFixed(2)} KB`,
+            type: config.file.type.startsWith('image/') ? 'image' : config.file.type.startsWith('video/') ? 'video' : config.file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => config.file.type.includes(t)) ? 'document' : 'other',
             url: driveResult.webViewLink,
             downloadUrl: driveResult.webContentLink,
             driveId: driveResult.id,
             trelloId: trelloId,
-            isTimelineFile: isFinalDocument
+            isTimelineFile: config.isFinal
           });
           
           setUploadProgress(((index + 1) / totalFiles) * 100);
-        }
       }
       
       const targetDate = new Date(occurredAt);
@@ -458,21 +462,21 @@ function HomeContent() {
           description: description,
           occurredAt: finalDate.toISOString(),
           category: { id: category.id, name: category.name, color: category.color },
-          tags: [isFinalDocument ? 'intocable' : 'trabajo', 'manual'],
+          tags: [hasFinal ? 'manual' : 'trabajo'],
           associatedFiles: associatedFiles,
           isImportant: false,
-          history: [`${format(new Date(), "PPpp", { locale: es })} - Hito creado como ${isFinalDocument ? 'INTOCABLE' : 'TRABAJO'} con ${associatedFiles.length} archivo(s).`],
-          driveFolderId: isFinalDocument ? uploadFolderId : null
+          history: [`${format(new Date(), "PPpp", { locale: es })} - Hito creado con carga mixta de ${associatedFiles.length} archivo(s).`],
+          driveFolderId: hasFinal ? milestoneFolderId : null
       };
 
       const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
       await addDoc(milestonesRef, newMilestoneData);
       
-      logTimelineActivity('timeline_milestone_created', `Hito ${isFinalDocument ? 'Intocable' : 'Trabajo'}: "${name}"`);
+      logTimelineActivity('timeline_milestone_created', `Hito creado: "${name}" con ${associatedFiles.length} archivos.`);
 
       setIsUploadOpen(false);
       dismiss(toastId);
-      toast({ title: `Hito ${isFinalDocument ? 'final' : 'de trabajo'} creado.` });
+      toast({ title: `Hito "${name}" creado exitosamente.` });
     } catch (error: any) {
         console.error("Upload error:", error);
         dismiss(toastId);
@@ -487,12 +491,11 @@ function HomeContent() {
   }, [categories, selectedCard, firestore, toast, milestones, conflicts, logTimelineActivity]);
 
   const handleUpload = React.useCallback(async (data: { 
-    files?: File[], 
+    fileConfigs: FileConfig[], 
     categoryId: string, 
     name: string, 
     description: string, 
     occurredAt: Date,
-    isFinalDocument: boolean,
     targetFolderId?: string
   }) => {
     if (!firestore || !selectedCard) return;
@@ -502,44 +505,35 @@ function HomeContent() {
         return;
     }
 
-    const { files, isFinalDocument, targetFolderId } = data;
+    const { fileConfigs, targetFolderId } = data;
     const codeMatch = selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i);
     const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
 
     setIsUploading(true);
-    setUploadText("Escaneando Drive...");
+    setUploadText("Analizando destinos en Drive...");
 
     try {
-        let finalRootId = '';
-        
-        if (isFinalDocument) {
-            finalRootId = await getOrCreateProjectFolder(projectCode, selectedCard.name, true);
-        } else {
-            if (targetFolderId && targetFolderId !== 'root') {
-                finalRootId = targetFolderId;
-            } else {
-                finalRootId = await getOrCreateProjectFolder(projectCode, selectedCard.name, false);
+        const finalRootId = await getOrCreateProjectFolder(projectCode, selectedCard.name, true);
+        const workRootId = targetFolderId || await getOrCreateProjectFolder(projectCode, selectedCard.name, false);
+
+        const foundConflicts = [];
+        for (const config of fileConfigs) {
+            // Nota: Para archivos finales en un hito nuevo, no sabemos la carpeta aún (se crea luego), 
+            // pero podemos verificar contra el destino de trabajo si corresponde.
+            if (!config.isFinal) {
+                const existing = await findFileInFolder(workRootId, config.file.name);
+                if (existing) foundConflicts.push({ name: config.file.name, existingId: existing.id });
             }
         }
 
-        if (files && files.length > 0) {
-            const foundConflicts = [];
-            for (const file of files) {
-                const existing = await findFileInFolder(finalRootId, file.name);
-                if (existing) {
-                    foundConflicts.push({ name: file.name, existingId: existing.id });
-                }
-            }
-
-            if (foundConflicts.length > 0) {
-                setConflicts(foundConflicts);
-                setPendingUploadData({ ...data, finalRootId });
-                setIsConflictDialogOpen(true);
-                return;
-            }
+        if (foundConflicts.length > 0) {
+            setConflicts(foundConflicts);
+            setPendingUploadData({ ...data, finalRootId, workRootId });
+            setIsConflictDialogOpen(true);
+            return;
         }
         
-        executeFinalUpload(data, finalRootId, {});
+        executeFinalUpload(data, finalRootId, workRootId, {});
     } catch (error: any) {
         setIsUploading(false);
         toast({ variant: "destructive", title: "Error de Drive", description: error.message });
@@ -549,7 +543,7 @@ function HomeContent() {
   const handleConflictResolve = (resolutions: Record<string, ConflictStrategy>) => {
     setIsConflictDialogOpen(false);
     if (pendingUploadData) {
-        executeFinalUpload(pendingUploadData, pendingUploadData.finalRootId, resolutions);
+        executeFinalUpload(pendingUploadData, pendingUploadData.finalRootId, pendingUploadData.workRootId, resolutions);
     }
   };
 

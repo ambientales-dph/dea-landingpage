@@ -25,7 +25,7 @@ import { FileConflictDialog, type ConflictStrategy } from './file-conflict-dialo
 import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { WHITELIST } from '@/lib/auth-data';
-import { AddFilesDialog } from './add-files-dialog';
+import { AddFilesDialog, type FileConfig } from './add-files-dialog';
 
 interface MilestoneDetailProps {
   milestone: Milestone;
@@ -58,7 +58,8 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
   const [isAddFilesDialogOpen, setIsAddFilesDialogOpen] = React.useState(false);
   const [isConflictDialogOpen, setIsConflictDialogOpen] = React.useState(false);
   const [conflicts, setConflicts] = React.useState<any[]>([]);
-  const [pendingUploadConfig, setPendingUploadConfig] = React.useState<{files: File[], isFinal: boolean, targetFolderId?: string} | null>(null);
+  const [pendingUploadConfigs, setPendingUploadConfigs] = React.useState<FileConfig[]>([]);
+  const [pendingTargetFolderId, setPendingTargetFolderId] = React.useState<string | undefined>(undefined);
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
 
@@ -246,9 +247,9 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     }
   };
 
-  const handleStartUpload = async (data: { files: File[], isFinalDocument: boolean, targetFolderId?: string }) => {
+  const handleStartUpload = async (data: { fileConfigs: FileConfig[], targetFolderId?: string }) => {
     if (!milestone) return;
-    const { files, isFinalDocument, targetFolderId } = data;
+    const { fileConfigs, targetFolderId } = data;
 
     const codeMatch = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i);
     const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
@@ -256,34 +257,29 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     setIsUploading(true);
     const { id: toastId, dismiss } = toast({
       title: "Verificando Drive...",
-      description: "Preparando destino.",
+      description: "Analizando destinos para cada archivo.",
       duration: Infinity,
     });
 
     try {
-        let finalFolderId = '';
-        if (isFinalDocument) {
-            // Lógica de archivo final: usar carpeta de hito o crearla
-            if (milestone.driveFolderId) {
-                finalFolderId = milestone.driveFolderId;
-            } else {
-                const rootTLId = await getOrCreateProjectFolder(projectCode, projectName, true);
-                finalFolderId = await createMilestoneFolder(rootTLId, milestone.name);
-                // Actualizar ID de carpeta en Firestore
-                const updatedMs = { ...milestone, driveFolderId: finalFolderId };
-                onMilestoneUpdate(updatedMs);
-            }
-        } else {
-            // Lógica de archivo de trabajo: usar la carpeta seleccionada
-            finalFolderId = targetFolderId || await getOrCreateProjectFolder(projectCode, projectName, false);
+        let milestoneFolderId = milestone.driveFolderId;
+        const hasFinalFiles = fileConfigs.some(c => c.isFinal);
+
+        if (hasFinalFiles && !milestoneFolderId) {
+            const rootTLId = await getOrCreateProjectFolder(projectCode, projectName, true);
+            milestoneFolderId = await createMilestoneFolder(rootTLId, milestone.name);
+            const updatedMs = { ...milestone, driveFolderId: milestoneFolderId };
+            onMilestoneUpdate(updatedMs);
         }
 
-        // Buscar conflictos
         const foundConflicts = [];
-        for (const file of files) {
-            const existing = await findFileInFolder(finalFolderId, file.name);
-            if (existing) {
-                foundConflicts.push({ name: file.name, existingId: existing.id });
+        for (const config of fileConfigs) {
+            const folderToUse = config.isFinal ? milestoneFolderId : targetFolderId;
+            if (folderToUse) {
+                const existing = await findFileInFolder(folderToUse, config.file.name);
+                if (existing) {
+                    foundConflicts.push({ name: config.file.name, existingId: existing.id });
+                }
             }
         }
 
@@ -291,10 +287,11 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
 
         if (foundConflicts.length > 0) {
             setConflicts(foundConflicts);
-            setPendingUploadConfig({ files, isFinal: isFinalDocument, targetFolderId: finalFolderId });
+            setPendingUploadConfigs(fileConfigs);
+            setPendingTargetFolderId(targetFolderId);
             setIsConflictDialogOpen(true);
         } else {
-            executeFinalFileAdd(files, finalFolderId, isFinalDocument);
+            executeFinalFileAdd(fileConfigs, milestoneFolderId || '', targetFolderId);
         }
     } catch (error: any) {
         dismiss(toastId);
@@ -303,30 +300,37 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     }
   };
 
-  const executeFinalFileAdd = async (files: File[], folderId: string, isFinal: boolean, resolutions: Record<string, ConflictStrategy> = {}) => {
+  const executeFinalFileAdd = async (
+    fileConfigs: FileConfig[], 
+    milestoneFolderId: string, 
+    targetFolderId?: string, 
+    resolutions: Record<string, ConflictStrategy> = {}
+  ) => {
     if (!milestone) return;
 
     const { id: toastId, update, dismiss } = toast({
-      title: "Subiendo archivos a Drive...",
-      description: "Iniciando proceso.",
+      title: "Subiendo archivos...",
+      description: "Iniciando proceso múltiple.",
       duration: Infinity,
     });
 
     try {
       const newAssociatedFiles: AssociatedFile[] = [];
 
-      for (const file of files) {
-        const strategy = resolutions[file.name] || 'rename';
+      for (const config of fileConfigs) {
+        const strategy = resolutions[config.file.name] || 'rename';
         if (strategy === 'omit') continue;
 
-        let targetName = file.name;
-        let existingId = strategy === 'overwrite' ? conflicts.find(c => c.name === file.name)?.existingId : undefined;
+        let targetName = config.file.name;
+        const folderId = config.isFinal ? milestoneFolderId : (targetFolderId || milestoneFolderId);
+        
+        let existingId = strategy === 'overwrite' ? conflicts.find(c => c.name === config.file.name)?.existingId : undefined;
 
         if (strategy === 'rename') {
-            const nameParts = file.name.split('.');
+            const nameParts = config.file.name.split('.');
             const ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '';
             const baseName = nameParts.join('.');
-            let currentTryName = file.name;
+            let currentTryName = config.file.name;
             let counter = 1;
             while (true) {
                const check = await findFileInFolder(folderId, currentTryName);
@@ -337,16 +341,16 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             targetName = currentTryName;
         }
 
-        update({ id: toastId, description: `Guardando en Drive: "${targetName}"...` });
+        update({ id: toastId, description: `Guardando ${config.isFinal ? 'Final' : 'Trabajo'}: "${targetName}"...` });
 
-        const arrayBuffer = await file.arrayBuffer();
+        const arrayBuffer = await config.file.arrayBuffer();
         const base64Data = Buffer.from(arrayBuffer).toString('base64');
         
-        const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
+        const driveResult = await uploadFileToDrive(targetName, config.file.type, base64Data, folderId, existingId);
         
         let trelloId: string | undefined = undefined;
-        if (cardId && isFinal) {
-            update({ id: toastId, title: "Actualizando Trello...", description: `Vinculando link de: ${driveResult.name}` });
+        if (cardId && config.isFinal) {
+            update({ id: toastId, title: "Actualizando Trello...", description: `Vinculando hito final: ${driveResult.name}` });
             const trelloAtt = await attachUrlToCard(cardId, driveResult.name, driveResult.webViewLink);
             if (trelloAtt) trelloId = trelloAtt.id;
         }
@@ -354,13 +358,13 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         newAssociatedFiles.push({
           id: driveResult.id,
           name: driveResult.name,
-          size: `${(file.size / 1024).toFixed(2)} KB`,
-          type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => file.type.includes(t)) ? 'document' : 'other',
+          size: `${(config.file.size / 1024).toFixed(2)} KB`,
+          type: config.file.type.startsWith('image/') ? 'image' : config.file.type.startsWith('video/') ? 'video' : config.file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => config.file.type.includes(t)) ? 'document' : 'other',
           url: driveResult.webViewLink,
           downloadUrl: driveResult.webContentLink,
           driveId: driveResult.id,
           trelloId: trelloId,
-          isTimelineFile: isFinal
+          isTimelineFile: config.isFinal
         });
       }
 
@@ -368,13 +372,13 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         onMilestoneUpdate({
           ...milestone,
           associatedFiles: [...(milestone.associatedFiles || []), ...newAssociatedFiles],
-          history: [...milestone.history, createLogEntry(`Se añadieron ${newAssociatedFiles.length} archivo(s) (${isFinal ? 'FINAL' : 'TRABAJO'}).`)],
+          history: [...milestone.history, createLogEntry(`Añadidos ${newAssociatedFiles.length} archivo(s) con destinos mixtos.`)],
         });
-        logActivity('milestone_files_added', `Subió ${newAssociatedFiles.length} archivo(s) al hito: "${milestone.name}"`);
+        logActivity('milestone_files_added', `Subió ${newAssociatedFiles.length} archivo(s) mixtos al hito: "${milestone.name}"`);
       }
 
       dismiss(toastId);
-      toast({ title: "Archivos guardados correctamente" });
+      toast({ title: "Carga completada" });
       setIsAddFilesDialogOpen(false);
     } catch (error: any) {
       console.error("Error adding files:", error);
@@ -383,7 +387,8 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     } finally {
         setIsUploading(false);
         setConflicts([]);
-        setPendingUploadConfig(null);
+        setPendingUploadConfigs([]);
+        setPendingTargetFolderId(undefined);
     }
   };
 
@@ -443,8 +448,8 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
 
   const handleConflictResolve = async (resolutions: Record<string, ConflictStrategy>) => {
     setIsConflictDialogOpen(false);
-    if (pendingUploadConfig) {
-        executeFinalFileAdd(pendingUploadConfig.files, pendingUploadConfig.targetFolderId!, pendingUploadConfig.isFinal, resolutions);
+    if (pendingUploadConfigs.length > 0) {
+        executeFinalFileAdd(pendingUploadConfigs, milestone.driveFolderId || '', pendingTargetFolderId, resolutions);
     }
   };
 
@@ -833,7 +838,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             isOpen={isConflictDialogOpen}
             conflicts={conflicts}
             onResolve={handleConflictResolve}
-            onCancel={() => { setIsConflictDialogOpen(false); setConflicts([]); setPendingUploadConfig(null); setIsUploading(false); }}
+            onCancel={() => { setIsConflictDialogOpen(false); setConflicts([]); setPendingUploadConfigs([]); setPendingTargetFolderId(undefined); setIsUploading(false); }}
         />
     </div>
   );

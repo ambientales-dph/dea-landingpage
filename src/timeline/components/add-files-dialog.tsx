@@ -27,16 +27,18 @@ import {
     Folder, 
     HardDrive, 
     ChevronRight,
-    Search
+    Briefcase
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from './ui/scroll-area';
-import { Switch } from './ui/switch';
 import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/timeline/services/google-drive';
 
+export type FileConfig = {
+  file: File;
+  isFinal: boolean;
+};
+
 const addFilesSchema = z.object({
-  files: z.array(z.instanceof(File)).min(1, 'Seleccioná al menos un archivo.'),
-  isFinalDocument: z.boolean().default(true),
   targetFolderId: z.string().optional(),
 });
 
@@ -49,8 +51,7 @@ interface AddFilesDialogProps {
   projectName: string | null;
   milestoneName: string;
   onUpload: (data: { 
-    files: File[], 
-    isFinalDocument: boolean,
+    fileConfigs: FileConfig[],
     targetFolderId?: string
   }) => void;
   isUploading: boolean;
@@ -70,17 +71,16 @@ export function AddFilesDialog({
   const [newFolderName, setNewFolderName] = React.useState('');
   const [navigationStack, setNavigationStack] = React.useState<{id: string, name: string}[]>([]);
   const [currentSubfolders, setCurrentSubfolders] = React.useState<{id: string, name: string}[]>([]);
+  const [fileConfigs, setFileConfigs] = React.useState<FileConfig[]>([]);
 
   const form = useForm<AddFilesFormValues>({
     resolver: zodResolver(addFilesSchema),
     defaultValues: {
-      files: [],
-      isFinalDocument: true,
       targetFolderId: 'root',
     },
   });
 
-  const isFinal = form.watch('isFinalDocument');
+  const hasWorkFiles = fileConfigs.some(c => !c.isFinal);
 
   // Reset al cerrar
   React.useEffect(() => {
@@ -89,13 +89,14 @@ export function AddFilesDialog({
       setIsCreatingFolder(false);
       setNavigationStack([]);
       setCurrentSubfolders([]);
+      setFileConfigs([]);
     }
   }, [form, isOpen]);
 
-  // Cargar carpeta inicial del proyecto si es modo trabajo
+  // Cargar carpeta inicial del proyecto si hay archivos de trabajo
   React.useEffect(() => {
     const initExplorer = async () => {
-        if (!isFinal && projectCode && isOpen && navigationStack.length === 0) {
+        if (hasWorkFiles && projectCode && isOpen && navigationStack.length === 0) {
             setIsLoadingFolders(true);
             try {
                 const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
@@ -110,12 +111,12 @@ export function AddFilesDialog({
         }
     };
     initExplorer();
-  }, [isFinal, projectCode, projectName, isOpen, navigationStack.length, form]);
+  }, [hasWorkFiles, projectCode, projectName, isOpen, navigationStack.length, form]);
 
   // Cargar subcarpetas cuando cambia el nivel actual
   React.useEffect(() => {
     const fetchSubfolders = async () => {
-        if (navigationStack.length > 0 && !isFinal) {
+        if (navigationStack.length > 0 && hasWorkFiles) {
             const currentFolder = navigationStack[navigationStack.length - 1];
             setIsLoadingFolders(true);
             try {
@@ -129,7 +130,7 @@ export function AddFilesDialog({
         }
     };
     fetchSubfolders();
-  }, [navigationStack, isFinal]);
+  }, [navigationStack, hasWorkFiles]);
 
   const handleNavigateIn = (folder: {id: string, name: string}) => {
     setNavigationStack(prev => [...prev, folder]);
@@ -162,58 +163,107 @@ export function AddFilesDialog({
     const newFiles = e.target.files ? Array.from(e.target.files) : [];
     if (newFiles.length === 0) return;
     
-    const currentFiles = form.getValues('files') || [];
-    form.setValue('files', [...currentFiles, ...newFiles], { shouldValidate: true });
+    const newConfigs: FileConfig[] = newFiles.map(f => ({ file: f, isFinal: true }));
+    setFileConfigs(prev => [...prev, ...newConfigs]);
     if (e.target) e.target.value = '';
   };
 
-  const selectedFiles = form.watch('files') || [];
+  const toggleFileType = (index: number) => {
+    setFileConfigs(prev => {
+        const next = [...prev];
+        next[index] = { ...next[index], isFinal: !next[index].isFinal };
+        return next;
+    });
+  };
+
+  const removeFile = (index: number) => {
+    setFileConfigs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFormSubmit = (data: AddFilesFormValues) => {
+    if (fileConfigs.length === 0) return;
+    onUpload({
+        fileConfigs,
+        targetFolderId: hasWorkFiles ? data.targetFolderId : undefined
+    });
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-zinc-100 text-black p-0 overflow-hidden flex flex-col shadow-2xl">
+      <DialogContent className="sm:max-w-[550px] bg-zinc-100 text-black p-0 overflow-hidden flex flex-col shadow-2xl">
         <DialogHeader className="p-6 bg-zinc-200 border-b border-zinc-300">
           <DialogTitle className="font-headline text-lg">Subir archivos al hito</DialogTitle>
           <DialogDescription className="text-zinc-600 text-xs">
-            Seleccioná si estos archivos son documentación final o de trabajo.
+            Elegí por cada archivo si es documentación final o de trabajo.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onUpload)} className="flex flex-col min-h-0">
-            <ScrollArea className="flex-1 max-h-[60vh]">
-              <div className="p-6 space-y-4">
+          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="flex flex-col min-h-0">
+            <ScrollArea className="flex-1 max-h-[65vh]">
+              <div className="p-6 space-y-5">
                 
-                <FormField
-                  control={form.control}
-                  name="isFinalDocument"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-zinc-300 p-3 bg-white shadow-sm">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-xs font-bold flex items-center gap-2">
-                          {field.value ? <ShieldCheck className="h-4 w-4 text-primary" /> : <FolderEdit className="h-4 w-4 text-amber-600" />}
-                          {field.value ? 'Documentación Final (Intocable)' : 'Archivo de Trabajo (Tocable)'}
-                        </FormLabel>
-                        <FormDescription className="text-[10px] leading-tight text-zinc-500">
-                          {field.value 
-                            ? 'Se guarda en la carpeta cerrada del hito en la TL.' 
-                            : 'Se guarda en la carpeta técnica de obra (EIAS_AMBIENTALES).'}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase text-zinc-500 tracking-wider">1. Seleccionar archivos</Label>
+                  <div 
+                    className="border-2 border-dashed border-zinc-300 rounded-lg p-6 text-center cursor-pointer hover:bg-white hover:border-primary/50 transition-all group"
+                    onClick={() => document.getElementById('add-files-input-detail')?.click()}
+                  >
+                    <UploadCloud className="mx-auto h-8 w-8 text-zinc-400 group-hover:text-primary transition-colors" />
+                    <p className="text-xs text-zinc-500 mt-2">Arrastrá archivos o hacé clic aquí</p>
+                    <input id="add-files-input-detail" type="file" className="hidden" multiple onChange={handleFileChange} />
+                  </div>
 
-                {!isFinal && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-2">
+                  {fileConfigs.length > 0 && (
+                    <div className="space-y-2 mt-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">2. Clasificación de archivos ({fileConfigs.length})</p>
+                        <div className="flex gap-3 text-[9px] font-bold text-zinc-400 uppercase">
+                            <span className="flex items-center gap-1"><ShieldCheck className="h-2.5 w-2.5 text-primary" /> Final</span>
+                            <span className="flex items-center gap-1"><Briefcase className="h-2.5 w-2.5 text-amber-600" /> Trabajo</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 rounded-md border border-zinc-200 p-1.5 bg-zinc-50 shadow-inner">
+                        {fileConfigs.map((config, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-white rounded border border-zinc-100 shadow-sm gap-3">
+                            <div className="flex items-center gap-2 truncate flex-1">
+                              <FileIcon className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                              <span className="text-[11px] truncate font-medium">{config.file.name}</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button 
+                                    type="button"
+                                    onClick={() => toggleFileType(index)}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-2 py-1 rounded text-[9px] font-bold uppercase transition-all border",
+                                        config.isFinal 
+                                            ? "bg-primary/10 border-primary/20 text-primary" 
+                                            : "bg-amber-50 border-amber-200 text-amber-700"
+                                    )}
+                                >
+                                    {config.isFinal ? <ShieldCheck className="h-3 w-3" /> : <Briefcase className="h-3 w-3" />}
+                                    {config.isFinal ? 'Final' : 'Trabajo'}
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={() => removeFile(index)} 
+                                    className="text-zinc-300 hover:text-destructive p-1 rounded transition-colors"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {hasWorkFiles && (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-2 border-t border-zinc-200 pt-4">
                     <div className="flex items-center justify-between">
-                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Destino en Carpeta Técnica</Label>
+                      <Label className="text-[10px] uppercase font-bold text-zinc-500">3. Destino para archivos de trabajo</Label>
                       <Button 
                         type="button" 
                         variant="ghost" 
@@ -285,50 +335,12 @@ export function AddFilesDialog({
                     </div>
                   </div>
                 )}
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Seleccionar archivos</Label>
-                  <div 
-                    className="border-2 border-dashed border-zinc-300 rounded-lg p-6 text-center cursor-pointer hover:bg-white hover:border-primary/50 transition-all group"
-                    onClick={() => document.getElementById('add-files-input')?.click()}
-                  >
-                    <UploadCloud className="mx-auto h-8 w-8 text-zinc-400 group-hover:text-primary transition-colors" />
-                    <p className="text-xs text-zinc-500 mt-2">Arrastrá archivos o hacé clic para buscar</p>
-                    <input id="add-files-input" type="file" className="hidden" multiple onChange={handleFileChange} />
-                  </div>
-
-                  {selectedFiles.length > 0 && (
-                    <div className="space-y-1 mt-3">
-                      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Archivos seleccionados ({selectedFiles.length})</p>
-                      <div className="max-h-32 overflow-y-auto space-y-1 rounded-md border border-zinc-200 p-1 bg-zinc-50 shadow-inner">
-                        {selectedFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-1.5 bg-white rounded border border-zinc-100 shadow-sm">
-                            <div className="flex items-center gap-2 truncate">
-                              <FileIcon className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                              <span className="text-[11px] truncate font-medium">{file.name}</span>
-                            </div>
-                            <button 
-                              type="button" 
-                              onClick={() => {
-                                const updatedFiles = selectedFiles.filter((_, i) => i !== index);
-                                form.setValue('files', updatedFiles, { shouldValidate: true });
-                              }} 
-                              className="text-zinc-400 hover:text-destructive p-1 rounded transition-colors"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
             </ScrollArea>
 
             <DialogFooter className="p-4 bg-zinc-200 border-t border-zinc-300 flex flex-row justify-end gap-2 shrink-0">
               <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isUploading}>Cancelar</Button>
-              <Button type="submit" size="sm" disabled={isUploading || selectedFiles.length === 0} className="shadow-md min-w-[120px]">
+              <Button type="submit" size="sm" disabled={isUploading || fileConfigs.length === 0} className="shadow-md min-w-[140px]">
                 {isUploading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -337,7 +349,7 @@ export function AddFilesDialog({
                 ) : (
                   <>
                     <UploadCloud className="h-4 w-4 mr-2" />
-                    Subir Archivos
+                    Subir {fileConfigs.length} Archivo(s)
                   </>
                 )}
               </Button>

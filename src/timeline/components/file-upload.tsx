@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -19,7 +18,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from './ui/textarea';
-import { UploadCloud, X, File as FileIconLucide, CalendarIcon, Loader2, ShieldCheck, FolderEdit, PlusCircle, Folder, HardDrive, Map, ChevronRight, ChevronLeft } from 'lucide-react';
+import { 
+    UploadCloud, 
+    X, 
+    File as FileIconLucide, 
+    CalendarIcon, 
+    Loader2, 
+    ShieldCheck, 
+    FolderEdit, 
+    PlusCircle, 
+    Folder, 
+    HardDrive, 
+    Map, 
+    ChevronRight, 
+    Briefcase 
+} from 'lucide-react';
 import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
 import { format, isValid, parse } from 'date-fns';
@@ -27,9 +40,8 @@ import { es } from 'date-fns/locale';
 import { ScrollArea } from './ui/scroll-area';
 import { Switch } from './ui/switch';
 import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/timeline/services/google-drive';
-import { Badge } from './ui/badge';
-import { CUENCAS } from '@/lib/cuencas';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { type FileConfig } from './add-files-dialog';
 
 const uploadSchema = z.object({
   name: z.string().min(1, { message: 'El título del hito no puede estar vacío.' }),
@@ -37,9 +49,7 @@ const uploadSchema = z.object({
   occurredAt: z.date({
     required_error: "Se requiere una fecha para el hito.",
   }),
-  files: z.array(z.instanceof(File)).optional(),
   categoryId: z.string().min(1, 'Por favor, seleccioná una categoría.'),
-  isFinalDocument: z.boolean().default(true),
   targetFolderId: z.string().optional(),
 });
 
@@ -52,12 +62,11 @@ interface FileUploadProps {
   projectCode: string | null;
   projectName: string | null;
   onUpload: (data: { 
-    files?: File[], 
+    fileConfigs: FileConfig[], 
     categoryId: string, 
     name: string, 
     description: string, 
     occurredAt: Date,
-    isFinalDocument: boolean,
     targetFolderId?: string
   }) => void;
   isUploading: boolean;
@@ -81,6 +90,7 @@ export function FileUpload({
   const [isLoadingFolders, setIsLoadingFolders] = React.useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = React.useState(false);
   const [newFolderName, setNewFolderName] = React.useState('');
+  const [fileConfigs, setFileConfigs] = React.useState<FileConfig[]>([]);
   
   // Navegación de carpetas
   const [navigationStack, setNavigationStack] = React.useState<{id: string, name: string}[]>([]);
@@ -91,16 +101,13 @@ export function FileUpload({
     defaultValues: {
       name: '',
       description: '',
-      files: [],
       categoryId: '',
       occurredAt: new Date(),
-      isFinalDocument: true,
       targetFolderId: 'root',
     },
   });
 
-  const isFinal = form.watch('isFinalDocument');
-  const hitoName = form.watch('name');
+  const hasWorkFiles = fileConfigs.some(c => !c.isFinal);
 
   // Reset al cerrar
   React.useEffect(() => {
@@ -112,13 +119,14 @@ export function FileUpload({
       setIsCreatingFolder(false);
       setNavigationStack([]);
       setCurrentSubfolders([]);
+      setFileConfigs([]);
     }
   }, [form, isOpen]);
 
-  // Cargar carpeta inicial del proyecto
+  // Cargar carpeta inicial del proyecto si hay archivos de trabajo
   React.useEffect(() => {
     const initExplorer = async () => {
-        if (!isFinal && projectCode && isOpen && navigationStack.length === 0) {
+        if (hasWorkFiles && projectCode && isOpen && navigationStack.length === 0) {
             setIsLoadingFolders(true);
             try {
                 const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
@@ -133,12 +141,12 @@ export function FileUpload({
         }
     };
     initExplorer();
-  }, [isFinal, projectCode, projectName, isOpen, navigationStack.length, form]);
+  }, [hasWorkFiles, projectCode, projectName, isOpen, navigationStack.length, form]);
 
   // Cargar subcarpetas cuando cambia el nivel actual
   React.useEffect(() => {
     const fetchSubfolders = async () => {
-        if (navigationStack.length > 0) {
+        if (navigationStack.length > 0 && hasWorkFiles) {
             const currentFolder = navigationStack[navigationStack.length - 1];
             setIsLoadingFolders(true);
             try {
@@ -152,7 +160,7 @@ export function FileUpload({
         }
     };
     fetchSubfolders();
-  }, [navigationStack]);
+  }, [navigationStack, hasWorkFiles]);
 
   const handleNavigateIn = (folder: {id: string, name: string}) => {
     setNavigationStack(prev => [...prev, folder]);
@@ -193,23 +201,35 @@ export function FileUpload({
     }
   };
 
-  const onSubmit = (data: UploadFormValues) => {
-    onUpload({
-        ...data,
-        description: data.description || '',
-        targetFolderId: isFinal ? undefined : navigationStack[navigationStack.length - 1]?.id
-    });
-  };
-  
-  const selectedFiles = form.watch('files') || [];
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = e.target.files ? Array.from(e.target.files) : [];
     if (newFiles.length === 0) return;
     
-    const currentFiles = form.getValues('files') || [];
-    form.setValue('files', [...currentFiles, ...newFiles], { shouldValidate: true });
+    const newConfigs: FileConfig[] = newFiles.map(f => ({ file: f, isFinal: true }));
+    setFileConfigs(prev => [...prev, ...newConfigs]);
     if (e.target) e.target.value = '';
+  };
+
+  const toggleFileType = (index: number) => {
+    setFileConfigs(prev => {
+        const next = [...prev];
+        next[index] = { ...next[index], isFinal: !next[index].isFinal };
+        return next;
+    });
+  };
+
+  const removeFile = (index: number) => {
+    setFileConfigs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFormSubmit = (data: UploadFormValues) => {
+    if (fileConfigs.length === 0) return;
+    onUpload({
+        ...data,
+        fileConfigs,
+        description: data.description || '',
+        targetFolderId: hasWorkFiles ? navigationStack[navigationStack.length - 1]?.id : undefined
+    });
   };
 
   const basinName = React.useMemo(() => {
@@ -220,19 +240,11 @@ export function FileUpload({
       return basin ? basin.name : '';
   }, [projectCode]);
 
-  const fullPathString = React.useMemo(() => {
-      if (isFinal) {
-          const cleanName = (projectName || projectCode || '').replace(/\s*\([^)]+\)$/, '').trim();
-          return `${projectCode} - ${cleanName} / YYMMDDHHMMSS_${hitoName || 'Hito'}`;
-      }
-      return navigationStack.map(f => f.name).join(' / ');
-  }, [isFinal, navigationStack, projectName, projectCode, hitoName]);
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className={cn(
         "bg-zinc-300 text-black p-0 transition-all duration-300 overflow-hidden",
-        showCalendar ? "sm:max-w-[800px]" : "sm:max-w-[550px]"
+        showCalendar ? "sm:max-w-[850px]" : "sm:max-w-[600px]"
       )}>
         <ScrollArea className="max-h-[90vh]">
           <div className="flex flex-col sm:flex-row h-full">
@@ -240,11 +252,11 @@ export function FileUpload({
                   <DialogHeader className="space-y-1 mb-4">
                   <DialogTitle className="font-headline text-lg">Cargar un nuevo hito</DialogTitle>
                   <DialogDescription className="text-zinc-700 text-xs">
-                      Define si los archivos son finales (intocables) o de trabajo.
+                      Seleccioná por cada archivo su destino correspondiente.
                   </DialogDescription>
                   </DialogHeader>
                   <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+                  <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
                       {isUploading ? (
                       <div className="space-y-4 py-8 text-center flex flex-col items-center justify-center">
                           <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -254,156 +266,35 @@ export function FileUpload({
                           </div>
                       </div>
                       ) : (
-                      <fieldset disabled={isUploading} className="space-y-3">
+                      <fieldset disabled={isUploading} className="space-y-4">
                           
-                          <div className="bg-white/40 p-3 rounded-lg border border-zinc-400/50 mb-4 space-y-2">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-1">Destino de Carga</p>
-                              <div className="flex items-center gap-2">
-                                  <HardDrive className="h-3.5 w-3.5 text-primary" />
-                                  <span className="text-[10px] font-bold">Raíz: {isFinal ? 'DEA_TL_archivos' : 'EIAS_AMBIENTALES'}</span>
-                              </div>
-                              {!isFinal && basinName && (
-                                  <div className="flex items-center gap-2">
-                                      <Map className="h-3.5 w-3.5 text-zinc-500" />
-                                      <span className="text-[10px] truncate max-w-full">Cuenca: <span className="font-bold">{basinName}</span></span>
-                                  </div>
+                          <div className="grid grid-cols-2 gap-3">
+                              <FormField
+                              control={form.control}
+                              name="name"
+                              render={({ field }) => (
+                                  <FormItem className="space-y-1 col-span-2">
+                                  <FormLabel className="text-xs font-semibold">Título del hito</FormLabel>
+                                  <FormControl>
+                                      <Input {...field} className="h-8 text-sm bg-zinc-100 text-black border-zinc-400" />
+                                  </FormControl>
+                                  <FormMessage className="text-[10px]" />
+                                  </FormItem>
                               )}
-                              <div className="flex items-start gap-2">
-                                  <Folder className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
-                                  <span className="text-[10px] leading-tight break-all">Ruta: <span className="font-bold">{fullPathString}</span></span>
-                              </div>
-                          </div>
-
-                          <FormField
-                          control={form.control}
-                          name="isFinalDocument"
-                          render={({ field }) => (
-                              <FormItem className="flex flex-row items-center justify-between rounded-lg border border-zinc-400 p-3 bg-zinc-200/50 shadow-inner">
-                                <div className="space-y-0.5">
-                                  <FormLabel className="text-xs font-bold flex items-center gap-2">
-                                    {field.value ? <ShieldCheck className="h-4 w-4 text-primary" /> : <FolderEdit className="h-4 w-4 text-amber-600" />}
-                                    {field.value ? 'Documentación Final (Intocable)' : 'Archivo de Trabajo (Tocable)'}
-                                  </FormLabel>
-                                  <FormDescription className="text-[9px] leading-tight text-zinc-600">
-                                    {field.value 
-                                      ? 'Se guarda en TL bajo una carpeta cerrada para el hito.' 
-                                      : 'Se guarda en la carpeta de la cuenca/obra correspondiente.'}
-                                  </FormDescription>
-                                </div>
-                                <FormControl>
-                                  <Switch
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                  />
-                                </FormControl>
-                              </FormItem>
-                          )}
-                          />
-
-                          {!isFinal && (
-                              <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Navegador de Carpetas</Label>
-                                      <Button 
-                                          type="button" 
-                                          variant="ghost" 
-                                          size="xs" 
-                                          className="h-6 text-[9px] gap-1 border border-zinc-400 px-2 hover:bg-zinc-100"
-                                          onClick={() => setIsCreatingFolder(!isCreatingFolder)}
-                                      >
-                                          <PlusCircle className="h-3 w-3" /> Nueva carpeta aquí
-                                      </Button>
-                                  </div>
-
-                                  <div className="bg-white/60 rounded-md border border-zinc-400 overflow-hidden">
-                                      {/* Breadcrumbs de navegación */}
-                                      <div className="bg-zinc-100/80 px-2 py-1.5 border-b border-zinc-300 flex items-center flex-wrap gap-1">
-                                          {navigationStack.map((folder, idx) => (
-                                              <React.Fragment key={folder.id}>
-                                                  {idx > 0 && <ChevronRight className="h-3 w-3 text-zinc-400" />}
-                                                  <button 
-                                                      type="button" 
-                                                      onClick={() => handleNavigateBack(idx)}
-                                                      className={cn(
-                                                          "text-[10px] hover:text-primary transition-colors truncate max-w-[80px]",
-                                                          idx === navigationStack.length - 1 ? "font-bold text-zinc-800" : "text-zinc-500"
-                                                      )}
-                                                  >
-                                                      {folder.name}
-                                                  </button>
-                                              </React.Fragment>
-                                          ))}
-                                      </div>
-
-                                      {isCreatingFolder && (
-                                          <div className="flex gap-1 p-2 bg-primary/5 border-b border-zinc-300 animate-in zoom-in-95">
-                                              <Input 
-                                                  placeholder="Nombre de la carpeta..." 
-                                                  className="h-7 text-xs bg-white border-zinc-400" 
-                                                  value={newFolderName}
-                                                  onChange={(e) => setNewFolderName(e.target.value)}
-                                                  autoFocus
-                                              />
-                                              <Button type="button" size="sm" className="h-7 text-[10px]" onClick={handleCreateFolder} disabled={!newFolderName.trim()}>Crear</Button>
-                                              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setIsCreatingFolder(false)}><X className="h-3 w-3" /></Button>
-                                          </div>
-                                      )}
-
-                                      <ScrollArea className="h-[120px]">
-                                          {isLoadingFolders ? (
-                                              <div className="flex items-center justify-center h-full py-8">
-                                                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                              </div>
-                                          ) : currentSubfolders.length > 0 ? (
-                                              <div className="p-1 space-y-0.5">
-                                                  {currentSubfolders.map(folder => (
-                                                      <button 
-                                                          key={folder.id}
-                                                          type="button"
-                                                          onClick={() => handleNavigateIn(folder)}
-                                                          className="w-full flex items-center gap-2 p-1.5 hover:bg-primary/10 rounded text-left transition-colors group"
-                                                      >
-                                                          <Folder className="h-3.5 w-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
-                                                          <span className="text-xs truncate">{folder.name}</span>
-                                                          <ChevronRight className="h-3 w-3 ml-auto text-zinc-300 opacity-0 group-hover:opacity-100" />
-                                                      </button>
-                                                  ))}
-                                              </div>
-                                          ) : (
-                                              <div className="p-8 text-center text-[10px] text-zinc-400 italic">Esta carpeta está vacía.</div>
-                                          )}
-                                      </ScrollArea>
-                                  </div>
-                              </div>
-                          )}
-
-                          <FormField
-                          control={form.control}
-                          name="name"
-                          render={({ field }) => (
-                              <FormItem className="space-y-1">
-                              <FormLabel className="text-xs font-semibold">Título del hito</FormLabel>
-                              <FormControl>
-                                  <Input {...field} className="h-8 text-sm bg-zinc-100 text-black border-zinc-400" />
-                              </FormControl>
-                              <FormMessage className="text-[10px]" />
-                              </FormItem>
-                          )}
-                          />
-                          <FormField
-                          control={form.control}
-                          name="description"
-                          render={({ field }) => (
-                              <FormItem className="space-y-1">
-                              <FormLabel className="text-xs font-semibold">Descripción / Detalles</FormLabel>
-                              <FormControl>
-                                  <Textarea className="min-h-[60px] text-sm bg-zinc-100 text-black border-zinc-400" rows={2} {...field} />
-                              </FormControl>
-                              <FormMessage className="text-[10px]" />
-                              </FormItem>
-                          )}
-                          />
-                          <div className="grid grid-cols-2 gap-3 items-start">
+                              />
+                              <FormField
+                              control={form.control}
+                              name="description"
+                              render={({ field }) => (
+                                  <FormItem className="space-y-1 col-span-2">
+                                  <FormLabel className="text-xs font-semibold">Descripción / Detalles</FormLabel>
+                                  <FormControl>
+                                      <Textarea className="min-h-[60px] text-sm bg-zinc-100 text-black border-zinc-400" rows={2} {...field} />
+                                  </FormControl>
+                                  <FormMessage className="text-[10px]" />
+                                  </FormItem>
+                              )}
+                              />
                               <FormField
                               control={form.control}
                               name="occurredAt"
@@ -455,49 +346,127 @@ export function FileUpload({
                               )}
                               />
                           </div>
-                          
-                          <FormField
-                          control={form.control}
-                          name="files"
-                          render={() => (
-                              <FormItem className="space-y-1">
-                              <FormLabel className="text-xs font-semibold">Archivos a subir</FormLabel>
-                              <FormControl>
-                                  <div className="space-y-2">
-                                  <div 
-                                      className="border-2 border-dashed border-zinc-500/50 rounded-lg p-3 text-center cursor-pointer hover:bg-zinc-400/50 transition-colors"
-                                      onClick={() => document.getElementById('file-input')?.click()}
-                                  >
-                                      <UploadCloud className="mx-auto h-6 w-6 text-zinc-600" />
-                                      <p className="text-[9px] text-zinc-500 mt-1">Click para seleccionar archivos</p>
-                                      <input id="file-input" type="file" className="hidden" multiple onChange={handleFileChange} />
-                                  </div>
-                                  {selectedFiles.length > 0 && (
-                                      <ul className="max-h-24 overflow-y-auto space-y-1 rounded-md border border-zinc-400 p-1.5 bg-zinc-200 text-[10px]">
-                                          {selectedFiles.map((file, index) => (
-                                              <li key={index} className="flex items-center justify-between p-1 bg-zinc-100 rounded">
-                                              <div className="flex items-center gap-1.5 truncate">
+
+                          <div className="space-y-2 border-t border-zinc-400/30 pt-3">
+                              <Label className="text-xs font-bold uppercase text-zinc-500">Archivos y Clasificación</Label>
+                              <div 
+                                  className="border-2 border-dashed border-zinc-500/50 rounded-lg p-3 text-center cursor-pointer hover:bg-zinc-400/50 transition-colors"
+                                  onClick={() => document.getElementById('file-input-new-ms')?.click()}
+                              >
+                                  <UploadCloud className="mx-auto h-6 w-6 text-zinc-600" />
+                                  <p className="text-[9px] text-zinc-500 mt-1">Hacé clic aquí para seleccionar archivos</p>
+                                  <input id="file-input-new-ms" type="file" className="hidden" multiple onChange={handleFileChange} />
+                              </div>
+                              
+                              {fileConfigs.length > 0 && (
+                                  <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-md border border-zinc-400 p-1.5 bg-zinc-200">
+                                      {fileConfigs.map((config, index) => (
+                                          <div key={index} className="flex items-center justify-between p-1.5 bg-zinc-100 rounded gap-2">
+                                              <div className="flex items-center gap-1.5 truncate flex-1">
                                                   <FileIconLucide className="h-3 w-3 shrink-0 text-zinc-400" />
-                                                  <span className="truncate">{file.name}</span>
+                                                  <span className="text-[10px] truncate font-medium">{config.file.name}</span>
                                               </div>
-                                              <button type="button" onClick={() => {
-                                                  const updatedFiles = selectedFiles.filter((_, i) => i !== index);
-                                                  form.setValue('files', updatedFiles, { shouldValidate: true });
-                                              }} className="text-destructive hover:bg-red-50 p-0.5 rounded"><X className="h-3 w-3" /></button>
-                                              </li>
-                                          ))}
-                                      </ul>
-                                  )}
+                                              <div className="flex items-center gap-1">
+                                                  <button 
+                                                      type="button"
+                                                      onClick={() => toggleFileType(index)}
+                                                      className={cn(
+                                                          "flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all border",
+                                                          config.isFinal 
+                                                              ? "bg-primary/10 border-primary/20 text-primary" 
+                                                              : "bg-amber-50 border-amber-200 text-amber-700"
+                                                      )}
+                                                  >
+                                                      {config.isFinal ? <ShieldCheck className="h-2.5 w-2.5" /> : <Briefcase className="h-2.5 w-2.5" />}
+                                                      {config.isFinal ? 'Final' : 'Trabajo'}
+                                                  </button>
+                                                  <button type="button" onClick={() => removeFile(index)} className="text-destructive hover:bg-red-50 p-0.5 rounded"><X className="h-3 w-3" /></button>
+                                              </div>
+                                          </div>
+                                      ))}
                                   </div>
-                              </FormControl>
-                              </FormItem>
+                              )}
+                          </div>
+
+                          {hasWorkFiles && (
+                              <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-2 border-t border-zinc-400/30 pt-3">
+                                  <div className="flex items-center justify-between">
+                                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Destino de Trabajo</Label>
+                                      <Button 
+                                          type="button" 
+                                          variant="ghost" 
+                                          size="xs" 
+                                          className="h-6 text-[9px] gap-1 border border-zinc-400 px-2 hover:bg-zinc-100"
+                                          onClick={() => setIsCreatingFolder(!isCreatingFolder)}
+                                      >
+                                          <PlusCircle className="h-3 w-3" /> Nueva
+                                      </Button>
+                                  </div>
+
+                                  <div className="bg-white/60 rounded-md border border-zinc-400 overflow-hidden">
+                                      <div className="bg-zinc-100/80 px-2 py-1 border-b border-zinc-300 flex items-center flex-wrap gap-1">
+                                          {navigationStack.map((folder, idx) => (
+                                              <React.Fragment key={folder.id}>
+                                                  {idx > 0 && <ChevronRight className="h-2 w-2 text-zinc-400" />}
+                                                  <button 
+                                                      type="button" 
+                                                      onClick={() => handleNavigateBack(idx)}
+                                                      className={cn(
+                                                          "text-[9px] hover:text-primary transition-colors truncate max-w-[70px]",
+                                                          idx === navigationStack.length - 1 ? "font-bold text-zinc-800" : "text-zinc-500"
+                                                      )}
+                                                  >
+                                                      {folder.name}
+                                                  </button>
+                                              </React.Fragment>
+                                          ))}
+                                      </div>
+
+                                      {isCreatingFolder && (
+                                          <div className="flex gap-1 p-1 bg-primary/5 border-b border-zinc-300">
+                                              <Input 
+                                                  placeholder="Nombre..." 
+                                                  className="h-6 text-[10px] bg-white border-zinc-400" 
+                                                  value={newFolderName}
+                                                  onChange={(e) => setNewFolderName(e.target.value)}
+                                                  autoFocus
+                                              />
+                                              <Button type="button" size="sm" className="h-6 text-[9px]" onClick={handleCreateFolder}>Ok</Button>
+                                              <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsCreatingFolder(false)}><X className="h-3 w-3" /></Button>
+                                          </div>
+                                      )}
+
+                                      <ScrollArea className="h-[80px]">
+                                          {isLoadingFolders ? (
+                                              <div className="flex items-center justify-center h-full py-4">
+                                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                              </div>
+                                          ) : currentSubfolders.length > 0 ? (
+                                              <div className="p-1 space-y-0.5">
+                                                  {currentSubfolders.map(folder => (
+                                                      <button 
+                                                          key={folder.id}
+                                                          type="button"
+                                                          onClick={() => handleNavigateIn(folder)}
+                                                          className="w-full flex items-center gap-2 p-1 hover:bg-primary/10 rounded text-left transition-colors group"
+                                                      >
+                                                          <Folder className="h-3 w-3 text-amber-600" />
+                                                          <span className="text-[10px] truncate">{folder.name}</span>
+                                                      </button>
+                                                  ))}
+                                              </div>
+                                          ) : (
+                                              <div className="p-4 text-center text-[9px] text-zinc-400 italic">Carpeta vacía.</div>
+                                          )}
+                                      </ScrollArea>
+                                  </div>
+                              </div>
                           )}
-                          />
                       </fieldset>
                       )}
                       <DialogFooter className="pt-2 gap-2 flex flex-row justify-end">
                         <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-8 border-zinc-400">Cerrar</Button>
-                        <Button type="submit" size="sm" disabled={isUploading} className="h-8 shadow-md">Subir e Iniciar Hito</Button>
+                        <Button type="submit" size="sm" disabled={isUploading || fileConfigs.length === 0} className="h-8 shadow-md">Crear e Iniciar Hito</Button>
                       </DialogFooter>
                   </form>
                   </Form>
