@@ -60,6 +60,24 @@ function getTrelloColorForStatus(status: string): string | null {
 }
 
 /**
+ * Extrae el valor de un campo específico de la descripción de Trello.
+ */
+function extractFieldFromDesc(desc: string, field: string): string {
+    if (!desc) return '';
+    const lines = desc.split('\n');
+    const fieldLower = field.toLowerCase().trim();
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.toLowerCase().startsWith(fieldLower + ':')) {
+            let val = trimmedLine.substring(fieldLower.length + 1).trim();
+            val = val.replace(/\*\*/g, '').trim();
+            return val;
+        }
+    }
+    return '';
+}
+
+/**
  * Reconcilia la descripción actual de una tarjeta con la plantilla maestra,
  * asegurando que se respecte el orden de los campos y se preserven los datos existentes.
  */
@@ -264,6 +282,23 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
         if (!selectedCuenca) throw new Error('Cuenca no válida.');
 
+        // --- LÓGICA DE DETECCIÓN DE NUEVOS MIEMBROS PARA DRIVE ---
+        const oldDesc = currentCard.desc || '';
+        const prevEmails = new Set([
+            ...getEmailsFromSelection(extractFieldFromDesc(oldDesc, '- Diagnóstico ambiental-socioeconómico')),
+            ...getEmailsFromSelection(extractFieldFromDesc(oldDesc, '- Información SIG-imágenes')),
+            ...getEmailsFromSelection(extractFieldFromDesc(oldDesc, '- Información LIDAR/vuelos Dron'))
+        ]);
+
+        const currentSelectionEmails = [
+            ...getEmailsFromSelection(diagnosticoEquipo || ''),
+            ...getEmailsFromSelection(informacionSig || ''),
+            ...getEmailsFromSelection(informacionDron || '')
+        ];
+
+        // Solo compartimos con los que NO estaban antes (evita notificaciones duplicadas y preserva a los removidos)
+        const newEmailsToShare = currentSelectionEmails.filter(email => !prevEmails.has(email));
+
         let cardName = currentCard.name;
         let idList = currentCard.idList;
 
@@ -323,36 +358,28 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
 
         await updateTrelloCard(updatePayload);
 
-        // --- LÓGICA DE COMPARTIR CARPETA DE DRIVE TRAS ACTUALIZACIÓN ---
+        // --- LÓGICA DE COMPARTIR CARPETA DE DRIVE SOLO A NUEVOS ---
         try {
-            const driveFolder = (currentCard.attachments || []).find(a => 
-                a.url.includes('drive.google.com') && 
-                (a.url.includes('/folders/') || a.url.includes('id='))
-            );
-            
-            if (driveFolder) {
-                const folderId = await extractIdFromUrl(driveFolder.url);
-                if (folderId) {
-                    const emailsToShare = new Set<string>();
-                    // Agregamos a todos los miembros actuales del equipo técnico nominados en el formulario
-                    getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-                    getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-                    getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-                    
-                    const emailList = Array.from(emailsToShare);
-                    if (emailList.length > 0) {
-                        await shareFolderWithEmails(folderId, emailList);
+            if (newEmailsToShare.length > 0) {
+                const driveFolder = (currentCard.attachments || []).find(a => 
+                    a.url.includes('drive.google.com') && 
+                    (a.url.includes('/folders/') || a.url.includes('id='))
+                );
+                
+                if (driveFolder) {
+                    const folderId = await extractIdFromUrl(driveFolder.url);
+                    if (folderId) {
+                        await shareFolderWithEmails(folderId, newEmailsToShare);
                     }
                 }
             }
         } catch (shareError) {
-            console.error('Error al compartir carpeta en actualización:', shareError);
-            // No bloqueamos el éxito de la actualización por fallos de Drive
+            console.error('Error al compartir carpeta con nuevos miembros:', shareError);
         }
 
         return {
             success: true,
-            message: 'Proyecto actualizado con éxito y permisos de Drive sincronizados.',
+            message: 'Proyecto actualizado con éxito. Se notificó el acceso a Drive solo a los nuevos integrantes.',
             cardId: cardId,
             projectName: cardName,
             isStatusChange: isStatusChange,
