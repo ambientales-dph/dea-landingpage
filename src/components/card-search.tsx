@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, HardDrive, History, AlertTriangle } from 'lucide-react';
+import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, HardDrive, History, AlertTriangle, BookText } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -96,6 +96,20 @@ const trelloCoverColors = [
     { name: 'pink', hex: '#e774bb', label: 'Rosa' },
     { name: 'black', hex: '#44546f', label: 'Negro' },
 ];
+
+const isScientificUrl = (url: string): boolean => {
+  if (!url) return false;
+  const scientificDomains = [
+    'doi.org', 'sciencedirect.com', 'scielo.org', 'repositoriosdigitales.mincyt.gob.ar', 
+    'elsevier.com', 'journals.plos.org', 'doaj.org', 'crossref.org'
+  ];
+  try {
+    const { hostname } = new URL(url);
+    return scientificDomains.some(domain => hostname.includes(domain));
+  } catch (e) {
+    return false;
+  }
+};
 
 const trelloColorToStyle = (color: string | null | undefined): React.CSSProperties => {
     if (!color) return { backgroundColor: '#fff', color: '#172b4d' };
@@ -533,12 +547,19 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return inspectionPath[0].name === 'Línea de Tiempo';
   }, [inspectionPath]);
 
+  const isCurrentlyInExternal = useMemo(() => {
+    if (inspectionPath.length === 0) return false;
+    return inspectionPath[0].id === 'virtual-external';
+  }, [inspectionPath]);
+
   useEffect(() => {
     const fetchContents = async () => {
-      if (inspectionPath.length === 0) {
+      if (inspectionPath.length === 0 || isCurrentlyInExternal) {
         setIsInspecting(false);
-        setFolderContents([]);
-        setNextPageToken(null);
+        if (!isCurrentlyInExternal) {
+            setFolderContents([]);
+            setNextPageToken(null);
+        }
         return;
       }
 
@@ -557,7 +578,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     };
 
     fetchContents();
-  }, [inspectionPath, toast]);
+  }, [inspectionPath, toast, isCurrentlyInExternal]);
 
   const handleLoadMore = async () => {
     if (!nextPageToken || isInspecting || isLoadingMore) return;
@@ -585,10 +606,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
   const handleAttachmentClick = async (att: any) => {
     const isTL = att.name === 'Línea de Tiempo';
+    const isExternal = att.name === 'Enlaces Externos';
     const id = await extractIdFromUrl(att.url);
     
     if (isTL && tlFolderId) {
         handleEnterFolder(tlFolderId, 'Línea de Tiempo');
+    } else if (isExternal) {
+        handleEnterFolder('virtual-external', 'Enlaces Externos');
     } else if (isDriveFolder(att.url) && id) {
         handleEnterFolder(id, att.name);
     }
@@ -776,20 +800,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
   }, [isSummaryOpen, selectedCard?.id, fetchCardData]);
 
+  const externalAttachments = useMemo(() => {
+    if (!selectedCard) return [];
+    return (selectedCard.attachments || []).filter(att => !isDriveFolder(att.url));
+  }, [selectedCard]);
+
   const sortedAttachments = useMemo(() => {
     const attachments = selectedCard?.attachments || [];
     
-    const filtered = attachments.filter(att => {
-        const isFolder = isDriveFolder(att.url);
-        const isDrive = isDriveFile(att.url) || att.url.includes('drive.google.com');
-        
-        if (isFolder) return true;
-        if (isDrive) return false; 
-        
-        return true;
-    });
+    // Only Drive Folders go to the main list
+    const driveFolders = attachments.filter(att => isDriveFolder(att.url));
 
-    const result = [...filtered];
+    const result = [...driveFolders];
 
     if (tlFolderId) {
         result.push({
@@ -800,8 +822,17 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         });
     }
 
+    if (externalAttachments.length > 0) {
+        result.push({
+            id: 'virtual-external',
+            name: 'Enlaces Externos',
+            url: '#',
+            previews: []
+        });
+    }
+
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [selectedCard, tlFolderId]);
+  }, [selectedCard, tlFolderId, externalAttachments]);
 
   return (
     <div className="flex w-full flex-col">
@@ -967,7 +998,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                   <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80">
                                     {inspectionPath.length > 0 ? (
                                       <span className="flex items-center gap-1">
-                                        {isCurrentlyInTL ? <History className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
+                                        {isCurrentlyInTL ? <History className="h-3 w-3" /> : isCurrentlyInExternal ? <LinkIcon className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
                                         {inspectionPath[inspectionPath.length - 1].name}
                                       </span>
                                     ) : (
@@ -995,13 +1026,54 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                           onClick={() => handleAttachmentClick(att)}
                                           className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
                                         >
-                                          {att.name === 'Línea de Tiempo' ? <History className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" /> : <Folder className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />}
+                                          {att.name === 'Línea de Tiempo' ? (
+                                            <History className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                          ) : att.id === 'virtual-external' ? (
+                                            <LinkIcon className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                          ) : (
+                                            <Folder className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                          )}
                                           <div className="flex flex-col flex-1 min-w-0">
                                             <span className="font-bold min-w-0 break-words whitespace-normal">{att.name}</span>
                                             {att.name === 'Línea de Tiempo' && <span className="text-[8px] text-zinc-500 uppercase">Documentación Final • Solo Descarga</span>}
+                                            {att.id === 'virtual-external' && <span className="text-[8px] text-zinc-500 uppercase">Bibliografía y Recursos • {externalAttachments.length} enlaces</span>}
                                           </div>
                                         </button>
                                       ))
+                                    ) : isCurrentlyInExternal ? (
+                                        externalAttachments.length === 0 ? (
+                                            <div className="p-4 text-center text-[10px] text-muted-foreground italic">No hay enlaces externos vinculados.</div>
+                                        ) : (
+                                            externalAttachments.map(att => (
+                                                <div key={att.id} className="flex items-center group w-full pr-2">
+                                                    <button 
+                                                        onClick={() => window.open(att.url, '_blank')}
+                                                        className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs flex-1 min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                                    >
+                                                        {isScientificUrl(att.url) ? (
+                                                            <BookText className="h-3.5 w-3.5 text-fuchsia-600 shrink-0 mt-0.5" />
+                                                        ) : (
+                                                            <LinkIcon className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                                        )}
+                                                        <div className="flex flex-col flex-1 min-w-0">
+                                                            <span className="flex-1 min-w-0 break-words whitespace-normal font-medium">{att.name}</span>
+                                                            {isScientificUrl(att.url) && (
+                                                                <span className="text-[8px] font-bold text-fuchsia-600 uppercase">Recurso Científico</span>
+                                                            )}
+                                                        </div>
+                                                    </button>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                                        onClick={(e) => { e.stopPropagation(); window.open(att.url, '_blank'); }}
+                                                        title="Abrir en pestaña nueva"
+                                                    >
+                                                        <ExternalLink className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            ))
+                                        )
                                     ) : (
                                       <>
                                         {folderContents.length === 0 ? (
@@ -1204,14 +1276,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             projectId={selectedCard.id}
             projectName={selectedCard.name}
             onReorganized={(movedIds) => {
-                // Actualización instantánea del estado local para quitar archivos procesados
                 movedIds.forEach(id => recentlyMovedIds.current.add(id));
                 setLooseFiles(prev => prev.filter(f => !movedIds.includes(f.id)));
                 setIsReorgAssistantOpen(false);
-                // Refetch de seguridad después de un delay mayor para dar tiempo a Drive de asentar los cambios (consistencia eventual)
                 setTimeout(() => {
                     fetchCardData();
-                    // Limpiar memoria de movidos después de un tiempo prudencial
                     setTimeout(() => recentlyMovedIds.current.clear(), 10000);
                 }, 4000);
             }}
