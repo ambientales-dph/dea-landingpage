@@ -21,7 +21,7 @@ import {
 import { es } from 'date-fns/locale';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
-import { Star } from 'lucide-react';
+import { Star, Paperclip } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer, XAxis } from 'recharts';
 
 interface TimelineProps {
@@ -415,6 +415,8 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
           {visibleMilestones.map(milestone => {
             const position = filePositions.get(milestone.id) ?? 0;
             const height = heights.current.get(milestone.id) ?? 60;
+            const hasFiles = milestone.associatedFiles && milestone.associatedFiles.length > 0;
+
             return (
               <div key={milestone.id} className={cn("absolute bottom-7 flex flex-col items-center", activeMilestoneId === milestone.id ? 'z-40' : 'z-20')} style={{ left: `${position}%`, transform: 'translateX(-50%)' }}>
                 <Tooltip delayDuration={100} onOpenChange={o => setActiveMilestoneId(o ? milestone.id : null)}>
@@ -425,7 +427,10 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
                        {milestone.isImportant && <div style={{ bottom: `${height + 10}px`}} className="absolute"><Star className="w-4 h-4 text-yellow-400 fill-yellow-400" /></div>}
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent><p className="font-semibold">{milestone.name}</p></TooltipContent>
+                  <TooltipContent className="flex items-center gap-1.5 px-2 py-1 bg-white text-black border-zinc-200 shadow-md">
+                    {hasFiles && <Paperclip className="h-3 w-3 text-zinc-500" />}
+                    <p className="font-semibold text-[10px]">{milestone.name}</p>
+                  </TooltipContent>
                 </Tooltip>
               </div>
             );
