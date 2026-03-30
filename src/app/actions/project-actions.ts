@@ -11,7 +11,7 @@ import {
     getListsOnBoard,
     getCardById
 } from '@/services/trello';
-import { createProjectFolder, shareFolderWithEmails } from '@/services/google-drive';
+import { createProjectFolder, shareFolderWithEmails, extractIdFromUrl } from '@/services/google-drive';
 import { WHITELIST } from '@/lib/auth-data';
 
 const PROYECTOS_BOARD_ID = 'CgG4b3B0';
@@ -126,7 +126,7 @@ function reconcileDescription(currentDesc: string, updates: Record<string, strin
 
 function getEmailsFromSelection(selection: string): string[] {
     if (!selection) return [];
-    const names = selection.split(';').map(n => n.trim()).filter(Boolean);
+    const names = selection.split(/[,;]/).map(n => n.trim()).filter(Boolean);
     return names.map(name => {
         const person = WHITELIST.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
         return person?.email;
@@ -323,9 +323,36 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
 
         await updateTrelloCard(updatePayload);
 
+        // --- LÓGICA DE COMPARTIR CARPETA DE DRIVE TRAS ACTUALIZACIÓN ---
+        try {
+            const driveFolder = (currentCard.attachments || []).find(a => 
+                a.url.includes('drive.google.com') && 
+                (a.url.includes('/folders/') || a.url.includes('id='))
+            );
+            
+            if (driveFolder) {
+                const folderId = await extractIdFromUrl(driveFolder.url);
+                if (folderId) {
+                    const emailsToShare = new Set<string>();
+                    // Agregamos a todos los miembros actuales del equipo técnico nominados en el formulario
+                    getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+                    getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+                    getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+                    
+                    const emailList = Array.from(emailsToShare);
+                    if (emailList.length > 0) {
+                        await shareFolderWithEmails(folderId, emailList);
+                    }
+                }
+            }
+        } catch (shareError) {
+            console.error('Error al compartir carpeta en actualización:', shareError);
+            // No bloqueamos el éxito de la actualización por fallos de Drive
+        }
+
         return {
             success: true,
-            message: 'Proyecto actualizado con éxito.',
+            message: 'Proyecto actualizado con éxito y permisos de Drive sincronizados.',
             cardId: cardId,
             projectName: cardName,
             isStatusChange: isStatusChange,

@@ -69,13 +69,14 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
 import { getDriveResourceName, extractIdFromUrl, listFolderContents, getTimelineFolderForProject, getProjectFolderIdInTL } from '@/services/google-drive';
 import { sendProjectEmail } from '@/app/actions/email-actions';
+import { updateProject } from '@/app/actions/project-actions';
 import { useProject } from '@/providers/project-provider';
 import ReorganizationAssistant from './reorganization-assistant';
 import { EQUIPO_DEA, EQUIPO_SIG, EQUIPO_DRON } from '@/lib/equipo';
 import { MUNICIPIOS } from '@/lib/municipios';
 import { PROYECTISTAS } from '@/lib/proyectistas';
 import { FINANCIAMIENTO } from '@/lib/financiamiento';
-import { DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
+import { DESCRIPCION_PLANTILLA, CUENCAS } from '@/lib/cuencas';
 
 const ESTADOS_PROYECTO = [
     "Sin iniciar",
@@ -294,6 +295,14 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
     );
 };
 
+interface CardSearchProps {
+  onCardSelect: (card: TrelloCard | null) => void;
+  selectedCard: TrelloCard | null;
+  onClear: () => void;
+  isSummaryOpen: boolean;
+  onSummaryOpenChange: (open: boolean) => void;
+}
+
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const { user } = useUser();
   const db = useFirestore();
@@ -476,87 +485,55 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     if (!selectedCard) return;
     setIsSaving(true);
     try {
-        const currentCard = await getCardById(selectedCard.id);
-        const codeMatch = currentCard.name.match(/\(([A-Z]{2,4}\d{3})\)$/);
-        const currentCode = codeMatch ? codeMatch[1] : 'XXX000';
-        const finalCardName = `${editedName} (${currentCode})`;
+        // Obtenemos la cuenca actual para enviar el ID correcto al action
+        const cuencaCodeMatch = selectedCard.name.match(/\(([A-Z]{2,4})\d{3}\)$/);
+        const cuencaCode = cuencaCodeMatch ? cuencaCodeMatch[1] : null;
+        const selectedCuenca = CUENCAS.find(c => c.code === cuencaCode);
 
-        const lines = (currentCard.desc || '').split('\n');
-        let oldStatus = null;
-        for (const line of lines) {
-            if (line.trim().startsWith('ESTADO:')) {
-                oldStatus = line.split(':')[1].trim().replace(/\*\*/g, '');
-                break;
+        // Preparamos FormData para usar el action centralizado que maneja Drive
+        const formData = new FormData();
+        formData.append('cardId', selectedCard.id);
+        formData.append('nombre', editedName);
+        formData.append('cuenca', selectedCuenca?.id || '');
+        formData.append('estado', editStatus);
+        formData.append('partido', editPartidos.join(', '));
+        formData.append('proyectista', editProyectistas.join(', '));
+        formData.append('financiamiento', editFinanciamiento.join(', '));
+        formData.append('diagnosticoEquipo', editEquipo.join('; '));
+        formData.append('informacionSig', editSig.join('; '));
+        formData.append('informacionDron', editDron.join('; '));
+        formData.append('userEmail', user?.email || '');
+
+        const result = await updateProject({ success: false }, formData);
+
+        if (result.success) {
+            // Registrar actividad en Firestore (opcional si el action ya lo hace, pero aquí lo reforzamos si es necesario)
+            if (user && db) {
+                const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+                const activityData = {
+                    userId: user.uid,
+                    userName: authorizedUser?.name || user.displayName || 'Usuario',
+                    userEmail: user.email,
+                    userPhoto: user.photoURL || '',
+                    actionType: result.isStatusChange ? 'status_change' : 'update_project',
+                    projectName: result.projectName || selectedCard.name,
+                    detail: result.isStatusChange ? `Cambió estado a "${editStatus}"` : 'Edición estructurada desde ficha',
+                    cardId: selectedCard.id,
+                    timestamp: serverTimestamp(),
+                };
+                await addDoc(collection(db, 'app_activities'), activityData);
             }
+
+            const updated = await getCardById(selectedCard.id);
+            onCardSelect(updated);
+            setIsEditing(false);
+            refreshCards();
+            toast({ title: 'Cambios guardados', description: 'Proyecto actualizado y permisos de Drive sincronizados.' });
+        } else {
+            toast({ variant: 'destructive', title: 'Error al guardar', description: result.message });
         }
-        
-        const isStatusChange = editStatus !== oldStatus;
-
-        // Reconciliación manual de descripción usando plantilla
-        let finalDescription = DESCRIPCION_PLANTILLA;
-        const updates: Record<string, string> = {
-            'ESTADO': editStatus,
-            'PARTIDO': editPartidos.join(', '),
-            '- Proyectista': editProyectistas.join(', '),
-            'FINANCIAMIENTO': editFinanciamiento.join(', '),
-            '- Diagnóstico ambiental-socioeconómico': editEquipo.join('; '),
-            '- Información SIG-imágenes': editSig.join('; '),
-            '- Información LIDAR/vuelos Dron': editDron.join('; ')
-        };
-
-        Object.keys(updates).forEach(key => {
-            const val = updates[key];
-            const regex = new RegExp(`^([- ]?${key}:).*$`, 'm');
-            finalDescription = finalDescription.replace(regex, `$1 **${val}**`);
-        });
-
-        // Añadir el contenido extra al final si existe, antes del hashtag
-        if (editExtraDesc.trim()) {
-            finalDescription = finalDescription.replace('#', `${editExtraDesc}\n\n#`);
-        }
-
-        const updatePayload: any = {
-            cardId: selectedCard.id,
-            name: finalCardName,
-            desc: finalDescription,
-            idBoard: editedBoardId,
-            idList: editedListId,
-            cover: { color: STATUS_COLORS[editStatus] || 'red' }
-        };
-
-        if (isStatusChange) {
-            const timestampStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
-            await addCommentToCard({
-                cardId: selectedCard.id,
-                text: `📍 HITO DE PROYECTO: El estado ha cambiado de "${oldStatus || '---'}" a "${editStatus}". Fecha: ${timestampStr}.`
-            });
-        }
-
-        const updated = await updateTrelloCard(updatePayload);
-        
-        // Registrar actividad
-        if (user && db) {
-            const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
-            const activityData = {
-                userId: user.uid,
-                userName: authorizedUser?.name || user.displayName || 'Usuario',
-                userEmail: user.email,
-                userPhoto: user.photoURL || '',
-                actionType: isStatusChange ? 'status_change' : 'update_project',
-                projectName: finalCardName,
-                detail: isStatusChange ? `Cambió estado a "${editStatus}"` : 'Edición estructurada desde ficha',
-                cardId: selectedCard.id,
-                timestamp: serverTimestamp(),
-            };
-            await addDoc(collection(db, 'app_activities'), activityData);
-        }
-
-        onCardSelect(updated);
-        setIsEditing(false);
-        refreshCards();
-        toast({ title: 'Cambios guardados' });
-    } catch (e) {
-        toast({ variant: 'destructive', title: 'Error al guardar' });
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error inesperado', description: e.message });
     } finally {
         setIsSaving(false);
     }
@@ -995,6 +972,15 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
     return result.sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedCard, tlFolderId, externalAttachments]);
+
+  const isScientificUrl = (url: string): boolean => {
+    if (!url) return false;
+    const domains = ['doi.org', 'sciencedirect.com', 'scielo.org', 'repositoriosdigitales.mincyt.gob.ar'];
+    try {
+        const { hostname } = new URL(url);
+        return domains.some(d => hostname.includes(d));
+    } catch { return false; }
+  };
 
   return (
     <div className="flex w-full flex-col">
