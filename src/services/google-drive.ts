@@ -125,6 +125,25 @@ export async function createMilestoneFolder(parentFolderId: string, milestoneNam
 }
 
 /**
+ * Crea una subcarpeta simple dentro de un directorio padre.
+ */
+export async function createSubfolder(parentFolderId: string, folderName: string) {
+    try {
+        const folder = await drive.files.create({
+            requestBody: {
+                name: folderName,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [parentFolderId],
+            },
+            fields: 'id, name',
+        });
+        return folder.data;
+    } catch (error: any) {
+        throw new Error(`Error al crear subcarpeta: ${error.message}`);
+    }
+}
+
+/**
  * Obtiene el nombre de un recurso (archivo o carpeta) de Google Drive.
  */
 export async function getDriveResourceName(url: string): Promise<{ name: string; isFolder: boolean } | null> {

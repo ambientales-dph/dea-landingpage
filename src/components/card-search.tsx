@@ -336,6 +336,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Sincronizar el buscador con el proyecto activo
   useEffect(() => {
     if (selectedCard) {
       setQuery(selectedCard.name);
