@@ -426,10 +426,10 @@ function HomeContent() {
             name: driveResult.name,
             size: `${(config.file.size / 1024).toFixed(2)} KB`,
             type: config.file.type.startsWith('image/') ? 'image' : config.file.type.startsWith('video/') ? 'video' : config.file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => config.file.type.includes(t)) ? 'document' : 'other',
-            url: driveResult.webViewLink,
-            downloadUrl: driveResult.webContentLink,
+            url: driveResult.webViewLink || null as any,
+            downloadUrl: driveResult.webContentLink || null as any,
             driveId: driveResult.id,
-            trelloId: trelloId,
+            trelloId: trelloId || null as any,
             isTimelineFile: config.isFinal
           });
           
@@ -466,7 +466,7 @@ function HomeContent() {
           associatedFiles: associatedFiles,
           isImportant: false,
           history: [`${format(new Date(), "PPpp", { locale: es })} - Hito creado con carga mixta de ${associatedFiles.length} archivo(s).`],
-          driveFolderId: hasFinal ? milestoneFolderId : null
+          driveFolderId: hasFinal ? (milestoneFolderId || null) : null
       };
 
       const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');

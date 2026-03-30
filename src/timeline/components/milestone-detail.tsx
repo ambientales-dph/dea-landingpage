@@ -23,7 +23,7 @@ import { Calendar } from './ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { FileConflictDialog, type ConflictStrategy } from './file-conflict-dialog';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { WHITELIST } from '@/lib/auth-data';
 import { AddFilesDialog, type FileConfig } from './add-files-dialog';
 
@@ -412,6 +412,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             url: file.webViewLink || null as any,
             downloadUrl: file.webContentLink || null as any,
             driveId: file.id,
+            trelloId: null as any,
             isTimelineFile: true
         }));
 
@@ -800,7 +801,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             <DialogContent className="sm:max-w-[400px] bg-zinc-100 text-black border-zinc-400">
                 <DialogHeader>
                     <DialogTitle className="text-destructive flex items-center gap-2">
-                         Trash2 className="h-5 w-5" /> Eliminar Archivo
+                         <Trash2 className="h-5 w-5" /> Eliminar Archivo
                     </DialogTitle>
                     <DialogDescription className="text-zinc-700 pt-2 text-xs">
                         Se borrará <span className="font-bold text-black">{fileToDelete?.name}</span> de Drive y Trello.
