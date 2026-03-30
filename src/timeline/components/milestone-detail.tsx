@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Paperclip, Tag, X, Star, Pencil, History, UploadCloud, Clock, ExternalLink, Trash2, CalendarIcon, Download, RefreshCw, Loader2 } from 'lucide-react';
+import { Paperclip, Tag, X, Star, Pencil, History, UploadCloud, Clock, ExternalLink, Trash2, CalendarIcon, Download, RefreshCw, Loader2, Share2, Search, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isSameDay, isValid, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -26,6 +26,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { WHITELIST } from '@/lib/auth-data';
 import { AddFilesDialog, type FileConfig } from './add-files-dialog';
+import { useProject } from '@/providers/project-provider';
 
 interface MilestoneDetailProps {
   milestone: Milestone;
@@ -40,6 +41,7 @@ interface MilestoneDetailProps {
 export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMilestoneDelete, onClose, projectName, cardId }: MilestoneDetailProps) {
   const { user } = useUser();
   const db = useFirestore();
+  const { allCards } = useProject();
   const [newTag, setNewTag] = React.useState('');
   const [isEditingTitle, setIsEditingTitle] = React.useState(false);
   const [editableTitle, setEditableTitle] = React.useState('');
@@ -63,6 +65,12 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
 
+  // Exportar hito
+  const [isExportDialogOpen, setIsExportDialogOpen] = React.useState(false);
+  const [exportSearchQuery, setExportSearchQuery] = React.useState('');
+  const [selectedTargetProjects, setSelectedTargetProjects] = React.useState<string[]>([]);
+  const [isExporting, setIsExporting] = React.useState(false);
+
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -80,11 +88,13 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
       setFileToDelete(null);
       setFileDeleteConfirmation('');
       setShowCalendar(false);
+      setIsExportDialogOpen(false);
+      setSelectedTargetProjects([]);
     }
   }, [milestone]);
 
-  const logActivity = React.useCallback(async (actionType: string, detail: string) => {
-    if (user && db && cardId) {
+  const logActivity = React.useCallback(async (actionType: string, detail: string, targetProjectName?: string, targetCardId?: string) => {
+    if (user && db) {
       const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
       const realName = authorizedUser?.name || user.displayName || 'Usuario';
 
@@ -94,9 +104,9 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         userEmail: user.email,
         userPhoto: user.photoURL || '',
         actionType: actionType,
-        projectName: projectName,
+        projectName: targetProjectName || projectName,
         detail: detail,
-        cardId: cardId,
+        cardId: targetCardId || cardId || '',
         timestamp: serverTimestamp(),
       };
 
@@ -348,7 +358,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         
         const driveResult = await uploadFileToDrive(targetName, config.file.type, base64Data, folderId, existingId);
         
-        let trelloId: string | undefined = undefined;
+        let trelloId: string | null = null;
         if (cardId && config.isFinal) {
             update({ id: toastId, title: "Actualizando Trello...", description: `Vinculando hito final: ${driveResult.name}` });
             const trelloAtt = await attachUrlToCard(cardId, driveResult.name, driveResult.webViewLink);
@@ -360,10 +370,10 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
           name: driveResult.name,
           size: `${(config.file.size / 1024).toFixed(2)} KB`,
           type: config.file.type.startsWith('image/') ? 'image' : config.file.type.startsWith('video/') ? 'video' : config.file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => config.file.type.includes(t)) ? 'document' : 'other',
-          url: driveResult.webViewLink || null as any,
-          downloadUrl: driveResult.webContentLink || null as any,
+          url: driveResult.webViewLink || null,
+          downloadUrl: (driveResult as any).webContentLink || null,
           driveId: driveResult.id,
-          trelloId: trelloId || null as any,
+          trelloId: trelloId,
           isTimelineFile: config.isFinal
         });
       }
@@ -409,10 +419,10 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             name: file.name,
             size: file.size ? `${(parseInt(file.size) / 1024).toFixed(2)} KB` : "---",
             type: file.mimeType.startsWith('image/') ? 'image' : file.mimeType.startsWith('video/') ? 'video' : file.mimeType.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => file.mimeType.includes(t)) ? 'document' : 'other',
-            url: file.webViewLink || null as any,
-            downloadUrl: file.webContentLink || null as any,
+            url: file.webViewLink || null,
+            downloadUrl: file.webContentLink || null,
             driveId: file.id,
-            trelloId: null as any,
+            trelloId: null,
             isTimelineFile: true
         }));
 
@@ -500,6 +510,60 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         toast({ variant: "destructive", title: "Error al eliminar archivo", description: error.message });
     }
   };
+
+  const handleExportMilestone = async () => {
+    if (selectedTargetProjects.length === 0 || !milestone) return;
+    setIsExporting(true);
+    
+    const { id: toastId, dismiss } = toast({
+        title: "Exportando hito...",
+        description: `Enviando a ${selectedTargetProjects.length} proyecto(s).`,
+        duration: Infinity
+    });
+
+    try {
+        const cleanFiles = (milestone.associatedFiles || []).map(f => ({
+            ...f,
+            trelloId: null // No arrastramos el vínculo de Trello del proyecto original
+        }));
+
+        for (const targetId of selectedTargetProjects) {
+            const targetProject = allCards.find(c => c.id === targetId);
+            const milestoneData = {
+                name: milestone.name,
+                description: milestone.description,
+                occurredAt: milestone.occurredAt,
+                category: milestone.category,
+                tags: [...(milestone.tags || []), 'exportado'],
+                associatedFiles: cleanFiles,
+                isImportant: milestone.isImportant,
+                driveFolderId: milestone.driveFolderId || null,
+                history: [
+                    createLogEntry(`Hito exportado desde el proyecto: "${projectName}".`)
+                ]
+            };
+
+            await addDoc(collection(db, 'timeline_projects', targetId, 'milestones'), milestoneData);
+            logActivity('timeline_milestone_created', `Hito exportado desde "${projectName}"`, targetProject?.name, targetId);
+        }
+
+        dismiss(toastId);
+        toast({ title: "¡Exportación exitosa!", description: `El hito "${milestone.name}" se replicó correctamente.` });
+        setIsExportDialogOpen(false);
+    } catch (error: any) {
+        dismiss(toastId);
+        toast({ variant: "destructive", title: "Error al exportar", description: error.message });
+    } finally {
+        setIsExporting(false);
+    }
+  };
+
+  const filteredProjectsForExport = React.useMemo(() => {
+    return allCards.filter(c => 
+        c.id !== cardId && 
+        c.name.toLowerCase().includes(exportSearchQuery.toLowerCase())
+    ).slice(0, 50);
+  }, [allCards, cardId, exportSearchQuery]);
 
   const uniqueFiles = React.useMemo(() => {
     const seen = new Set();
@@ -616,6 +680,9 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                 >
                     <Star className={cn("h-5 w-5", milestone.isImportant && "fill-yellow-400 text-yellow-400")} />
                 </button>
+                <Button variant="ghost" size="icon" onClick={() => setIsExportDialogOpen(true)} className="h-8 w-8 text-zinc-700 hover:text-primary transition-colors" title="Exportar hito a otros proyectos">
+                    <Share2 className="h-5 w-5" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => setIsDeleteDialogOpen(true)} className="h-8 w-8 text-zinc-700 hover:text-destructive transition-colors" title="Eliminar hito">
                     <Trash2 className="h-5 w-5" />
                 </Button>
@@ -768,6 +835,80 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                 </Accordion>
             </div>
         </ScrollArea>
+
+        {/* Diálogo de Exportación */}
+        <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+            <DialogContent className="sm:max-w-[500px] h-[80vh] flex flex-col p-0 border-0 bg-zinc-100 text-black shadow-2xl overflow-hidden">
+                <DialogHeader className="p-6 bg-primary text-white shrink-0">
+                    <DialogTitle className="flex items-center gap-2 font-headline text-xl">
+                        <Share2 className="h-6 w-6" />
+                        Exportar Hito a otros Proyectos
+                    </DialogTitle>
+                    <DialogDescription className="text-white/90">
+                        Se replicará el hito con todos sus archivos y detalles en los proyectos seleccionados.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="p-4 bg-zinc-200 border-b border-zinc-300 shrink-0">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                        <Input 
+                            placeholder="Buscar proyecto de destino..." 
+                            className="pl-9 bg-white border-zinc-300 h-9 text-xs"
+                            value={exportSearchQuery}
+                            onChange={(e) => setExportSearchQuery(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <ScrollArea className="flex-1 p-2">
+                    <div className="space-y-1">
+                        {filteredProjectsForExport.map(project => (
+                            <button
+                                key={project.id}
+                                onClick={() => setSelectedTargetProjects(prev => 
+                                    prev.includes(project.id) ? prev.filter(id => id !== project.id) : [...prev, project.id]
+                                )}
+                                className={cn(
+                                    "w-full flex items-center justify-between p-3 rounded-lg text-left transition-all border",
+                                    selectedTargetProjects.includes(project.id)
+                                        ? "bg-primary/10 border-primary/30 shadow-sm"
+                                        : "bg-white border-transparent hover:border-zinc-200"
+                                )}
+                            >
+                                <div className="flex flex-col gap-0.5 overflow-hidden">
+                                    <span className="text-xs font-bold truncate text-black">{project.name.replace(/\([^)]+\)$/, '').trim()}</span>
+                                    <span className="text-[10px] font-mono text-primary font-bold uppercase">{project.name.match(/\(([^)]+)\)$/)?.[1] || 'S/C'}</span>
+                                </div>
+                                {selectedTargetProjects.includes(project.id) && (
+                                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                                )}
+                            </button>
+                        ))}
+                        {filteredProjectsForExport.length === 0 && (
+                            <p className="text-center py-8 text-xs text-zinc-500 italic">No se encontraron proyectos.</p>
+                        )}
+                    </div>
+                </ScrollArea>
+
+                <DialogFooter className="p-4 bg-zinc-200 border-t border-zinc-300 gap-2 shrink-0">
+                    <div className="flex items-center gap-2 mr-auto">
+                        <Badge className="bg-primary text-white border-none h-6">
+                            {selectedTargetProjects.length} seleccionados
+                        </Badge>
+                    </div>
+                    <Button variant="ghost" onClick={() => setIsExportDialogOpen(false)} disabled={isExporting} className="text-zinc-600">Cancelar</Button>
+                    <Button 
+                        disabled={selectedTargetProjects.length === 0 || isExporting}
+                        onClick={handleExportMilestone}
+                        className="shadow-md min-w-[120px]"
+                    >
+                        {isExporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Share2 className="h-4 w-4 mr-2" />}
+                        Exportar
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
             <DialogContent className="sm:max-w-[400px] bg-zinc-100 text-black border-zinc-400">
