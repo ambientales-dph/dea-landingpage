@@ -10,12 +10,13 @@ import { CUENCAS } from '@/lib/cuencas';
  */
 
 async function getActualDriveClient() {
-    const clientId = (process.env.GOOGLE_CLIENT_ID_TL || '').trim();
-    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET_TL || '').trim();
-    const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN_TL || '').trim();
+    // Intentamos usar las credenciales de TL primero, si no están, usamos las generales.
+    const clientId = (process.env.GOOGLE_CLIENT_ID_TL || process.env.GOOGLE_CLIENT_ID || '').trim();
+    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET_TL || process.env.GOOGLE_CLIENT_SECRET || '').trim();
+    const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN_TL || process.env.GOOGLE_REFRESH_TOKEN || '').trim();
     
     if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error('Faltan variables de entorno de Google.');
+        throw new Error('Faltan variables de entorno de Google (Client ID, Secret o Refresh Token).');
     }
 
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
@@ -40,11 +41,13 @@ export async function getOrCreateProjectFolder(projectCode: string | null, fullP
         ? (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID_TL || '').trim()
         : (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || '').trim();
     
-    if (!rootFolderId) {
-        throw new Error(`ID de carpeta raíz no configurado.`);
+    if (!rootFolderId && useTLRoot) {
+        throw new Error(`ID de carpeta raíz de la Línea de Tiempo no configurado.`);
     }
 
     let parentFolderId = rootFolderId;
+
+    // Si es para TRABAJO (no TL), buscamos la carpeta de la cuenca como padre
     if (!useTLRoot && projectCode) {
         const basinCodeMatch = projectCode.match(/^([A-Z]{2,4})/i);
         if (basinCodeMatch) {
@@ -56,8 +59,13 @@ export async function getOrCreateProjectFolder(projectCode: string | null, fullP
         }
     }
 
+    if (!parentFolderId) {
+        throw new Error('No se pudo determinar la carpeta contenedora para este proyecto.');
+    }
+
     try {
         const escapedCode = (projectCode || folderName).replace(/'/g, "\\'");
+        // Buscamos una carpeta que contenga el código en el nombre dentro del padre correcto
         const query = `name contains '${escapedCode}' and mimeType = 'application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed = false`;
         
         const response = await drive.files.list({
@@ -68,9 +76,11 @@ export async function getOrCreateProjectFolder(projectCode: string | null, fullP
         let projectFolderId: string;
 
         if (response.data.files && response.data.files.length > 0) {
+            // Intentamos encontrar coincidencia exacta por nombre completo, o usamos la primera que tenga el código
             const exactMatch = response.data.files.find(f => f.name === folderName);
             projectFolderId = exactMatch ? exactMatch.id! : response.data.files[0].id!;
         } else {
+            // Si no existe, la creamos en el padre correspondiente (Cuenca o Raíz TL)
             const folder = await drive.files.create({
                 requestBody: {
                     name: folderName,
@@ -111,7 +121,6 @@ export async function getOrCreateProjectFolder(projectCode: string | null, fullP
 
 /**
  * Crea una carpeta específica para un hito (Intocable).
- * Formato: YYMMDDHHMMSS_NombreDelHito
  */
 export async function createMilestoneFolder(parentFolderId: string, milestoneName: string) {
     const drive = await getActualDriveClient();

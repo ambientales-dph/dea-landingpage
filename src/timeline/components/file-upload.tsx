@@ -124,18 +124,34 @@ export function FileUpload({
     }
   }, [form, isOpen]);
 
-  // Cargar carpeta inicial del proyecto si hay archivos de trabajo
+  // Cargar jerarquía inicial: Cuenca -> Proyecto
   React.useEffect(() => {
     const initExplorer = async () => {
         if (hasWorkFiles && projectCode && isOpen && navigationStack.length === 0) {
             setIsLoadingFolders(true);
             try {
-                const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
-                const rootEntry = { id: projectFolderId, name: projectCode || 'Proyecto' };
-                setNavigationStack([rootEntry]);
-                form.setValue('targetFolderId', projectFolderId);
+                // 1. Identificar Cuenca
+                const basinCodeMatch = projectCode.match(/^([A-Z]{2,4})/i);
+                const basin = basinCodeMatch ? CUENCAS.find(c => c.code === basinCodeMatch[1].toUpperCase()) : null;
+                
+                if (basin && basin.driveFolderId) {
+                    // Inicializamos con la Cuenca
+                    const basinEntry = { id: basin.driveFolderId, name: basin.name };
+                    
+                    // Buscamos el Proyecto dentro de la cuenca
+                    const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
+                    const projectEntry = { id: projectFolderId, name: projectCode };
+                    
+                    setNavigationStack([basinEntry, projectEntry]);
+                    form.setValue('targetFolderId', projectFolderId);
+                } else {
+                    // Fallback a solo proyecto si no hay cuenca
+                    const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
+                    setNavigationStack([{ id: projectFolderId, name: projectCode }]);
+                    form.setValue('targetFolderId', projectFolderId);
+                }
             } catch (error) {
-                console.error("Error al iniciar explorador:", error);
+                console.error("Error al iniciar explorador jerárquico:", error);
             } finally {
                 setIsLoadingFolders(false);
             }
@@ -232,14 +248,6 @@ export function FileUpload({
         targetFolderId: hasWorkFiles ? navigationStack[navigationStack.length - 1]?.id : undefined
     });
   };
-
-  const basinName = React.useMemo(() => {
-      if (!projectCode) return '';
-      const basinCodeMatch = projectCode.match(/^([A-Z]{2,4})/i);
-      if (!basinCodeMatch) return '';
-      const basin = CUENCAS.find(c => c.code === basinCodeMatch[1].toUpperCase());
-      return basin ? basin.name : '';
-  }, [projectCode]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -404,7 +412,7 @@ export function FileUpload({
                                       </Button>
                                   </div>
 
-                                  <div className="bg-white/60 rounded-md border border-zinc-400 overflow-hidden">
+                                  <div className="bg-white/60 rounded-md border border-zinc-400 overflow-hidden shadow-sm">
                                       <div className="bg-zinc-100/80 px-2 py-1 border-b border-zinc-300 flex items-center flex-wrap gap-1">
                                           {navigationStack.map((folder, idx) => (
                                               <React.Fragment key={folder.id}>
@@ -413,7 +421,7 @@ export function FileUpload({
                                                       type="button" 
                                                       onClick={() => handleNavigateBack(idx)}
                                                       className={cn(
-                                                          "text-[9px] hover:text-primary transition-colors truncate max-w-[70px]",
+                                                          "text-[9px] hover:text-primary transition-colors truncate max-w-[120px]",
                                                           idx === navigationStack.length - 1 ? "font-bold text-zinc-800" : "text-zinc-500"
                                                       )}
                                                   >
@@ -424,7 +432,7 @@ export function FileUpload({
                                       </div>
 
                                       {isCreatingFolder && (
-                                          <div className="flex gap-1 p-1 bg-primary/5 border-b border-zinc-300">
+                                          <div className="flex gap-1 p-1 bg-primary/5 border-b border-zinc-300 animate-in zoom-in-95">
                                               <Input 
                                                   placeholder="Nombre..." 
                                                   className="h-6 text-[10px] bg-white border-zinc-400" 
@@ -437,7 +445,7 @@ export function FileUpload({
                                           </div>
                                       )}
 
-                                      <ScrollArea className="h-[80px]">
+                                      <ScrollArea className="h-[100px]">
                                           {isLoadingFolders ? (
                                               <div className="flex items-center justify-center h-full py-4">
                                                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -451,7 +459,7 @@ export function FileUpload({
                                                           onClick={() => handleNavigateIn(folder)}
                                                           className="w-full flex items-center gap-2 p-1 hover:bg-primary/10 rounded text-left transition-colors group"
                                                       >
-                                                          <Folder className="h-3 w-3 text-amber-600" />
+                                                          <Folder className="h-3 w-3 text-amber-600 group-hover:scale-110 transition-transform" />
                                                           <span className="text-[10px] truncate">{folder.name}</span>
                                                       </button>
                                                   ))}

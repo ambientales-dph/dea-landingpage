@@ -32,6 +32,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ScrollArea } from './ui/scroll-area';
 import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/timeline/services/google-drive';
+import { CUENCAS } from '@/lib/cuencas';
 
 export type FileConfig = {
   file: File;
@@ -93,18 +94,30 @@ export function AddFilesDialog({
     }
   }, [form, isOpen]);
 
-  // Cargar carpeta inicial del proyecto si hay archivos de trabajo
+  // Cargar jerarquía inicial: Cuenca -> Proyecto
   React.useEffect(() => {
     const initExplorer = async () => {
         if (hasWorkFiles && projectCode && isOpen && navigationStack.length === 0) {
             setIsLoadingFolders(true);
             try {
-                const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
-                const rootEntry = { id: projectFolderId, name: projectCode || 'Proyecto' };
-                setNavigationStack([rootEntry]);
-                form.setValue('targetFolderId', projectFolderId);
+                // 1. Identificar Cuenca
+                const basinCodeMatch = projectCode.match(/^([A-Z]{2,4})/i);
+                const basin = basinCodeMatch ? CUENCAS.find(c => c.code === basinCodeMatch[1].toUpperCase()) : null;
+                
+                if (basin && basin.driveFolderId) {
+                    const basinEntry = { id: basin.driveFolderId, name: basin.name };
+                    const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
+                    const projectEntry = { id: projectFolderId, name: projectCode };
+                    
+                    setNavigationStack([basinEntry, projectEntry]);
+                    form.setValue('targetFolderId', projectFolderId);
+                } else {
+                    const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
+                    setNavigationStack([{ id: projectFolderId, name: projectCode }]);
+                    form.setValue('targetFolderId', projectFolderId);
+                }
             } catch (error) {
-                console.error("Error al iniciar explorador:", error);
+                console.error("Error al iniciar explorador jerárquico:", error);
             } finally {
                 setIsLoadingFolders(false);
             }
@@ -184,7 +197,7 @@ export function AddFilesDialog({
     if (fileConfigs.length === 0) return;
     onUpload({
         fileConfigs,
-        targetFolderId: hasWorkFiles ? data.targetFolderId : undefined
+        targetFolderId: hasWorkFiles ? navigationStack[navigationStack.length - 1]?.id : undefined
     });
   };
 
@@ -284,7 +297,7 @@ export function AddFilesDialog({
                               type="button" 
                               onClick={() => handleNavigateBack(idx)}
                               className={cn(
-                                "text-[10px] hover:text-primary transition-colors truncate max-w-[100px]",
+                                "text-[10px] hover:text-primary transition-colors truncate max-w-[120px]",
                                 idx === navigationStack.length - 1 ? "font-bold text-zinc-800" : "text-zinc-500"
                               )}
                             >
