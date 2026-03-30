@@ -32,7 +32,7 @@ import {
 import { listFolderContents, moveFile, getTimelineFolderForProject, createMilestoneFolder, createSubfolder, extractIdFromUrl } from '@/services/google-drive';
 import { useFirestore } from '@/firebase';
 import { collection, query, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { Milestone } from '@/timeline/types';
+import { Milestone, AssociatedFile } from '@/timeline/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -63,7 +63,7 @@ export default function ReorganizationAssistant({
   const [workPath, setWorkPath] = useState<{id: string, name: string}[]>([]);
   const [workFolders, setWorkFolders] = useState<any[]>([]);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = React.useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
   // Mapeo de archivos a hitos
@@ -155,76 +155,97 @@ export default function ReorganizationAssistant({
   };
 
   const handleExecuteMove = async () => {
-    if (selectedFiles.length === 0) return;
+    if (selectedFiles.length === 0 || !db) return;
     setIsProcessing(true);
 
     const { id: toastId, dismiss, update } = toast({
         title: "Reorganizando archivos...",
-        description: "Iniciando proceso de movimiento conciliado.",
+        description: "Procesando movimientos y actualizando vínculos.",
         duration: Infinity
     });
 
     try {
-        const movedIds = [...selectedFiles];
         const codeMatch = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i);
         const projectCode = codeMatch ? codeMatch[0].toUpperCase() : 'S/C';
 
+        // 1. Agrupar archivos por su hito correspondiente para hacer una sola escritura por hito
+        const filesByMilestone: Record<string, { file: any, milestone: Milestone }[]> = {};
+        const orphanFiles: any[] = [];
+
         for (const fileId of selectedFiles) {
             const file = looseFiles.find(f => f.id === fileId);
-            if (!file) continue;
-
-            const linkedMilestone = getLinkedMilestone(fileId);
-            let finalTargetFolderId = '';
-
-            if (targetType === 'work') {
-                finalTargetFolderId = workPath[workPath.length - 1].id;
-            } else {
-                // Lógica de ARCHIVO FINAL: Crear o buscar carpeta jerárquica del hito
-                if (!linkedMilestone) {
-                    throw new Error(`El archivo ${file.name} no tiene un hito vinculado en Firestore.`);
-                }
-
-                if (!linkedMilestone.driveFolderId) {
-                    update({ id: toastId, description: `Creando carpeta para: ${linkedMilestone.name}...` });
-                    const tlRootId = await getTimelineFolderForProject(projectCode, projectName);
-                    if (!tlRootId) throw new Error("No se pudo localizar la carpeta raíz de la TL.");
-                    
-                    const newFolderId = await createMilestoneFolder(tlRootId, linkedMilestone.name, new Date(linkedMilestone.occurredAt));
-                    
-                    await updateDoc(doc(db, 'timeline_projects', projectId, 'milestones', linkedMilestone.id), {
-                        driveFolderId: newFolderId
-                    });
-                    finalTargetFolderId = newFolderId;
-                    linkedMilestone.driveFolderId = newFolderId;
-                } else {
-                    finalTargetFolderId = linkedMilestone.driveFolderId;
-                }
-            }
-
-            update({ id: toastId, description: `Moviendo: ${file.name}...` });
-            await moveFile(fileId, file.parentId, finalTargetFolderId);
-
-            // Si se movió a Final, nos aseguramos de que el hito registre el archivo correctamente
-            if (targetType === 'final' && linkedMilestone) {
-                const currentFiles = linkedMilestone.associatedFiles || [];
-                const updatedFiles = currentFiles.map(f => {
-                    // Intento de match de ID
-                    const extractedId = f.url?.match(/id=([a-zA-Z0-9_-]+)/)?.[1] || f.url?.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
-                    if (f.id === fileId || f.driveId === fileId || extractedId === fileId) {
-                        return { ...f, isTimelineFile: true };
-                    }
-                    return f;
-                });
-                
-                await updateDoc(doc(db, 'timeline_projects', projectId, 'milestones', linkedMilestone.id), {
-                    associatedFiles: updatedFiles
-                });
+            const milestone = getLinkedMilestone(fileId);
+            if (file && milestone) {
+                if (!filesByMilestone[milestone.id]) filesByMilestone[milestone.id] = [];
+                filesByMilestone[milestone.id].push({ file, milestone });
+            } else if (file) {
+                orphanFiles.push(file);
             }
         }
 
+        // 2. Procesar cada hito
+        for (const milestoneId in filesByMilestone) {
+            const group = filesByMilestone[milestoneId];
+            const firstMilestone = group[0].milestone;
+            let targetFolderId = '';
+
+            if (targetType === 'work') {
+                targetFolderId = workPath[workPath.length - 1].id;
+            } else {
+                // Lógica de ARCHIVO FINAL: Asegurar carpeta jerárquica
+                if (!firstMilestone.driveFolderId) {
+                    update({ id: toastId, description: `Creando carpeta para: ${firstMilestone.name}...` });
+                    const tlRootId = await getTimelineFolderForProject(projectCode, projectName);
+                    if (!tlRootId) throw new Error("No se pudo localizar la carpeta raíz de la TL.");
+                    
+                    const newFolderId = await createMilestoneFolder(tlRootId, firstMilestone.name, new Date(firstMilestone.occurredAt));
+                    
+                    // Guardamos la carpeta en Firestore inmediatamente
+                    await updateDoc(doc(db, 'timeline_projects', projectId, 'milestones', milestoneId), {
+                        driveFolderId: newFolderId
+                    });
+                    targetFolderId = newFolderId;
+                } else {
+                    targetFolderId = firstMilestone.driveFolderId;
+                }
+            }
+
+            // Mover cada archivo del hito en Drive y preparar la lista actualizada
+            const currentMilestoneFiles = [...(firstMilestone.associatedFiles || [])];
+            
+            for (const item of group) {
+                update({ id: toastId, description: `Moviendo: ${item.file.name}...` });
+                const driveResult = await moveFile(item.file.id, item.file.parentId, targetFolderId);
+
+                // Actualizar la entrada del archivo en la lista local del hito
+                const fileIndex = currentMilestoneFiles.findIndex(f => {
+                    const extractedId = f.url?.match(/id=([a-zA-Z0-9_-]+)/)?.[1] || f.url?.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1];
+                    return f.id === item.file.id || f.driveId === item.file.id || extractedId === item.file.id;
+                });
+
+                if (fileIndex !== -1) {
+                    currentMilestoneFiles[fileIndex] = {
+                        ...currentMilestoneFiles[fileIndex],
+                        url: driveResult.webViewLink || currentMilestoneFiles[fileIndex].url,
+                        isTimelineFile: targetType === 'final',
+                        driveId: item.file.id
+                    };
+                }
+            }
+
+            // 3. Actualización final de Firestore por hito (ATÓMICA)
+            await updateDoc(doc(db, 'timeline_projects', projectId, 'milestones', milestoneId), {
+                associatedFiles: currentMilestoneFiles,
+                history: [
+                    ...(firstMilestone.history || []),
+                    `${format(new Date(), "PPpp", { locale: es })} - Reorganización conciliada: ${group.length} archivo(s) movidos a ${targetType === 'final' ? 'Estructura Final' : 'Carpeta de Trabajo'}.`
+                ]
+            });
+        }
+
         dismiss(toastId);
-        toast({ title: "¡Éxito!", description: "Archivos reubicados correctamente en su estructura jerárquica." });
-        onReorganized(movedIds);
+        toast({ title: "¡Éxito!", description: "Archivos reubicados y vínculos actualizados correctamente." });
+        onReorganized([...selectedFiles]);
     } catch (e: any) {
         dismiss(toastId);
         toast({ variant: "destructive", title: "Error al reorganizar", description: e.message });
