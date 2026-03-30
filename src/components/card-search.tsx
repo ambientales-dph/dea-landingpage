@@ -340,7 +340,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setQuery(card.name);
     onCardSelect(card);
     setIsOpen(false);
-    // Ya no abrimos automáticamente la ficha técnica al seleccionar del buscador
   };
 
   const handleEditClick = () => {
