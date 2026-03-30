@@ -329,13 +329,20 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   });
   const [isExporting, setIsExporting] = useState(false);
 
-  // Estados para el asistente de reorganización
   const [looseFiles, setLooseFiles] = useState<any[]>([]);
   const [isReorgAssistantOpen, setIsReorgAssistantOpen] = useState(false);
   const recentlyMovedIds = useRef<Set<string>>(new Set());
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (selectedCard) {
+      setQuery(selectedCard.name);
+    } else {
+      setQuery('');
+    }
+  }, [selectedCard]);
 
   const filteredCards = useMemo(() => {
     const normalizedQuery = removeAccents(query.toLowerCase().trim());
@@ -351,9 +358,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   }, [allCards, query]);
 
   const handleSelect = (card: TrelloCard) => {
-    setQuery(card.name);
-    onCardSelect(card);
-    setIsOpen(false);
+    onCardSelect(null);
+    setActivity([]);
+    setDriveNames({});
+    setLooseFiles([]);
+    setFolderContents([]);
+    setInspectionPath([]);
+    
+    setTimeout(() => {
+        setQuery(card.name);
+        onCardSelect(card);
+        setIsOpen(false);
+    }, 50);
   };
 
   const handleEditClick = () => {
@@ -551,6 +567,36 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     if (inspectionPath.length === 0) return false;
     return inspectionPath[0].id === 'virtual-external';
   }, [inspectionPath]);
+
+  const formatFolderName = (name: string) => {
+    const pattern = /^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})_(.*)$/;
+    const match = name.match(pattern);
+    if (match) {
+      const [, yy, mm, dd, hh, min, ss, rest] = match;
+      return `${yy}/${mm}/${dd} ${hh}:${min}:${ss} - ${rest}`;
+    }
+    return name;
+  };
+
+  const sortedFolderContents = useMemo(() => {
+    return [...folderContents].sort((a, b) => {
+      const pattern = /^(\d{12})_(.*)$/;
+      const matchA = a.name.match(pattern);
+      const matchB = b.name.match(pattern);
+
+      if (matchA && matchB) {
+        return matchB[1].localeCompare(matchA[1]);
+      }
+      
+      if (matchA) return -1;
+      if (matchB) return 1;
+
+      if (a.mimeType === 'application/vnd.google-apps.folder' && b.mimeType !== 'application/vnd.google-apps.folder') return -1;
+      if (a.mimeType !== 'application/vnd.google-apps.folder' && b.mimeType === 'application/vnd.google-apps.folder') return 1;
+      
+      return a.name.localeCompare(b.name);
+    });
+  }, [folderContents]);
 
   useEffect(() => {
     const fetchContents = async () => {
@@ -757,10 +803,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         setBoardLabels(labels || []);
         setTlFolderId(tlId);
 
-        // --- Búsqueda Exhaustiva de Archivos Sueltos (Multiraíz) ---
         let allLooseFiles: any[] = [];
         
-        // 1. Escanear Carpeta de Trabajo (Todas las carpetas vinculadas a Trello)
         const workFolderAtts = refreshedCard.attachments?.filter(a => isDriveFolder(a.url)) || [];
         for (const att of workFolderAtts) {
             const rootId = await extractIdFromUrl(att.url);
@@ -773,7 +817,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             }
         }
 
-        // 2. Escanear Raíz de Proyecto en TL
         if (tlProjectRootId) {
             const tlContents = await listFolderContents(tlProjectRootId);
             const tlLoose = tlContents.files
@@ -782,7 +825,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             allLooseFiles = [...allLooseFiles, ...tlLoose];
         }
 
-        // Deduplicar por ID de Drive
         const uniqueLoose = Array.from(new Map(allLooseFiles.map(f => [f.id, f])).values());
         setLooseFiles(uniqueLoose);
 
@@ -808,7 +850,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const sortedAttachments = useMemo(() => {
     const attachments = selectedCard?.attachments || [];
     
-    // Only Drive Folders go to the main list
     const driveFolders = attachments.filter(att => isDriveFolder(att.url));
 
     const result = [...driveFolders];
@@ -885,7 +926,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             variant="ghost" 
             size="icon" 
             onClick={() => {
-              setQuery('');
               onClear();
             }} 
             className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"
@@ -999,7 +1039,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     {inspectionPath.length > 0 ? (
                                       <span className="flex items-center gap-1">
                                         {isCurrentlyInTL ? <History className="h-3 w-3" /> : isCurrentlyInExternal ? <LinkIcon className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
-                                        {inspectionPath[inspectionPath.length - 1].name}
+                                        {formatFolderName(inspectionPath[inspectionPath.length - 1].name)}
                                       </span>
                                     ) : (
                                       `Portales de Archivos (${sortedAttachments.length})`
@@ -1076,10 +1116,10 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                         )
                                     ) : (
                                       <>
-                                        {folderContents.length === 0 ? (
+                                        {sortedFolderContents.length === 0 ? (
                                           <div className="p-4 text-center text-[10px] text-muted-foreground italic">Carpeta vacía</div>
                                         ) : (
-                                          folderContents.map(file => (
+                                          sortedFolderContents.map(file => (
                                             <ContextMenu key={file.id}>
                                               <div className="flex items-center group w-full pr-2">
                                                 <ContextMenuTrigger asChild>
@@ -1096,7 +1136,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                       <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
                                                     )}
                                                     <div className="flex flex-col flex-1 min-w-0">
-                                                      <span className="flex-1 min-w-0 break-words whitespace-normal">{file.name}</span>
+                                                      <span className="flex-1 min-w-0 break-words whitespace-normal">
+                                                        {file.mimeType === 'application/vnd.google-apps.folder' ? formatFolderName(file.name) : file.name}
+                                                      </span>
                                                       {isCurrentlyInTL && file.mimeType !== 'application/vnd.google-apps.folder' && (
                                                           <span className="text-[8px] font-bold text-primary uppercase">Archivo de Hito • Solo Descarga</span>
                                                       )}
