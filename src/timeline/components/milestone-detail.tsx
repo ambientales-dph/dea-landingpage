@@ -360,10 +360,10 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
           name: driveResult.name,
           size: `${(config.file.size / 1024).toFixed(2)} KB`,
           type: config.file.type.startsWith('image/') ? 'image' : config.file.type.startsWith('video/') ? 'video' : config.file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => config.file.type.includes(t)) ? 'document' : 'other',
-          url: driveResult.webViewLink,
-          downloadUrl: driveResult.webContentLink,
+          url: driveResult.webViewLink || null as any,
+          downloadUrl: driveResult.webContentLink || null as any,
           driveId: driveResult.id,
-          trelloId: trelloId,
+          trelloId: trelloId || null as any,
           isTimelineFile: config.isFinal
         });
       }
@@ -409,8 +409,8 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             name: file.name,
             size: file.size ? `${(parseInt(file.size) / 1024).toFixed(2)} KB` : "---",
             type: file.mimeType.startsWith('image/') ? 'image' : file.mimeType.startsWith('video/') ? 'video' : file.mimeType.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => file.mimeType.includes(t)) ? 'document' : 'other',
-            url: file.webViewLink,
-            downloadUrl: file.webContentLink,
+            url: file.webViewLink || null as any,
+            downloadUrl: file.webContentLink || null as any,
             driveId: file.id,
             isTimelineFile: true
         }));
@@ -800,7 +800,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
             <DialogContent className="sm:max-w-[400px] bg-zinc-100 text-black border-zinc-400">
                 <DialogHeader>
                     <DialogTitle className="text-destructive flex items-center gap-2">
-                        <Trash2 className="h-5 w-5" /> Eliminar Archivo
+                         Trash2 className="h-5 w-5" /> Eliminar Archivo
                     </DialogTitle>
                     <DialogDescription className="text-zinc-700 pt-2 text-xs">
                         Se borrará <span className="font-bold text-black">{fileToDelete?.name}</span> de Drive y Trello.
