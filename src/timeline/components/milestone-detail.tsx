@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -8,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Paperclip, Tag, X, Star, Pencil, History, UploadCloud, Clock, ExternalLink, Trash2, CalendarIcon, Download } from 'lucide-react';
+import { Paperclip, Tag, X, Star, Pencil, History, UploadCloud, Clock, ExternalLink, Trash2, CalendarIcon, Download, RefreshCw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isSameDay, isValid, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -17,7 +16,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './
 import { ScrollArea } from './ui/scroll-area';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive } from '@/timeline/services/google-drive';
+import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive, listFolderContents } from '@/timeline/services/google-drive';
 import { attachUrlToCard, deleteAttachmentFromCard, getCardAttachments } from '@/timeline/services/trello';
 import { Buffer } from 'buffer';
 import { Calendar } from './ui/calendar';
@@ -58,6 +57,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
   const [isConflictDialogOpen, setIsConflictDialogOpen] = React.useState(false);
   const [conflicts, setConflicts] = React.useState<any[]>([]);
   const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
+  const [isSyncing, setIsSyncing] = React.useState(false);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -147,7 +147,6 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     if (newDate && milestone) {
       const current = parseISO(milestone.occurredAt);
       const finalDate = new Date(newDate);
-      // Preservamos la hora actual al cambiar el día en el calendario
       finalDate.setHours(current.getHours(), current.getMinutes(), current.getSeconds(), current.getMilliseconds());
 
       if (finalDate.toISOString() !== milestone.occurredAt) {
@@ -328,7 +327,6 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         const driveResult = await uploadFileToDrive(targetName, file.type, base64Data, folderId, existingId);
         
         let trelloId: string | undefined = undefined;
-        // Solo adjuntamos a Trello si es hito final
         if (cardId && isFinal) {
             update({ id: toastId, title: "Actualizando Trello...", description: `Vinculando link de: ${driveResult.name}` });
             const trelloAtt = await attachUrlToCard(cardId, driveResult.name, driveResult.webViewLink);
@@ -366,6 +364,60 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
     } finally {
         setConflicts([]);
         setPendingFiles([]);
+    }
+  };
+
+  const handleSyncFolder = async () => {
+    if (!milestone.driveFolderId) return;
+    setIsSyncing(true);
+    const { id: toastId, dismiss } = toast({
+        title: "Sincronizando con Drive...",
+        description: "Buscando archivos en la carpeta del hito.",
+        duration: Infinity,
+    });
+
+    try {
+        const { files } = await listFolderContents(milestone.driveFolderId);
+        
+        const newAssociatedFiles: AssociatedFile[] = files.map(file => ({
+            id: file.id,
+            name: file.name,
+            size: file.size ? `${(parseInt(file.size) / 1024).toFixed(2)} KB` : "---",
+            type: file.mimeType.startsWith('image/') ? 'image' : file.mimeType.startsWith('video/') ? 'video' : file.mimeType.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => file.mimeType.includes(t)) ? 'document' : 'other',
+            url: file.webViewLink,
+            downloadUrl: file.webContentLink,
+            driveId: file.id,
+            isTimelineFile: true
+        }));
+
+        const existingIds = new Set((milestone.associatedFiles || []).map(f => f.id || f.driveId));
+        const mergedFiles = [...(milestone.associatedFiles || [])];
+        let recoveredCount = 0;
+        
+        newAssociatedFiles.forEach(f => {
+            if (!existingIds.has(f.id)) {
+                mergedFiles.push(f);
+                recoveredCount++;
+            }
+        });
+
+        if (recoveredCount > 0) {
+            onMilestoneUpdate({
+                ...milestone,
+                associatedFiles: mergedFiles,
+                history: [...milestone.history, createLogEntry(`Sincronización manual: se recuperaron ${recoveredCount} archivo(s) desde Drive.`)],
+            });
+            toast({ title: "Sincronización completada", description: `Se recuperaron ${recoveredCount} archivos.` });
+        } else {
+            toast({ title: "Sincronización completada", description: "No se encontraron archivos nuevos en la carpeta." });
+        }
+        dismiss(toastId);
+    } catch (error: any) {
+        console.error(error);
+        dismiss(toastId);
+        toast({ variant: "destructive", title: "Error al sincronizar", description: error.message });
+    } finally {
+        setIsSyncing(false);
     }
   };
 
@@ -612,17 +664,30 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                         <div className="flex items-center gap-2">
                             <Paperclip className="h-4 w-4" /> Archivos del Hito
                         </div>
-                        <Button variant="outline" size="sm" className="h-7 text-black border-zinc-400 hover:bg-zinc-200" onClick={() => fileInputRef.current?.click()}>
-                            <UploadCloud className="mr-2 h-3 w-3"/>
-                            Subir
-                        </Button>
+                        <div className="flex gap-1">
+                            {milestone.driveFolderId && (
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-7 text-primary border-primary/30 hover:bg-primary/10" 
+                                    onClick={handleSyncFolder}
+                                    disabled={isSyncing}
+                                    title="Sincronizar con carpeta de Drive"
+                                >
+                                    {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                </Button>
+                            )}
+                            <Button variant="outline" size="sm" className="h-7 text-black border-zinc-400 hover:bg-zinc-200" onClick={() => fileInputRef.current?.click()}>
+                                <UploadCloud className="mr-2 h-3 w-3"/>
+                                Subir
+                            </Button>
+                        </div>
                         <input type="file" ref={fileInputRef} className="hidden" multiple onChange={handleFileAdd} />
                     </h3>
                     {uniqueFiles.length > 0 ? (
                         <ul className="space-y-1.5 border border-zinc-400 rounded-md p-2 bg-zinc-200">
                            {uniqueFiles.map(file => {
                                 const isTL = file.isTimelineFile || milestone.tags?.includes('intocable');
-                                // Construimos un enlace de descarga directa si el campo downloadUrl falta
                                 const finalDownloadUrl = file.downloadUrl || (file.driveId || file.id ? `https://drive.google.com/uc?export=download&id=${file.driveId || file.id}` : null);
                                 
                                 return (
@@ -634,20 +699,16 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                                     <div className="flex items-center shrink-0 ml-2 gap-2">
                                         <span className="text-[10px] text-zinc-500">{file.size}</span>
                                         <div className="flex items-center gap-1">
-                                            {/* Control de Descarga (Siempre visible) */}
                                             {finalDownloadUrl && (
                                                 <a href={finalDownloadUrl} className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Descargar archivo">
                                                     <Download className="h-3.5 w-3.5" />
                                                 </a>
                                             )}
-                                            
-                                            {/* Control de Abrir en Drive (Solo si NO es hito intocable) */}
                                             {file.url && !isTL && (
                                                 <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Abrir en Drive">
                                                     <ExternalLink className="h-3.5 w-3.5" />
                                                 </a>
                                             )}
-                                            
                                             <button onClick={() => setFileToDelete(file)} className="p-1 rounded-md hover:bg-destructive/10 text-zinc-500 hover:text-destructive transition-colors" title="Eliminar">
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </button>

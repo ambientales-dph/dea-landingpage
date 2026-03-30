@@ -1,4 +1,3 @@
-
 'use server';
 
 import { google } from 'googleapis';
@@ -10,31 +9,15 @@ import { CUENCAS } from '@/lib/cuencas';
  * Soporta dos raíces: Principal (EIAS_AMBIENTALES) y TL (DEA_TL_archivos).
  */
 
-async function getDriveClient() {
-    const clientId = (process.env.GOOGLE_CLIENT_ID_TL || '').trim();
-    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET_TL || '').trim();
-    const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN_TL || '').trim();
-
-    if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error('Faltan variables de entorno de Google.');
-    }
-
-    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-    oauth2Client.setCredentials({ refresh_token: refreshToken });
-
-    try {
-        await oauth2Client.getAccessToken();
-    } catch (error: any) {
-        throw new Error(`Error de autenticación Google: ${error.message}`);
-    }
-
-    return google.gmail({ version: 'v3', auth: oauth2Client }); // Error tipográfico corregido a drive en la siguiente línea
-}
-
 async function getActualDriveClient() {
     const clientId = (process.env.GOOGLE_CLIENT_ID_TL || '').trim();
     const clientSecret = (process.env.GOOGLE_CLIENT_SECRET_TL || '').trim();
     const refreshToken = (process.env.GOOGLE_REFRESH_TOKEN_TL || '').trim();
+    
+    if (!clientId || !clientSecret || !refreshToken) {
+        throw new Error('Faltan variables de entorno de Google.');
+    }
+
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
     oauth2Client.setCredentials({ refresh_token: refreshToken });
     return google.drive({ version: 'v3', auth: oauth2Client });
@@ -172,6 +155,25 @@ export async function listSubfolders(parentFolderId: string) {
         return response.data.files || [];
     } catch (error) {
         return [];
+    }
+}
+
+/**
+ * Lista todo el contenido de una carpeta (archivos y carpetas) con metadatos.
+ */
+export async function listFolderContents(folderId: string) {
+    const drive = await getActualDriveClient();
+    try {
+        const response = await drive.files.list({
+            q: `'${folderId}' in parents and trashed = false`,
+            fields: 'files(id, name, mimeType, size, webViewLink, webContentLink)',
+            orderBy: 'name',
+        });
+        return {
+            files: response.data.files || []
+        };
+    } catch (error: any) {
+        throw new Error(`Error al listar archivos: ${error.message}`);
     }
 }
 
