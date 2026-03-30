@@ -59,6 +59,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import React from 'react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -70,19 +71,31 @@ import { getDriveResourceName, extractIdFromUrl, listFolderContents, getTimeline
 import { sendProjectEmail } from '@/app/actions/email-actions';
 import { useProject } from '@/providers/project-provider';
 import ReorganizationAssistant from './reorganization-assistant';
+import { EQUIPO_DEA, EQUIPO_SIG, EQUIPO_DRON } from '@/lib/equipo';
+import { MUNICIPIOS } from '@/lib/municipios';
+import { PROYECTISTAS } from '@/lib/proyectistas';
+import { FINANCIAMIENTO } from '@/lib/financiamiento';
+import { DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
 
-interface CardSearchProps {
-  onCardSelect: (card: TrelloCard | null) => void;
-  selectedCard: TrelloCard | null;
-  onClear: () => void;
-  isSummaryOpen: boolean;
-  onSummaryOpenChange: (isOpen: boolean) => void;
-}
+const ESTADOS_PROYECTO = [
+    "Sin iniciar",
+    "Iniciado",
+    "Neutralizado",
+    "Terminado",
+    "Con DIA",
+    "Rescindido",
+    "En seguimiento"
+];
 
-const removeAccents = (str: string): string => {
-  if (!str) return '';
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
+const STATUS_COLORS: Record<string, string | null> = {
+    'Sin iniciar': 'red',
+    'Iniciado': 'orange',
+    'Neutralizado': 'pink',
+    'Terminado': 'yellow',
+    'Con DIA': 'green',
+    'Rescindido': 'black',
+    'En seguimiento': 'sky',
+};
 
 const trelloCoverColors = [
     { name: 'green', hex: '#4bce97', label: 'Verde' },
@@ -97,19 +110,10 @@ const trelloCoverColors = [
     { name: 'black', hex: '#44546f', label: 'Negro' },
 ];
 
-const isScientificUrl = (url: string): boolean => {
-  if (!url) return false;
-  const scientificDomains = [
-    'doi.org', 'sciencedirect.com', 'scielo.org', 'repositoriosdigitales.mincyt.gob.ar', 
-    'elsevier.com', 'journals.plos.org', 'doaj.org', 'crossref.org'
-  ];
-  try {
-    const { hostname } = new URL(url);
-    return scientificDomains.some(domain => hostname.includes(domain));
-  } catch (e) {
-    return false;
-  }
-};
+const removeAccents = (str: string): string => {
+  if (!str) return '';
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
 
 const trelloColorToStyle = (color: string | null | undefined): React.CSSProperties => {
     if (!color) return { backgroundColor: '#fff', color: '#172b4d' };
@@ -293,13 +297,12 @@ const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedU
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const { user } = useUser();
   const db = useFirestore();
-  const { allCards, isLoadingCards } = useProject();
+  const { allCards, isLoadingCards, refreshCards } = useProject();
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedName, setEditedName] = useState('');
-  const [editedDesc, setEditedDesc] = useState('');
   const [activity, setActivity] = useState<TrelloAction[]>([]);
   const [isActivityLoading, setIsActivityLoading] = useState(false);
   const [boardLabels, setBoardLabels] = useState<TrelloLabel[]>([]);
@@ -314,6 +317,16 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [editedBoardId, setEditedBoardId] = useState('');
   const [editedListId, setEditedListId] = useState('');
   const [driveNames, setDriveNames] = useState<Record<string, { name: string, isFolder: boolean }>>({});
+
+  // Estados para edición estructurada
+  const [editStatus, setEditStatus] = useState('Sin iniciar');
+  const [editPartidos, setEditPartidos] = useState<string[]>([]);
+  const [editProyectistas, setEditProyectistas] = useState<string[]>([]);
+  const [editFinanciamiento, setEditFinanciamiento] = useState<string[]>([]);
+  const [editEquipo, setEditEquipo] = useState<string[]>([]);
+  const [editSig, setEditSig] = useState<string[]>([]);
+  const [editDron, setEditDron] = useState<string[]>([]);
+  const [editExtraDesc, setEditExtraDesc] = useState('');
 
   const [tlFolderId, setTlFolderId] = useState<string | null>(null);
   const [inspectionPath, setInspectionPath] = useState<{ id: string, name: string }[]>([]);
@@ -359,7 +372,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   }, [allCards, query]);
 
   const handleSelect = (card: TrelloCard) => {
-    // Proceso de "descarga" del proyecto anterior para una carga limpia
     onCardSelect(null);
     setActivity([]);
     setDriveNames({});
@@ -367,7 +379,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setFolderContents([]);
     setInspectionPath([]);
     
-    // Pequeño delay para asegurar que el estado se limpia visualmente antes de la nueva carga
     setTimeout(() => {
         setQuery(card.name);
         onCardSelect(card);
@@ -375,23 +386,61 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }, 50);
   };
 
-  const handleEditClick = () => {
-    setEditedName(selectedCard?.name || '');
-    setEditedDesc(selectedCard?.desc || '');
-    setEditedBoardId(selectedCard?.boardId || '');
-    setEditedListId(selectedCard?.idList || '');
-    setIsEditing(true);
+  const extractFieldFromDesc = (desc: string, field: string): string => {
+    if (!desc) return '';
+    const lines = desc.split('\n');
+    const fieldLower = field.toLowerCase().trim();
+    
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.toLowerCase().startsWith(fieldLower + ':')) {
+            let val = trimmedLine.substring(fieldLower.length + 1).trim();
+            val = val.replace(/^\*\*|\*\*$/g, '').trim();
+            if (val === '****' || val === '') return '';
+            return val;
+        }
+    }
+    return '';
   };
 
-  const handleColorChange = async (color: string | null) => {
+  const extractListFromDesc = (desc: string, field: string): string[] => {
+    const val = extractFieldFromDesc(desc, field);
+    if (!val) return [];
+    return val.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  };
+
+  const handleEditClick = () => {
     if (!selectedCard) return;
-    try {
-      const updated = await updateTrelloCard({ cardId: selectedCard.id, cover: { color } });
-      onCardSelect(updated);
-      toast({ title: 'Portada actualizada' });
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Error al cambiar color' });
-    }
+    setEditedName(selectedCard.name.replace(/\([^)]+\)$/, '').trim());
+    setEditedBoardId(selectedCard.boardId || '');
+    setEditedListId(selectedCard.idList || '');
+
+    const desc = selectedCard.desc || '';
+    setEditStatus(extractFieldFromDesc(desc, 'ESTADO') || 'Sin iniciar');
+    setEditPartidos(extractListFromDesc(desc, 'PARTIDO'));
+    setEditProyectistas(extractListFromDesc(desc, '- Proyectista'));
+    setEditFinanciamiento(extractListFromDesc(desc, 'FINANCIAMIENTO'));
+    setEditEquipo(extractListFromDesc(desc, '- Diagnóstico ambiental-socioeconómico'));
+    setEditSig(extractListFromDesc(desc, '- Información SIG-imágenes'));
+    setEditDron(extractListFromDesc(desc, '- Información LIDAR/vuelos Dron'));
+
+    // Extraer lo que no es campo controlado para mantenerlo en "Otros detalles"
+    const templateFields = [
+        'ESTADO', 'PARTIDO', 'FINANCIAMIENTO', 
+        '- Diagnóstico ambiental-socioeconómico', 
+        '- Información SIG-imágenes', 
+        '- Información LIDAR/vuelos Dron',
+        '- Proyectista'
+    ];
+    
+    const otherLines = desc.split('\n').filter(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return false;
+        return !templateFields.some(f => trimmed.toLowerCase().startsWith(f.toLowerCase() + ':'));
+    }).join('\n');
+    
+    setEditExtraDesc(otherLines);
+    setIsEditing(true);
   };
 
   const handleToggleLabel = async (labelId: string, isRemoving: boolean) => {
@@ -427,20 +476,89 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     if (!selectedCard) return;
     setIsSaving(true);
     try {
-      const updated = await updateTrelloCard({ 
-        cardId: selectedCard.id, 
-        name: editedName, 
-        desc: editedDesc,
-        idBoard: editedBoardId,
-        idList: editedListId
-      });
-      onCardSelect(updated);
-      setIsEditing(false);
-      toast({ title: 'Cambios guardados' });
+        const currentCard = await getCardById(selectedCard.id);
+        const codeMatch = currentCard.name.match(/\(([A-Z]{2,4}\d{3})\)$/);
+        const currentCode = codeMatch ? codeMatch[1] : 'XXX000';
+        const finalCardName = `${editedName} (${currentCode})`;
+
+        const lines = (currentCard.desc || '').split('\n');
+        let oldStatus = null;
+        for (const line of lines) {
+            if (line.trim().startsWith('ESTADO:')) {
+                oldStatus = line.split(':')[1].trim().replace(/\*\*/g, '');
+                break;
+            }
+        }
+        
+        const isStatusChange = editStatus !== oldStatus;
+
+        // Reconciliación manual de descripción usando plantilla
+        let finalDescription = DESCRIPCION_PLANTILLA;
+        const updates: Record<string, string> = {
+            'ESTADO': editStatus,
+            'PARTIDO': editPartidos.join(', '),
+            '- Proyectista': editProyectistas.join(', '),
+            'FINANCIAMIENTO': editFinanciamiento.join(', '),
+            '- Diagnóstico ambiental-socioeconómico': editEquipo.join('; '),
+            '- Información SIG-imágenes': editSig.join('; '),
+            '- Información LIDAR/vuelos Dron': editDron.join('; ')
+        };
+
+        Object.keys(updates).forEach(key => {
+            const val = updates[key];
+            const regex = new RegExp(`^([- ]?${key}:).*$`, 'm');
+            finalDescription = finalDescription.replace(regex, `$1 **${val}**`);
+        });
+
+        // Añadir el contenido extra al final si existe, antes del hashtag
+        if (editExtraDesc.trim()) {
+            finalDescription = finalDescription.replace('#', `${editExtraDesc}\n\n#`);
+        }
+
+        const updatePayload: any = {
+            cardId: selectedCard.id,
+            name: finalCardName,
+            desc: finalDescription,
+            idBoard: editedBoardId,
+            idList: editedListId,
+            cover: { color: STATUS_COLORS[editStatus] || 'red' }
+        };
+
+        if (isStatusChange) {
+            const timestampStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+            await addCommentToCard({
+                cardId: selectedCard.id,
+                text: `📍 HITO DE PROYECTO: El estado ha cambiado de "${oldStatus || '---'}" a "${editStatus}". Fecha: ${timestampStr}.`
+            });
+        }
+
+        const updated = await updateTrelloCard(updatePayload);
+        
+        // Registrar actividad
+        if (user && db) {
+            const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+            const activityData = {
+                userId: user.uid,
+                userName: authorizedUser?.name || user.displayName || 'Usuario',
+                userEmail: user.email,
+                userPhoto: user.photoURL || '',
+                actionType: isStatusChange ? 'status_change' : 'update_project',
+                projectName: finalCardName,
+                detail: isStatusChange ? `Cambió estado a "${editStatus}"` : 'Edición estructurada desde ficha',
+                cardId: selectedCard.id,
+                timestamp: serverTimestamp(),
+            };
+            await addDoc(collection(db, 'app_activities'), activityData);
+        }
+
+        onCardSelect(updated);
+        setIsEditing(false);
+        refreshCards();
+        toast({ title: 'Cambios guardados' });
     } catch (e) {
-      toast({ variant: 'destructive', title: 'Error al guardar' });
+        toast({ variant: 'destructive', title: 'Error al guardar' });
     } finally {
-      setIsSaving(false);
+        setIsSaving(false);
     }
   };
 
@@ -989,15 +1107,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             {!isEditing && (
                               <div className="flex flex-wrap items-center gap-2 justify-start w-full mt-1 shrink-0 box-border">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={() => setIsExportDialogOpen(true)} title="Exportar Ficha"><Printer className="h-4 w-4" /></Button>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0"><Palette className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" className="grid grid-cols-5 gap-1 p-2">
-                                    {trelloCoverColors.map(c => (
-                                      <Button key={c.name} variant="ghost" className="h-6 w-6 rounded-full p-0" style={{ backgroundColor: c.hex }} onClick={() => handleColorChange(c.name)} />
-                                    ))}
-                                    <Button variant="ghost" className="h-6 w-6 rounded-full border p-0" onClick={() => handleColorChange(null)}><X className="h-3 w-3" /></Button>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={handleEditClick} title="Editar Ficha"><Edit className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={fetchCardData} disabled={isRefreshing} title="Actualizar Datos"><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
                               </div>
@@ -1025,7 +1134,93 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     <ScrollArea className="flex-1 overflow-y-auto w-full max-w-full box-border">
                         <div className="p-6 w-full max-w-full overflow-hidden box-border min-w-0">
                             <h3 className="font-semibold text-sm mb-2 text-primary uppercase text-[10px] tracking-wider text-left">Descripción</h3>
-                            {isEditing ? <Textarea value={editedDesc} onChange={(e) => setEditedDesc(e.target.value)} className="text-xs min-h-[200px]" /> : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden leading-relaxed text-left">{renderDescription(selectedCard.desc)}</div>}
+                            {isEditing ? (
+                                <div className="space-y-4 py-2">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Estado Actual</Label>
+                                            <Select value={editStatus} onValueChange={setEditStatus}>
+                                                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Seleccioná estado" /></SelectTrigger>
+                                                <SelectContent>{ESTADOS_PROYECTO.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Partido(s)</Label>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editPartidos.length > 0 ? `${editPartidos.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                                                    {MUNICIPIOS.map(m => <DropdownMenuCheckboxItem key={m} checked={editPartidos.includes(m)} onCheckedChange={c => setEditPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Proyectista/s</Label>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editProyectistas.length > 0 ? `${editProyectistas.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                                                    {PROYECTISTAS.map(p => <DropdownMenuCheckboxItem key={p} checked={editProyectistas.includes(p)} onCheckedChange={c => setEditProyectistas(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Financiamiento</Label>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editFinanciamiento.length > 0 ? `${editFinanciamiento.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                                                    {FINANCIAMIENTO.map(f => <DropdownMenuCheckboxItem key={f} checked={editFinanciamiento.includes(f)} onCheckedChange={c => setEditFinanciamiento(curr => c ? [...curr, f] : curr.filter(x => x !== f))} onSelect={e => e.preventDefault()}>{f}</DropdownMenuCheckboxItem>)}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    </div>
+
+                                    <Separator className="my-1" />
+                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Equipo Técnico</p>
+
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-medium">Diagnóstico Ambiental (DEA)</Label>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editEquipo.length > 0 ? `${editEquipo.length} sel.` : 'Seleccioná responsables'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                            <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                                                {EQUIPO_DEA.map(p => <DropdownMenuCheckboxItem key={p} checked={editEquipo.includes(p)} onCheckedChange={c => setEditEquipo(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <Label className="text-[11px] font-medium">Equipo SIG</Label>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editSig.length > 0 ? `${editSig.length} sel.` : 'Personal SIG'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                                                    {EQUIPO_SIG.map(p => <DropdownMenuCheckboxItem key={p} checked={editSig.includes(p)} onCheckedChange={c => setEditSig(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-[11px] font-medium">Equipo Dron</Label>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editDron.length > 0 ? `${editDron.length} sel.` : 'Personal Dron'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
+                                                    {EQUIPO_DRON.map(p => <DropdownMenuCheckboxItem key={p} checked={editDron.includes(p)} onCheckedChange={c => setEditDron(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Otros detalles (Expedientes, etc.)</Label>
+                                        <Textarea 
+                                            value={editExtraDesc} 
+                                            onChange={(e) => setEditExtraDesc(e.target.value)} 
+                                            className="text-xs min-h-[100px] bg-white"
+                                            placeholder="Ingresá expedientes, resoluciones u otros campos libres..."
+                                        />
+                                    </div>
+                                </div>
+                            ) : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden leading-relaxed text-left">{renderDescription(selectedCard.desc)}</div>}
                         </div>
 
                         {sortedAttachments.length > 0 && !isEditing && (
