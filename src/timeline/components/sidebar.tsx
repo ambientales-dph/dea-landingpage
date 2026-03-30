@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -16,12 +17,20 @@ import {
     Mail, 
     MessageCircle, 
     ChevronDown,
-    Send
+    Send,
+    UserPlus,
+    UserMinus
 } from 'lucide-react';
 import type { Category } from '@/timeline/types';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { ColorPicker } from './color-picker';
-import { getMemberBoards, getBoardLists, getCardsInList, searchTrelloCards } from '@/timeline/services/trello';
+import { 
+    getMemberBoards, 
+    getBoardLists, 
+    getCardsInList, 
+    searchTrelloCards,
+    updateTrelloCard 
+} from '@/timeline/services/trello';
 import type { TrelloBoard, TrelloListBasic, TrelloCardBasic } from '@/timeline/services/trello';
 import { ScrollArea } from './ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -59,12 +68,17 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
+  DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
 import { Label } from '@/components/ui/label';
 import { Textarea } from './ui/textarea';
-import { useUser } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { sendProjectEmail } from '@/app/actions/email-actions';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface SidebarProps {
   categories: Category[];
@@ -114,7 +128,6 @@ const QuickEmailDialog = ({
     const [isSending, setIsSending] = React.useState(false);
     const { toast } = useToast();
 
-    // Asegurar que el body recupere interactividad al cerrar o abrir modales
     React.useEffect(() => {
         if (!isOpen) {
             const cleanup = () => {
@@ -223,6 +236,8 @@ export function Sidebar({
     onCardSearchChange,
 }: SidebarProps) {
   const { user } = useUser();
+  const db = useFirestore();
+  const { toast } = useToast();
   const [openPopoverId, setOpenPopoverId] = React.useState<string | null>(null);
   const [isAdding, setIsAdding] = React.useState(false);
   const [newCategoryName, setNewCategoryName] = React.useState('');
@@ -268,6 +283,31 @@ export function Sidebar({
     };
     fetchInitialData();
   }, []);
+
+  const logActivity = React.useCallback(async (actionType: string, detail: string) => {
+    if (user && db && selectedCard) {
+      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+      const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+      const activityData = {
+        userId: user.uid,
+        userName: realName,
+        userEmail: user.email,
+        userPhoto: user.photoURL || '',
+        actionType: actionType,
+        projectName: selectedCard.name,
+        detail: detail,
+        cardId: selectedCard.id,
+        timestamp: serverTimestamp(),
+      };
+
+      try {
+        await addDoc(collection(db, 'app_activities'), activityData);
+      } catch (error) {
+        console.error("Error logging activity:", error);
+      }
+    }
+  }, [user, db, selectedCard]);
 
   React.useEffect(() => {
     if (cardFromUrl) {
@@ -449,8 +489,6 @@ const handleClearSearch = () => {
   onListSelect('');
 };
 
-const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Resultados (${filteredCards.length})` : `Tarjetas (${filteredCards.length})`;
-
 const nominatedParticipants = React.useMemo(() => {
     if (!selectedCard?.desc) return [];
     const desc = selectedCard.desc.toLowerCase();
@@ -460,6 +498,57 @@ const nominatedParticipants = React.useMemo(() => {
     });
 }, [selectedCard?.desc]);
 
+const availableToAdd = React.useMemo(() => {
+    const currentNames = new Set(nominatedParticipants.map(p => p.name?.toLowerCase()));
+    return WHITELIST.filter(p => p.name && !currentNames.has(p.name.toLowerCase())).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+}, [nominatedParticipants]);
+
+const handleAddMember = async (person: AuthorizedUser) => {
+    if (!selectedCard || !person.name) return;
+    
+    const nameToAdd = person.name;
+    let newDesc = selectedCard.desc || "";
+    
+    if (newDesc.includes('EQUIPO DEA')) {
+        newDesc = newDesc.replace('EQUIPO DEA', `EQUIPO DEA\n- ${nameToAdd};`);
+    } else {
+        newDesc += `\n\nEQUIPO DEA\n- ${nameToAdd}`;
+    }
+
+    try {
+        const updated = await updateTrelloCard(selectedCard.id, { desc: newDesc });
+        if (updated) {
+            onCardSelect(updated);
+            toast({ title: "Miembro añadido", description: `${nameToAdd} se incorporó al equipo.` });
+            await logActivity('add_comment', `Incorporó a ${nameToAdd} al equipo del proyecto.`);
+        }
+    } catch (error) {
+        toast({ variant: 'destructive', title: "Error", description: "No se pudo actualizar Trello." });
+    }
+};
+
+const handleRemoveMember = async (personName: string) => {
+    if (!selectedCard || !selectedCard.desc) return;
+    
+    // Regex para encontrar el nombre exacto ignorando mayúsculas/minúsculas
+    const regex = new RegExp(`-?\\s*${personName}[;,]?`, 'gi');
+    let newDesc = selectedCard.desc.replace(regex, '').trim();
+    
+    // Limpiar posibles líneas vacías o separadores huérfanos
+    newDesc = newDesc.replace(/;\s*;/g, ';').replace(/,\s*,/g, ',').replace(/\n\s*\n/g, '\n\n');
+
+    try {
+        const updated = await updateTrelloCard(selectedCard.id, { desc: newDesc });
+        if (updated) {
+            onCardSelect(updated);
+            toast({ title: "Miembro removido", description: `${personName} ha sido quitado del equipo.` });
+            await logActivity('add_comment', `Removió a ${personName} del equipo del proyecto.`);
+        }
+    } catch (error) {
+        toast({ variant: 'destructive', title: "Error", description: "No se pudo actualizar Trello." });
+    }
+};
+
 const handleWhatsAppClick = (phone: string) => {
     const cleanPhone = phone.replace(/\D/g, '');
     window.open(`https://wa.me/${cleanPhone}`, '_blank');
@@ -467,12 +556,12 @@ const handleWhatsAppClick = (phone: string) => {
 
 const handleEmailClick = (person: AuthorizedUser) => {
     setSelectedRecipient(person);
-    // Usar un pequeño delay para permitir que el DropdownMenu se cierre
-    // y evitar conflictos de foco/bloqueo de body de Radix UI
     setTimeout(() => {
         setIsEmailDialogOpen(true);
     }, 100);
 };
+
+const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Resultados (${filteredCards.length})` : `Tarjetas (${filteredCards.length})`;
 
   return (
     <aside className="hidden md:flex flex-col w-72 bg-[#2d3748] h-full no-print">
@@ -535,36 +624,83 @@ const handleEmailClick = (person: AuthorizedUser) => {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="w-[264px] bg-[#2d3748] border-white/10 shadow-2xl p-0 overflow-hidden">
-                                    <DropdownMenuLabel className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5">Nominados DEA</DropdownMenuLabel>
+                                    <DropdownMenuLabel className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5 flex items-center justify-between">
+                                        <span>Nominados DEA</span>
+                                    </DropdownMenuLabel>
+                                    
                                     <DropdownMenuSeparator className="bg-white/5 m-0" />
+                                    
+                                    <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger className="text-[10px] uppercase font-bold text-primary px-3 py-2 hover:bg-white/5 cursor-pointer">
+                                            <UserPlus className="mr-2 h-3.5 w-3.5" />
+                                            <span>Incorporar Personal...</span>
+                                        </DropdownMenuSubTrigger>
+                                        <DropdownMenuPortal>
+                                            <DropdownMenuSubContent className="w-56 bg-[#2d3748] border-white/10 max-h-[300px] overflow-hidden flex flex-col p-0 shadow-2xl">
+                                                <DropdownMenuLabel className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5">Personal Disponible</DropdownMenuLabel>
+                                                <DropdownMenuSeparator className="bg-white/5 m-0" />
+                                                <ScrollArea className="flex-1">
+                                                    <div className="p-1">
+                                                        {availableToAdd.length > 0 ? (
+                                                            availableToAdd.map((person, idx) => (
+                                                                <DropdownMenuItem 
+                                                                    key={idx} 
+                                                                    onSelect={() => handleAddMember(person)}
+                                                                    className="text-[11px] text-white hover:bg-white/10 cursor-pointer py-1.5 px-3 rounded-sm"
+                                                                >
+                                                                    {person.name}
+                                                                </DropdownMenuItem>
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-4 text-center">
+                                                                <p className="text-[9px] text-zinc-500 italic">No hay personal pendiente de agregar.</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </ScrollArea>
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuPortal>
+                                    </DropdownMenuSub>
+
+                                    <DropdownMenuSeparator className="bg-white/5 m-0" />
+
                                     <ScrollArea className="h-[200px] w-full">
                                         {nominatedParticipants.length > 0 ? (
                                             nominatedParticipants.map((person, idx) => (
-                                                <div key={idx} className="flex items-center justify-between px-3 py-0.5 hover:bg-white/5 transition-colors group border-b border-white/5 last:border-0 h-7">
+                                                <div key={idx} className="flex items-center justify-between px-3 py-0.5 hover:bg-white/5 transition-colors group border-b border-white/5 last:border-0 h-8">
                                                     <span className="text-[11px] text-white font-medium truncate flex-1 pr-2">{person.name}</span>
                                                     <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
                                                         {person.email && person.email.includes('@') && (
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="icon" 
-                                                                className="h-5 w-5 text-zinc-400 hover:text-primary hover:bg-primary/10"
+                                                                className="h-6 w-6 text-zinc-400 hover:text-primary hover:bg-primary/10"
                                                                 onClick={() => handleEmailClick(person)}
                                                                 title={`Enviar mail a ${person.name}`}
                                                             >
-                                                                <Mail className="h-3 w-3" />
+                                                                <Mail className="h-3.5 w-3.5" />
                                                             </Button>
                                                         )}
                                                         {person.phone && (
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="icon" 
-                                                                className="h-5 w-5 text-zinc-400 hover:text-green-500 hover:bg-green-500/10"
+                                                                className="h-6 w-6 text-zinc-400 hover:text-green-500 hover:bg-green-500/10"
                                                                 onClick={() => handleWhatsAppClick(person.phone!)}
                                                                 title={`WhatsApp a ${person.name}`}
                                                             >
-                                                                <WhatsAppIcon className="h-3 w-3" />
+                                                                <WhatsAppIcon className="h-3.5 w-3.5" />
                                                             </Button>
                                                         )}
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-6 w-6 text-zinc-400 hover:text-orange-400 hover:bg-orange-400/10"
+                                                            onClick={() => handleRemoveMember(person.name!)}
+                                                            title={`Quitar a ${person.name} del equipo`}
+                                                        >
+                                                            <UserMinus className="h-3.5 w-3.5" />
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             ))

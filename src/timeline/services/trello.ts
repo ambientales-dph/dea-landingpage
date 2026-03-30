@@ -122,6 +122,18 @@ export async function getCardById(cardId: string): Promise<TrelloCardBasic | nul
   return res.ok ? await res.json() : null;
 }
 
+export async function updateTrelloCard(cardId: string, data: { name?: string, desc?: string }): Promise<TrelloCardBasic | null> {
+    const auth = getTrelloAuthParams();
+    if (!auth) return null;
+    const url = `https://api.trello.com/1/cards/${cardId}?${auth}`;
+    const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    return res.ok ? await res.json() : null;
+}
+
 export async function attachUrlToCard(cardId: string, name: string, attachmentUrl: string): Promise<TrelloAttachment | null> {
     const auth = getTrelloAuthParams();
     if (!auth) return null;
