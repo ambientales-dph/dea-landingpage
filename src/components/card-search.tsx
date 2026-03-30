@@ -358,6 +358,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   }, [allCards, query]);
 
   const handleSelect = (card: TrelloCard) => {
+    // Proceso de "descarga" del proyecto anterior para una carga limpia
     onCardSelect(null);
     setActivity([]);
     setDriveNames({});
@@ -365,6 +366,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setFolderContents([]);
     setInspectionPath([]);
     
+    // Pequeño delay para asegurar que el estado se limpia visualmente antes de la nueva carga
     setTimeout(() => {
         setQuery(card.name);
         onCardSelect(card);
@@ -732,7 +734,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1 max-w-full overflow-hidden shrink-0 min-w-0 break-words whitespace-normal",
                     isDrive ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:bg-muted/80"
                 )}>
-                    {isDrive ? <DriveIcon className="h-3.5 w-3.5 shrink-0" /> : <LinkIcon className="h-3.5 w-3.5 shrink-0" />}
+                    {isDrive ? <DriveIcon className="h-3.5 w-3.5 shrink-0" /> : <DriveIcon className="h-3.5 w-3.5 shrink-0" />}
                     <span className="flex-1 min-w-0 break-words whitespace-normal">{linkText || driveData?.name || (isDrive ? (isDriveFolder(linkUrl) ? 'Carpeta Drive' : 'Archivo Drive') : 'Abrir')}</span>
                 </a>
             );
@@ -1060,26 +1062,39 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 ) : (
                                   <>
                                     {inspectionPath.length === 0 ? (
-                                      sortedAttachments.map(att => (
-                                        <button 
-                                          key={att.id}
-                                          onClick={() => handleAttachmentClick(att)}
-                                          className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
-                                        >
-                                          {att.name === 'Línea de Tiempo' ? (
-                                            <History className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                          ) : att.id === 'virtual-external' ? (
-                                            <LinkIcon className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                          ) : (
-                                            <Folder className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-                                          )}
-                                          <div className="flex flex-col flex-1 min-w-0">
-                                            <span className="font-bold min-w-0 break-words whitespace-normal">{att.name}</span>
-                                            {att.name === 'Línea de Tiempo' && <span className="text-[8px] text-zinc-500 uppercase">Documentación Final • Solo Descarga</span>}
-                                            {att.id === 'virtual-external' && <span className="text-[8px] text-zinc-500 uppercase">Bibliografía y Recursos • {externalAttachments.length} enlaces</span>}
-                                          </div>
-                                        </button>
-                                      ))
+                                      sortedAttachments.map(att => {
+                                        const isWorkFolder = att.id !== 'tl-virtual-folder' && att.id !== 'virtual-external';
+                                        return (
+                                          <ContextMenu key={att.id}>
+                                            <ContextMenuTrigger asChild>
+                                              <button 
+                                                onClick={() => handleAttachmentClick(att)}
+                                                className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
+                                              >
+                                                {att.name === 'Línea de Tiempo' ? (
+                                                  <History className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                                ) : att.id === 'virtual-external' ? (
+                                                  <LinkIcon className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                                                ) : (
+                                                  <Folder className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                                )}
+                                                <div className="flex flex-col flex-1 min-w-0">
+                                                  <span className="font-bold min-w-0 break-words whitespace-normal">{att.name}</span>
+                                                  {att.name === 'Línea de Tiempo' && <span className="text-[8px] text-zinc-500 uppercase">Documentación Final • Solo Descarga</span>}
+                                                  {att.id === 'virtual-external' && <span className="text-[8px] text-zinc-500 uppercase">Bibliografía y Recursos • {externalAttachments.length} enlaces</span>}
+                                                </div>
+                                              </button>
+                                            </ContextMenuTrigger>
+                                            {isWorkFolder && (
+                                              <ContextMenuContent>
+                                                <ContextMenuItem onClick={() => window.open(att.url, '_blank')}>
+                                                  <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
+                                                </ContextMenuItem>
+                                              </ContextMenuContent>
+                                            )}
+                                          </ContextMenu>
+                                        );
+                                      })
                                     ) : isCurrentlyInExternal ? (
                                         externalAttachments.length === 0 ? (
                                             <div className="p-4 text-center text-[10px] text-muted-foreground italic">No hay enlaces externos vinculados.</div>
@@ -1162,7 +1177,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                   <>
                                                     {!isCurrentlyInTL && (
                                                         <ContextMenuItem onClick={() => window.open(file.webViewLink, '_blank')}>
-                                                            <ExternalLink className="mr-2 h-4 w-4" /> Abrir en la Web
+                                                            <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
                                                         </ContextMenuItem>
                                                     )}
                                                     <ContextMenuItem disabled className="text-zinc-400">
