@@ -1046,17 +1046,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
       {selectedCard && (
         <DialogUI open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] flex flex-col gap-0 shadow-2xl relative">
+            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[80vh] max-h-[85vh] flex flex-col gap-0 shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:rounded-xl">
                 
-                {/* Spinner de Carga Refinado y Bloqueante */}
+                {/* Spinner de Carga Minimalista y Bloqueante */}
                 {showGlobalLoading && (
-                  <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm transition-all duration-300 animate-in fade-in">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="relative">
-                        <div className="h-16 w-16 rounded-full border-4 border-muted border-t-primary animate-spin" />
-                        <Loader2 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-primary animate-pulse opacity-50" />
-                      </div>
-                      <p className="text-zinc-500 font-bold text-[10px] uppercase tracking-[0.2em] animate-pulse">Sincronizando Ficha...</p>
+                  <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="h-10 w-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin shadow-sm" />
+                      <p className="text-zinc-500 font-bold text-[9px] uppercase tracking-[0.25em] animate-pulse">Sincronizando...</p>
                     </div>
                   </div>
                 )}
@@ -1067,7 +1064,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                             backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
                             color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white'
                         }} 
-                        className="p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-3 shrink-0 overflow-hidden box-border"
+                        className="p-5 sm:p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-3 shrink-0 overflow-hidden box-border"
                     >
                         <div className="flex flex-col w-full pr-8 box-border min-w-0">
                             {isEditing ? (
