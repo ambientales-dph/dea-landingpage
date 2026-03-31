@@ -21,7 +21,7 @@ import {
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-  } from '@/components/ui/tooltip';
+  } from './ui/tooltip';
 
 interface MilestoneSummaryTableProps {
   milestones: Milestone[];
@@ -29,31 +29,41 @@ interface MilestoneSummaryTableProps {
 }
 
 export function MilestoneSummaryTable({ milestones, projectName }: MilestoneSummaryTableProps) {
-  const handlePrint = () => {
-    if (typeof window !== 'undefined') {
+  const handlePrint = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Un pequeño delay asegura que el navegador procese el clic y cierre tooltips antes de imprimir
+    setTimeout(() => {
       window.print();
-    }
+    }, 100);
   };
 
   return (
-    <div className="p-4 md:p-8 printable-area w-full">
+    <div className="p-4 md:p-8 w-full printable-content">
       <Card className="max-w-5xl mx-auto bg-white shadow-xl text-black border-zinc-200">
         <CardHeader className="flex flex-row items-center justify-between p-6 border-b border-zinc-100">
             <CardTitle className="font-headline text-xl font-bold text-black truncate" title={projectName || ''}>
                 {projectName || 'Resumen de Hitos'}
             </CardTitle>
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button onClick={handlePrint} size="icon" variant="outline" className="no-print text-black border-zinc-400 hover:bg-zinc-100 shrink-0">
-                            <Printer className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Imprimir o Guardar como PDF</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+            <div className="no-print">
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button 
+                                onClick={handlePrint} 
+                                size="icon" 
+                                variant="outline" 
+                                className="text-black border-zinc-400 hover:bg-zinc-100 shrink-0"
+                            >
+                                <Printer className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Imprimir o Guardar como PDF</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table className="text-xs">
