@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -24,7 +25,6 @@ import { FileUpload } from '@/timeline/components/file-upload';
 import { MilestoneSummaryTable } from '@/timeline/components/milestone-summary-sheet';
 import { WelcomeScreen } from '@/timeline/components/welcome-screen';
 import { RSA060_MILESTONES } from '@/timeline/lib/rsa060-data';
-import { FeedbackButton } from '@/timeline/components/feedback-button';
 import { FeedbackDialog } from '@/timeline/components/feedback-dialog';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, doc, setDoc, addDoc, getDocs, writeBatch, deleteDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -729,6 +729,7 @@ function HomeContent() {
           onToggleView={handleToggleView}
           view={view}
           onGoHome={handleGoHome}
+          onFeedbackClick={() => setIsFeedbackOpen(true)}
           trelloCardUrl={selectedCard?.url ?? null}
           isProjectLoaded={!!selectedCard}
         />
@@ -839,7 +840,6 @@ function HomeContent() {
         }}
       />
 
-      <FeedbackButton onClick={() => setIsFeedbackOpen(true)} className="top-20 right-6" />
       <FeedbackDialog isOpen={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
     </div>
   );

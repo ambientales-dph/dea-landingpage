@@ -2,7 +2,7 @@
 'use client';
 
 import { Input } from './ui/input';
-import { Search, List, ExternalLink, Home, GanttChartSquare } from 'lucide-react';
+import { Search, List, ExternalLink, Home, GanttChartSquare, MessageSquare } from 'lucide-react';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ interface HeaderProps {
   onToggleView: () => void;
   view: 'timeline' | 'summary';
   onGoHome: () => void;
+  onFeedbackClick: () => void;
   trelloCardUrl: string | null;
   isProjectLoaded: boolean;
   onSelectTrainingProject?: () => void;
@@ -32,6 +33,7 @@ export function Header({
   onToggleView, 
   view, 
   onGoHome, 
+  onFeedbackClick,
   trelloCardUrl, 
   isProjectLoaded,
   onSelectTrainingProject
@@ -106,7 +108,22 @@ export function Header({
           <Button size="sm" variant="ghost" onClick={() => onSetRange('1Y')} disabled={!isProjectLoaded} className={textButtonClasses}>1A</Button>
           <Button size="sm" variant="ghost" onClick={() => onSetRange('All')} disabled={!isProjectLoaded} className={textButtonClasses}>Todo</Button>
           
-          <div className="w-10 h-10 ml-2" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="icon" 
+                  onClick={onFeedbackClick} 
+                  className="h-10 w-10 ml-2 rounded-full bg-cyan-500 hover:bg-cyan-600 text-white shadow-lg transition-transform active:scale-95"
+                >
+                  <MessageSquare className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="bg-white text-black border shadow-lg">
+                <p className="font-bold">Consultas y Sugerencias</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
       </div>
     </header>
   );
