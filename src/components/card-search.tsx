@@ -982,6 +982,8 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     } catch { return false; }
   };
 
+  const showGlobalLoading = isRefreshing || isActivityLoading;
+
   return (
     <div className="flex w-full flex-col">
       <div className="relative w-full">
@@ -1044,7 +1046,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
       {selectedCard && (
         <DialogUI open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] flex flex-col gap-0 box-border shadow-2xl">
+            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] flex flex-col gap-0 box-border shadow-2xl relative">
+                
+                {/* Spinner Evidente y Bloqueante */}
+                {showGlobalLoading && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-[1px] transition-all duration-300">
+                    <div className="flex flex-col items-center gap-3 bg-white p-8 rounded-2xl shadow-2xl border border-muted/20">
+                      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                      <p className="text-primary font-bold text-xs uppercase tracking-widest">Sincronizando ficha...</p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white flex flex-col h-full overflow-hidden flex-1 min-h-0 w-full max-w-full box-border">
                     <DialogHeader 
                         style={{
