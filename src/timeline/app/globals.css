@@ -49,68 +49,49 @@
   font-weight: 500;
 }
 
-/* Estilos para impresión - REPARADOS Y MEJORADOS */
+/* Estilos para impresión - OPTIMIZADOS PARA AISLAMIENTO TOTAL */
 @media print {
-  html, body {
-    height: auto !important;
-    overflow: visible !important;
+  /* Ocultar TODO por defecto usando el selector de mayor peso */
+  html, body, .timeline-app-root, .timeline-app-root * {
+    visibility: hidden !important;
     background: white !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  .timeline-app-root {
-    background: white !important;
-    display: block !important;
     height: auto !important;
-    min-height: auto !important;
     overflow: visible !important;
-    padding: 0 !important;
-    margin: 0 !important;
   }
 
-  /* Ocultar elementos de interfaz */
-  .no-print, 
-  aside, 
-  header, 
-  nav,
-  button,
-  .fixed,
-  [role="tooltip"],
-  .shrink-0,
-  footer {
-    display: none !important;
-  }
-
-  /* Forzar visibilidad y expansión del área imprimible */
-  .flex-1, main, .overflow-y-auto, div {
-    overflow: visible !important;
-    height: auto !important;
-    display: block !important;
-    width: 100% !important;
-    position: static !important;
-  }
-
-  .printable-content {
+  /* Mostrar SOLO el contenedor imprimible y sus hijos */
+  .printable-content, .printable-content * {
     visibility: visible !important;
-    display: block !important;
-    width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
   }
 
-  /* Asegurar que el Card sea imprimible */
+  /* Posicionar el contenido al inicio de la página PDF */
+  .printable-content {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Eliminar elementos de UI dentro del área imprimible (como el botón impresora) */
+  .no-print, .no-print * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Asegurar que las sombras y bordes sean sobrios en papel */
   .printable-content .bg-card {
     border: 1px solid #e2e8f0 !important;
     box-shadow: none !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-    width: 100% !important;
+    border-radius: 4px !important;
   }
 
-  /* Forzar colores de fondo para las badges y puntos de color */
+  /* Forzar colores de fondo para que se vean las categorías */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { type Milestone } from '@/timeline/types';
+import type { Milestone } from '@/timeline/types';
 import {
   Table,
   TableBody,
@@ -29,14 +29,11 @@ interface MilestoneSummaryTableProps {
 }
 
 export function MilestoneSummaryTable({ milestones, projectName }: MilestoneSummaryTableProps) {
-  const handlePrint = (e: React.MouseEvent) => {
+  const handlePrint = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Un pequeño delay asegura que el navegador procese el clic y cierre tooltips antes de imprimir
-    setTimeout(() => {
-      window.print();
-    }, 100);
-  };
+    window.print();
+  }, []);
 
   return (
     <div className="p-4 md:p-8 w-full printable-content">
@@ -50,15 +47,17 @@ export function MilestoneSummaryTable({ milestones, projectName }: MilestoneSumm
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button 
-                                onClick={handlePrint} 
+                                type="button"
+                                onClick={handlePrint}
+                                onPointerDown={(e) => e.stopPropagation()}
                                 size="icon" 
                                 variant="outline" 
-                                className="text-black border-zinc-400 hover:bg-zinc-100 shrink-0"
+                                className="text-black border-zinc-400 hover:bg-zinc-100 shrink-0 cursor-pointer"
                             >
                                 <Printer className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>
+                        <TooltipContent side="left" className="bg-white text-black border shadow-lg">
                             <p>Imprimir o Guardar como PDF</p>
                         </TooltipContent>
                     </Tooltip>
@@ -79,7 +78,7 @@ export function MilestoneSummaryTable({ milestones, projectName }: MilestoneSumm
               {milestones.length > 0 ? (
                 milestones.map((milestone) => (
                   <TableRow key={milestone.id} className="border-b border-zinc-100 hover:bg-zinc-50/50 transition-colors">
-                    <TableCell className="py-3 px-6 font-medium">
+                    <TableCell className="py-3 px-6 font-medium text-black">
                       <div className="flex items-center gap-2">
                         {milestone.isImportant && (
                           <Star className="h-3 w-3 text-yellow-500 fill-yellow-400 shrink-0" />
@@ -93,7 +92,7 @@ export function MilestoneSummaryTable({ milestones, projectName }: MilestoneSumm
                     <TableCell className="py-3 px-6">
                         <div className="flex items-center gap-2">
                             <div
-                                className="w-2 h-2 rounded-full shrink-0"
+                                className="w-2.5 h-2.5 rounded-full shrink-0 border border-zinc-200"
                                 style={{ backgroundColor: milestone.category.color }}
                             />
                             <span className="text-zinc-700">{milestone.category.name}</span>
