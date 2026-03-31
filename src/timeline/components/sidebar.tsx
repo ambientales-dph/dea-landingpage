@@ -636,10 +636,10 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
                                             <span>Incorporar Personal...</span>
                                         </DropdownMenuSubTrigger>
                                         <DropdownMenuPortal>
-                                            <DropdownMenuSubContent className="w-56 bg-[#2d3748] border-white/10 max-h-[300px] overflow-hidden flex flex-col p-0 shadow-2xl">
+                                            <DropdownMenuSubContent className="w-56 bg-[#2d3748] border-white/10 shadow-2xl p-0 overflow-hidden">
                                                 <DropdownMenuLabel className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5">Personal Disponible</DropdownMenuLabel>
                                                 <DropdownMenuSeparator className="bg-white/5 m-0" />
-                                                <ScrollArea className="flex-1">
+                                                <ScrollArea className="h-80 w-full">
                                                     <div className="p-1">
                                                         {availableToAdd.length > 0 ? (
                                                             availableToAdd.map((person, idx) => (
