@@ -1046,14 +1046,17 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
       {selectedCard && (
         <DialogUI open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] flex flex-col gap-0 box-border shadow-2xl relative">
+            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[90vh] max-h-[90vh] flex flex-col gap-0 shadow-2xl relative">
                 
-                {/* Spinner Evidente y Bloqueante */}
+                {/* Spinner de Carga Refinado y Bloqueante */}
                 {showGlobalLoading && (
-                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-[1px] transition-all duration-300">
-                    <div className="flex flex-col items-center gap-3 bg-white p-8 rounded-2xl shadow-2xl border border-muted/20">
-                      <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                      <p className="text-primary font-bold text-xs uppercase tracking-widest">Sincronizando ficha...</p>
+                  <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm transition-all duration-300 animate-in fade-in">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="relative">
+                        <div className="h-16 w-16 rounded-full border-4 border-muted border-t-primary animate-spin" />
+                        <Loader2 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-primary animate-pulse opacity-50" />
+                      </div>
+                      <p className="text-zinc-500 font-bold text-[10px] uppercase tracking-[0.2em] animate-pulse">Sincronizando Ficha...</p>
                     </div>
                   </div>
                 )}
