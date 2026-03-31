@@ -49,23 +49,68 @@
   font-weight: 500;
 }
 
-/* Estilos para impresión */
+/* Estilos para impresión - REPARADOS Y MEJORADOS */
 @media print {
-  body * {
-    visibility: hidden !important;
+  /* Ocultar elementos de interfaz */
+  .no-print, 
+  aside, 
+  header, 
+  nav,
+  button,
+  .fixed,
+  [role="tooltip"] {
+    display: none !important;
   }
-  .printable-area, .printable-area * {
+
+  /* Resetear contenedores para impresión */
+  html, body {
+    background: white !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .timeline-app-root {
+    background: white !important;
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .flex-1, main, .overflow-y-auto {
+    overflow: visible !important;
+    display: block !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Forzar visibilidad del área imprimible */
+  .printable-area {
+    visibility: visible !important;
+    display: block !important;
+    width: 100% !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .printable-area * {
     visibility: visible !important;
   }
-  .printable-area {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    background: white !important;
-    color: black !important;
+
+  /* Asegurar que el Card sea imprimible */
+  .printable-area .bg-card {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
   }
-  .no-print {
-    display: none !important;
+
+  /* Forzar colores de fondo para las badges y puntos de color */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
