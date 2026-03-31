@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { type Milestone } from '@/types';
+import { type Milestone } from '@/timeline/types';
 import {
   Table,
   TableBody,
@@ -30,7 +30,9 @@ interface MilestoneSummaryTableProps {
 
 export function MilestoneSummaryTable({ milestones, projectName }: MilestoneSummaryTableProps) {
   const handlePrint = () => {
-    window.print();
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
   };
 
   return (

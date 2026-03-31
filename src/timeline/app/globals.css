@@ -51,21 +51,21 @@
 
 /* Estilos para impresión */
 @media print {
-  .timeline-app-root body * {
-    visibility: hidden;
+  body * {
+    visibility: hidden !important;
   }
-  .timeline-app-root .printable-area, .timeline-app-root .printable-area * {
-    visibility: visible;
+  .printable-area, .printable-area * {
+    visibility: visible !important;
   }
-  .timeline-app-root .printable-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+  .printable-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
     background: white !important;
     color: black !important;
   }
-  .timeline-app-root .no-print {
+  .no-print {
     display: none !important;
   }
 }
