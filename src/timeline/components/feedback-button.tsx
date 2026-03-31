@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -61,18 +60,18 @@ export function FeedbackButton({ onClick }: FeedbackButtonProps) {
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             size="icon"
-            className="fixed top-3 right-4 h-10 w-10 rounded-md shadow-lg bg-cyan-500 hover:bg-cyan-600 text-white z-[100] cursor-move touch-none select-none"
+            className="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-2xl bg-cyan-500 hover:bg-cyan-600 text-white z-[100] cursor-move touch-none select-none"
             style={{
               transform: `translate(${position.x}px, ${position.y}px)`,
               transition: isDragging ? 'none' : 'transform 0.2s ease-out, background-color 0.2s ease-in-out, scale 0.2s ease-in-out'
             }}
           >
-            <MessageSquare className="h-5 w-5" />
+            <MessageSquare className="h-6 w-6" />
             <span className="sr-only">Enviar Comentarios</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left" className={isDragging ? "hidden" : ""}>
-          <p>Comentarios y Sugerencias</p>
+        <TooltipContent side="left" className={isDragging ? "hidden" : "bg-white text-black border shadow-lg"}>
+          <p className="font-bold">Consultas y Sugerencias</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

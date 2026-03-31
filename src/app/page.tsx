@@ -6,32 +6,24 @@ import { Button } from '@/components/ui/button';
 import {
   FolderKanban,
   LayoutGrid,
-  Waypoints,
   Mail,
   Clock,
   HelpCircle,
   Search,
   FileText,
-  Construction,
   Settings,
   Download,
   AlertTriangle,
   Library,
-  Bell,
   LogIn,
   LogOut,
   User as UserIcon,
   Loader2,
   ShieldAlert,
   History,
-  Info,
   Map as MapIcon,
-  ChevronRight,
-  Database,
-  Globe,
   Zap,
   MousePointer2,
-  FileSearch,
   X,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
@@ -51,7 +43,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -87,6 +78,8 @@ import { loginConGoogle, cerrarSesion, isUserAuthorized, WHITELIST } from '@/ser
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useProject, INITIAL_MAP_VIEW } from '@/providers/project-provider';
 import { useMailNotifications } from '@/hooks/use-mail-notifications';
+import { FeedbackButton } from '@/timeline/components/feedback-button';
+import { FeedbackDialog } from '@/timeline/components/feedback-dialog';
 
 function HomeContent() {
   const router = useRouter();
@@ -111,6 +104,7 @@ function HomeContent() {
   const [userProjects, setUserProjects] = useState<TrelloCard[]>([]);
   const [recentProjects, setRecentProjects] = useState<TrelloCard[]>([]);
   const [isUserProjectsLoading, setIsUserProjectsLoading] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   
   const authorized = user ? isUserAuthorized(user.email) : false;
 
@@ -248,7 +242,6 @@ function HomeContent() {
   };
 
   const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
-    // Regex actualizada para soportar códigos de 2 a 4 letras
     const projectRegex = /\(([A-Z]{2,4}\d{3})\)$/;
     const match = name.match(projectRegex);
     if (match && match[1]) {
@@ -900,7 +893,7 @@ function HomeContent() {
                       <p>Mantenete al tanto de lo que sucede en el departamento:</p>
                       <ul className="space-y-2">
                         <li className="flex items-start gap-2">
-                          <Bell className="h-3 w-3 text-primary mt-0.5" />
+                          <Zap className="h-3 w-3 text-primary mt-0.5" />
                           <span><strong>Campana:</strong> Notificaciones en tiempo real de acciones en Trello y el Portal.</span>
                         </li>
                         <li className="flex items-start gap-2">
@@ -942,6 +935,8 @@ function HomeContent() {
           onOpenChange={setIsActivityLogOpen} 
           onActivityClick={handleActivityLogClick}
         />
+        <FeedbackButton onClick={() => setIsFeedbackOpen(true)} />
+        <FeedbackDialog isOpen={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
       </div>
     </div>
   );

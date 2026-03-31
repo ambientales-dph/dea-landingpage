@@ -1,98 +1,111 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trello, UploadCloud, Mouse, GanttChartSquare, Settings, Search, ListChecks, Database } from "lucide-react";
+import { UploadCloud, Mouse, GanttChartSquare, Search, ListChecks, ShieldCheck, Tag, Info } from "lucide-react";
 
 export function WelcomeScreen() {
     return (
-        <div className="flex flex-col items-center justify-center h-full p-4 md:p-8 overflow-y-auto">
-            <div className="text-center mb-8 shrink-0">
-                <GanttChartSquare className="h-16 w-16 mx-auto text-muted-foreground/50" />
-                <h1 className="text-3xl font-bold font-headline mt-4">Línea de Tiempo DEA</h1>
-                <p className="text-foreground/80 max-w-2xl mx-auto mt-2">
-                    Historial consolidado de proyectos del Departamento de Estudios Ambientales.
+        <div className="flex flex-col items-center justify-center h-full p-4 md:p-8 overflow-y-auto bg-zinc-100/50">
+            <div className="text-center mb-12 shrink-0 animate-in fade-in slide-in-from-top-4 duration-700">
+                <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <GanttChartSquare className="h-10 w-10 text-primary" />
+                </div>
+                <h1 className="text-4xl font-bold font-headline text-black tracking-tight">Línea de Tiempo DEA</h1>
+                <p className="text-zinc-600 max-w-2xl mx-auto mt-3 text-sm leading-relaxed">
+                    Historial cronológico y repositorio documental técnico para la gestión de proyectos del Departamento de Estudios Ambientales.
                 </p>
             </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
-                <Card className="border-primary/20 bg-primary/5">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 font-headline text-lg text-primary">
-                            <Database className="h-5 w-5" />
-                            Datos Migrados
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200">
+                <Card className="border-primary/20 bg-white shadow-md hover:shadow-xl transition-all duration-300 group">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-3 font-headline text-lg text-primary">
+                            <UploadCloud className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                            Registro de Eventos
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
+                    <CardContent className="text-xs text-zinc-600 leading-relaxed">
                         <p>
-                            Si ya ejecutaste la migración, seleccioná un proyecto en el panel lateral. Los hitos históricos aparecerán automáticamente vinculados a sus tarjetas de Trello.
+                            Documentá hitos relevantes, visitas de obra o reuniones técnicas. Cada evento registrado guarda un historial inalterable de quién y cuándo realizó la carga.
                         </p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 font-headline text-lg">
-                            <Trello className="h-5 w-5 text-primary" />
-                            Sincronización Trello
+
+                <Card className="border-primary/20 bg-white shadow-md hover:shadow-xl transition-all duration-300 group">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-3 font-headline text-lg text-primary">
+                            <ShieldCheck className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                            Gestión Documental
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
+                    <CardContent className="text-xs text-zinc-600 leading-relaxed">
                         <p>
-                            Al seleccionar una tarjeta, el sistema importa automáticamente comentarios, archivos adjuntos y movimientos de lista como hitos del proyecto.
+                            Clasificá tus archivos como <strong>Finales</strong> (documentación entregable e intocable) o de <strong>Trabajo</strong> (archivos técnicos en edición alojados en el servidor principal).
                         </p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 font-headline text-lg">
-                            <UploadCloud className="h-5 w-5 text-primary" />
-                            Hitos Manuales
+
+                <Card className="border-primary/20 bg-white shadow-md hover:shadow-xl transition-all duration-300 group">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-3 font-headline text-lg text-primary">
+                            <Mouse className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                            Navegación Temporal
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
-                        <p>
-                            Usá el botón <strong>"+"</strong> para añadir eventos, fotos o documentos directamente a la línea de tiempo. Se guardarán en Google Drive y se verán en Trello.
-                        </p>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 font-headline text-lg">
-                            <Mouse className="h-5 w-5 text-primary" />
-                            Navegación
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
-                        <ul className="list-disc list-inside space-y-1">
-                            <li><strong>Zoom:</strong> Rueda del ratón.</li>
-                            <li><strong>Mover:</strong> Clic derecho y arrastrar.</li>
-                            <li><strong>Detalles:</strong> Un clic sobre cualquier punto.</li>
+                    <CardContent className="text-xs text-zinc-600 leading-relaxed">
+                        <ul className="space-y-1.5">
+                            <li className="flex items-center gap-2"><div className="h-1 w-1 rounded-full bg-primary" /> <strong>Zoom:</strong> Usá la rueda del ratón para ampliar periodos específicos.</li>
+                            <li className="flex items-center gap-2"><div className="h-1 w-1 rounded-full bg-primary" /> <strong>Desplazamiento:</strong> Clic derecho y arrastrar para navegar la historia.</li>
                         </ul>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 font-headline text-lg">
-                           <Search className="h-5 w-5 text-primary" />
-                           Búsqueda Global
+
+                <Card className="border-primary/20 bg-white shadow-md hover:shadow-xl transition-all duration-300 group">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-3 font-headline text-lg text-primary">
+                            <Tag className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                            Auditoría Técnica
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
+                    <CardContent className="text-xs text-zinc-600 leading-relaxed">
                         <p>
-                            Buscá por nombre de archivo, descripción o etiquetas. El sistema filtrará los eventos en tiempo real para facilitarte el seguimiento.
+                            Utilizá categorías y etiquetas para clasificar hallazgos, inspecciones o informes de impacto (EIA). Permite un seguimiento granular de la evolución del proyecto.
                         </p>
                     </CardContent>
                 </Card>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 font-headline text-lg">
-                            <ListChecks className="h-5 w-5 text-primary" />
-                            Resumen de Obra
+
+                <Card className="border-primary/20 bg-white shadow-md hover:shadow-xl transition-all duration-300 group">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-3 font-headline text-lg text-primary">
+                           <Search className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                           Búsqueda Inteligente
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
+                    <CardContent className="text-xs text-zinc-600 leading-relaxed">
+                        <p>
+                            Localizá archivos o hitos específicos mediante filtros por nombre, descripción o palabras clave. El sistema indexa todo el contenido para una respuesta inmediata.
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-primary/20 bg-white shadow-md hover:shadow-xl transition-all duration-300 group">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-3 font-headline text-lg text-primary">
+                            <ListChecks className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                            Reportes Consolidados
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-xs text-zinc-600 leading-relaxed">
                        <p>
-                            Cambiá a la <strong>vista de tabla</strong> para generar reportes imprimibles o PDFs con el resumen cronológico de todas las intervenciones.
+                            Accedé a la <strong>vista de tabla</strong> para generar resúmenes ejecutivos imprimibles. Ideal para adjuntar a expedientes o compartir informes de avance rápidos.
                        </p>
                     </CardContent>
                 </Card>
+            </div>
+
+            <div className="mt-12 p-4 bg-zinc-200/50 rounded-lg flex items-center gap-3 text-zinc-500 border border-zinc-300">
+                <Info className="h-4 w-4" />
+                <p className="text-[10px] uppercase font-bold tracking-widest">
+                    Seleccioná un proyecto en el panel izquierdo para comenzar la navegación técnica.
+                </p>
             </div>
         </div>
     );
