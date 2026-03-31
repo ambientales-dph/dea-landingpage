@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -60,7 +59,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { WHITELIST, type AuthorizedUser } from '@/lib/auth-data';
+import { WHITELIST, INTERNAL_STAFF, type AuthorizedUser } from '@/lib/auth-data';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -500,7 +499,8 @@ const nominatedParticipants = React.useMemo(() => {
 
 const availableToAdd = React.useMemo(() => {
     const currentNames = new Set(nominatedParticipants.map(p => p.name?.toLowerCase()));
-    return WHITELIST.filter(p => p.name && !currentNames.has(p.name.toLowerCase())).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    // Solo permitimos añadir personal interno (INTERNAL_STAFF), filtrando los que ya están nominados.
+    return INTERNAL_STAFF.filter(p => p.name && !currentNames.has(p.name.toLowerCase())).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 }, [nominatedParticipants]);
 
 const handleAddMember = async (person: AuthorizedUser) => {

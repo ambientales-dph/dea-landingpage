@@ -9,7 +9,7 @@ export interface AuthorizedUser {
 }
 
 // --- PERSONAL INTERNO DEA (SÍ tienen permiso de acceso al sistema) ---
-const INTERNAL_STAFF: AuthorizedUser[] = [
+export const INTERNAL_STAFF: AuthorizedUser[] = [
   { name: 'Nancy Neschuk', email: 'nancyneschuk@gmail.com', phone: '+549 221 465-1214' },
   { name: 'Luis Bree', email: 'luisbree@gmail.com', phone: '+549 221 318-3040' },
   { name: 'Norma Bordón', email: 'no68si40@gmail.com', phone: '+549 221 575-5057' },
