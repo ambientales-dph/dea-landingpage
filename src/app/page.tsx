@@ -67,8 +67,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuPortal
+  DropdownMenuPortal,
+  DropdownMenuSubContent
 } from '@/components/ui/dropdown-menu';
 import jsPDF from 'jspdf';
 import NotificationsBell from '@/components/notifications-bell';
@@ -935,7 +935,7 @@ function HomeContent() {
           onOpenChange={setIsActivityLogOpen} 
           onActivityClick={handleActivityLogClick}
         />
-        <FeedbackButton onClick={() => setIsFeedbackOpen(true)} />
+        <FeedbackButton onClick={() => setIsFeedbackOpen(true)} className="bottom-6 right-6" />
         <FeedbackDialog isOpen={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
       </div>
     </div>

@@ -425,7 +425,7 @@ function HomeContent() {
             id: driveResult.id,
             name: driveResult.name,
             size: `${(config.file.size / 1024).toFixed(2)} KB`,
-            type: config.file.type.startsWith('image/') ? 'image' : config.file.type.startsWith('video/') ? 'video' : config.file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => config.file.type.includes(t)) ? 'document' : 'other',
+            type: config.file.type.startsWith('image/') ? 'image' : config.file.type.startsWith('video/') ? 'video' : config.file.type.startsWith('audio/') ? 'audio' : ['application/pdf', 'application/msword', 'text/plain'].some(t => config.file.type.includes(t)) ? 'document' : 'other';
             url: driveResult.webViewLink || null as any,
             downloadUrl: driveResult.webContentLink || null as any,
             driveId: driveResult.id,
@@ -839,7 +839,7 @@ function HomeContent() {
         }}
       />
 
-      <FeedbackButton onClick={() => setIsFeedbackOpen(true)} />
+      <FeedbackButton onClick={() => setIsFeedbackOpen(true)} className="top-20 left-6" />
       <FeedbackDialog isOpen={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
     </div>
   );

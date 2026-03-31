@@ -9,12 +9,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 interface FeedbackButtonProps {
     onClick: () => void;
+    className?: string;
 }
 
-export function FeedbackButton({ onClick }: FeedbackButtonProps) {
+export function FeedbackButton({ onClick, className }: FeedbackButtonProps) {
   const [position, setPosition] = React.useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = React.useState(false);
   const dragStart = React.useRef({ x: 0, y: 0 });
@@ -60,7 +62,10 @@ export function FeedbackButton({ onClick }: FeedbackButtonProps) {
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             size="icon"
-            className="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-2xl bg-cyan-500 hover:bg-cyan-600 text-white z-[100] cursor-move touch-none select-none"
+            className={cn(
+              "fixed h-12 w-12 rounded-full shadow-2xl bg-cyan-500 hover:bg-cyan-600 text-white z-[100] cursor-move touch-none select-none",
+              className
+            )}
             style={{
               transform: `translate(${position.x}px, ${position.y}px)`,
               transition: isDragging ? 'none' : 'transform 0.2s ease-out, background-color 0.2s ease-in-out, scale 0.2s ease-in-out'
