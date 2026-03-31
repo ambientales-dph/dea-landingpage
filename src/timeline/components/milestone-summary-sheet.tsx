@@ -12,16 +12,9 @@ import {
 } from './ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Button } from './ui/button';
 import { Printer, Star } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-  } from './ui/tooltip';
 
 interface MilestoneSummaryTableProps {
   milestones: Milestone[];
@@ -29,40 +22,23 @@ interface MilestoneSummaryTableProps {
 }
 
 export function MilestoneSummaryTable({ milestones, projectName }: MilestoneSummaryTableProps) {
-  const handlePrint = React.useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    window.print();
-  }, []);
-
   return (
-    <div className="p-4 md:p-8 w-full printable-content">
+    <div className="p-4 md:p-8 w-full printable-content relative">
       <Card className="max-w-5xl mx-auto bg-white shadow-xl text-black border-zinc-200">
         <CardHeader className="flex flex-row items-center justify-between p-6 border-b border-zinc-100">
             <CardTitle className="font-headline text-xl font-bold text-black truncate" title={projectName || ''}>
                 {projectName || 'Resumen de Hitos'}
             </CardTitle>
-            <div className="no-print">
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button 
-                                type="button"
-                                onClick={handlePrint}
-                                onPointerDown={(e) => e.stopPropagation()}
-                                size="icon" 
-                                variant="outline" 
-                                className="text-black border-zinc-400 hover:bg-zinc-100 shrink-0 cursor-pointer"
-                            >
-                                <Printer className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="bg-white text-black border shadow-lg">
-                            <p>Imprimir o Guardar como PDF</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            </div>
+            
+            {/* Botón estándar HTML para evitar interferencias de librerías de UI */}
+            <button 
+                type="button"
+                onClick={() => typeof window !== 'undefined' && window.print()}
+                className="no-print relative z-[100] flex items-center justify-center h-10 w-10 rounded-md border border-zinc-400 bg-white text-black hover:bg-zinc-100 transition-colors shadow-sm cursor-pointer"
+                title="Imprimir o Guardar como PDF"
+            >
+                <Printer className="h-5 w-5" />
+            </button>
         </CardHeader>
         <CardContent className="p-0">
           <Table className="text-xs">

@@ -49,49 +49,46 @@
   font-weight: 500;
 }
 
-/* Estilos para impresión - OPTIMIZADOS PARA AISLAMIENTO TOTAL */
+/* Estilos para impresión - REFACTORIZACIÓN FINAL */
 @media print {
-  /* Ocultar TODO por defecto usando el selector de mayor peso */
-  html, body, .timeline-app-root, .timeline-app-root * {
+  /* Ocultar TODO lo que no sea el contenido imprimible */
+  body * {
     visibility: hidden !important;
-    background: white !important;
-    height: auto !important;
-    overflow: visible !important;
   }
 
-  /* Mostrar SOLO el contenedor imprimible y sus hijos */
   .printable-content, .printable-content * {
     visibility: visible !important;
   }
 
-  /* Posicionar el contenido al inicio de la página PDF */
+  /* Forzar que el contenedor imprimible tome el control total */
   .printable-content {
-    position: absolute !important;
+    position: fixed !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
-    display: block !important;
-    margin: 0 !important;
+    height: auto !important;
     padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    overflow: visible !important;
+    z-index: 99999 !important;
   }
 
-  /* Eliminar elementos de UI dentro del área imprimible (como el botón impresora) */
-  .no-print, .no-print * {
+  /* Esconder botones de ayuda o impresión dentro del área de reporte */
+  .no-print {
     display: none !important;
     visibility: hidden !important;
   }
 
-  /* Asegurar que las sombras y bordes sean sobrios en papel */
-  .printable-content .bg-card {
-    border: 1px solid #e2e8f0 !important;
+  /* Asegurar legibilidad */
+  .bg-card {
+    border: 1px solid #ddd !important;
     box-shadow: none !important;
-    border-radius: 4px !important;
   }
 
-  /* Forzar colores de fondo para que se vean las categorías */
+  /* Forzar colores en PDF */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 }
