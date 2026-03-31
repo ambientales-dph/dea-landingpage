@@ -839,7 +839,7 @@ function HomeContent() {
         }}
       />
 
-      <FeedbackButton onClick={() => setIsFeedbackOpen(true)} className="top-20 left-6" />
+      <FeedbackButton onClick={() => setIsFeedbackOpen(true)} className="top-20 right-6" />
       <FeedbackDialog isOpen={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
     </div>
   );
