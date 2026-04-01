@@ -454,10 +454,42 @@ function HomeContent() {
           setUploadProgress(((index + 1) / totalFiles) * 100);
       }
       
+      const now = new Date();
+      const targetDate = new Date(occurredAt);
+      const isTodayVal = isSameDay(targetDate, now);
+
+      let finalOccurredDate: Date;
+
+      if (isTodayVal) {
+          // Si es hoy, usamos la hora actual exacta
+          finalOccurredDate = now;
+      } else {
+          // Si es pasado, aplicamos lógica de 07:00 AM + espaciado de 10 min
+          targetDate.setHours(0, 0, 0, 0);
+          const dayMilestones = (milestones || []).filter(m => {
+            const mDate = parseISO(m.occurredAt);
+            return isSameDay(mDate, targetDate);
+          });
+          
+          finalOccurredDate = new Date(targetDate);
+          if (dayMilestones.length > 0) {
+            const minutesArray = dayMilestones.map(m => {
+                const d = parseISO(m.occurredAt);
+                return d.getHours() * 60 + d.getMinutes();
+            });
+            const maxMins = Math.max(...minutesArray);
+            // Iniciamos en 7:00 AM (420 mins) o sumamos 10 min al último
+            const nextMins = Math.max(7 * 60, maxMins + 10);
+            finalOccurredDate.setHours(Math.floor(nextMins / 60), nextMins % 60, 0, 0);
+          } else {
+            finalOccurredDate.setHours(7, 0, 0, 0);
+          }
+      }
+
       const newMilestoneData = {
           name: name,
           description: description,
-          occurredAt: occurredAt.toISOString(),
+          occurredAt: finalOccurredDate.toISOString(),
           category: { id: category.id, name: category.name, color: category.color },
           tags: [hasFinal ? 'manual' : 'trabajo'],
           associatedFiles: associatedFiles,
@@ -485,7 +517,7 @@ function HomeContent() {
         setConflicts([]);
         setPendingUploadData(null);
     }
-  }, [categories, selectedCard, firestore, toast, logTimelineActivity]);
+  }, [categories, selectedCard, firestore, toast, milestones, conflicts, logTimelineActivity]);
 
   const handleUpload = React.useCallback(async (data: { 
     fileConfigs: FileConfig[], 

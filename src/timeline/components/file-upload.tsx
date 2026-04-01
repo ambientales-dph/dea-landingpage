@@ -28,7 +28,8 @@ import {
     PlusCircle, 
     Folder, 
     ChevronRight, 
-    Briefcase 
+    Briefcase,
+    CalendarIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from './ui/scroll-area';
@@ -36,11 +37,16 @@ import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/tim
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { type FileConfig } from './add-files-dialog';
 import { CUENCAS } from '@/lib/cuencas';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Calendar } from './ui/calendar';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const uploadSchema = z.object({
   name: z.string().min(1, { message: 'El título del hito no puede estar vacío.' }),
-  description: z.string().optional().or(z.string().min(0)),
+  description: z.string().optional().default(''),
   categoryId: z.string().min(1, 'Por favor, seleccioná una categoría.'),
+  occurredAt: z.date({ required_error: "Debes seleccionar una fecha." }),
   targetFolderId: z.string().optional(),
 });
 
@@ -90,6 +96,7 @@ export function FileUpload({
       name: '',
       description: '',
       categoryId: '',
+      occurredAt: new Date(),
       targetFolderId: 'root',
     },
   });
@@ -98,7 +105,13 @@ export function FileUpload({
 
   React.useEffect(() => {
     if (!isOpen) {
-      form.reset();
+      form.reset({
+        name: '',
+        description: '',
+        categoryId: '',
+        occurredAt: new Date(),
+        targetFolderId: 'root'
+      });
       setIsCreatingFolder(false);
       setNavigationStack([]);
       setCurrentSubfolders([]);
@@ -205,7 +218,6 @@ export function FileUpload({
   const handleFormSubmit = (data: UploadFormValues) => {
     onUpload({
         ...data,
-        occurredAt: new Date(), // Automatic capture at submission time
         fileConfigs,
         description: data.description || '',
         targetFolderId: hasWorkFiles ? navigationStack[navigationStack.length - 1]?.id : undefined
@@ -221,7 +233,7 @@ export function FileUpload({
                   <DialogHeader className="space-y-1 mb-4">
                   <DialogTitle className="font-headline text-lg">Cargar un nuevo hito</DialogTitle>
                   <DialogDescription className="text-zinc-700 text-xs">
-                      Completá el título y la categoría para registrar el evento. La hora se capturará automáticamente al guardar.
+                      Solo el título y la categoría son obligatorios. Podés seleccionar una fecha pasada si lo necesitás.
                   </DialogDescription>
                   </DialogHeader>
                   <Form {...form}>
@@ -251,6 +263,77 @@ export function FileUpload({
                                   </FormItem>
                               )}
                               />
+                              
+                              <div className="col-span-2 grid grid-cols-2 gap-3">
+                                  <FormField
+                                  control={form.control}
+                                  name="categoryId"
+                                  render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                      <FormLabel className="text-xs font-semibold">Categoría *</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                          <FormControl>
+                                          <SelectTrigger className="h-8 text-sm bg-zinc-100 border-zinc-400">
+                                              <SelectValue placeholder="Seleccioná" />
+                                          </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent className="max-h-[200px]" position="popper">
+                                          {categories.map(category => (
+                                              <SelectItem key={category.id} value={category.id} className="text-xs">
+                                                  {category.name}
+                                              </SelectItem>
+                                          ))}
+                                          </SelectContent>
+                                      </Select>
+                                      <FormMessage className="text-[10px]" />
+                                      </FormItem>
+                                  )}
+                                  />
+
+                                  <FormField
+                                  control={form.control}
+                                  name="occurredAt"
+                                  render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                      <FormLabel className="text-xs font-semibold">Fecha del hito</FormLabel>
+                                      <Popover>
+                                          <PopoverTrigger asChild>
+                                              <FormControl>
+                                                  <Button
+                                                      variant={"outline"}
+                                                      className={cn(
+                                                          "w-full h-8 pl-3 text-left font-normal bg-zinc-100 border-zinc-400 text-sm",
+                                                          !field.value && "text-muted-foreground"
+                                                      )}
+                                                  >
+                                                      {field.value ? (
+                                                          format(field.value, "dd/MM/yyyy")
+                                                      ) : (
+                                                          <span>Seleccioná fecha</span>
+                                                      )}
+                                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                  </Button>
+                                              </FormControl>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0 bg-white" align="start">
+                                              <Calendar
+                                                  mode="single"
+                                                  selected={field.value}
+                                                  onSelect={field.onChange}
+                                                  disabled={(date) =>
+                                                      date > new Date() || date < new Date("1900-01-01")
+                                                  }
+                                                  initialFocus
+                                                  locale={es}
+                                              />
+                                          </PopoverContent>
+                                      </Popover>
+                                      <FormMessage className="text-[10px]" />
+                                      </FormItem>
+                                  )}
+                                  />
+                              </div>
+
                               <FormField
                               control={form.control}
                               name="description"
@@ -260,30 +343,6 @@ export function FileUpload({
                                   <FormControl>
                                       <Textarea className="min-h-[60px] text-sm bg-zinc-100 text-black border-zinc-400" rows={2} {...field} />
                                   </FormControl>
-                                  <FormMessage className="text-[10px]" />
-                                  </FormItem>
-                              )}
-                              />
-                              <FormField
-                              control={form.control}
-                              name="categoryId"
-                              render={({ field }) => (
-                                  <FormItem className="space-y-1 col-span-2">
-                                  <FormLabel className="text-xs font-semibold">Categoría *</FormLabel>
-                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                      <FormControl>
-                                      <SelectTrigger className="h-8 text-sm bg-zinc-100 border-zinc-400">
-                                          <SelectValue placeholder="Seleccioná" />
-                                      </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent className="max-h-[200px]" position="popper">
-                                      {categories.map(category => (
-                                          <SelectItem key={category.id} value={category.id} className="text-xs">
-                                              {category.name}
-                                          </SelectItem>
-                                      ))}
-                                      </SelectContent>
-                                  </Select>
                                   <FormMessage className="text-[10px]" />
                                   </FormItem>
                               )}
@@ -314,7 +373,7 @@ export function FileUpload({
                                                       type="button"
                                                       onClick={() => toggleFileType(index)}
                                                       className={cn(
-                                                          "flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all border",
+                                                          "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all border",
                                                           config.isFinal 
                                                               ? "bg-primary/10 border-primary/20 text-primary" 
                                                               : "bg-amber-50 border-amber-200 text-amber-700"
