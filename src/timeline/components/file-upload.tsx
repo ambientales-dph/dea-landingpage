@@ -23,7 +23,6 @@ import {
     UploadCloud, 
     X, 
     File as FileIconLucide, 
-    CalendarIcon, 
     Loader2, 
     ShieldCheck, 
     PlusCircle, 
@@ -31,10 +30,7 @@ import {
     ChevronRight, 
     Briefcase 
 } from 'lucide-react';
-import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
-import { format, isValid, parse } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { ScrollArea } from './ui/scroll-area';
 import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/timeline/services/google-drive';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -44,9 +40,6 @@ import { CUENCAS } from '@/lib/cuencas';
 const uploadSchema = z.object({
   name: z.string().min(1, { message: 'El título del hito no puede estar vacío.' }),
   description: z.string().optional().or(z.string().min(0)),
-  occurredAt: z.date({
-    required_error: "Se requiere una fecha para el hito.",
-  }),
   categoryId: z.string().min(1, 'Por favor, seleccioná una categoría.'),
   targetFolderId: z.string().optional(),
 });
@@ -83,9 +76,6 @@ export function FileUpload({
   uploadProgress,
   uploadText,
 }: FileUploadProps) {
-  const [showCalendar, setShowCalendar] = React.useState(false);
-  const [manualDateText, setManualDateText] = React.useState('');
-  const [manualTimeText, setManualTimeText] = React.useState('');
   const [isLoadingFolders, setIsLoadingFolders] = React.useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = React.useState(false);
   const [newFolderName, setNewFolderName] = React.useState('');
@@ -100,7 +90,6 @@ export function FileUpload({
       name: '',
       description: '',
       categoryId: '',
-      occurredAt: new Date(),
       targetFolderId: 'root',
     },
   });
@@ -110,11 +99,6 @@ export function FileUpload({
   React.useEffect(() => {
     if (!isOpen) {
       form.reset();
-      const now = new Date();
-      form.setValue('occurredAt', now);
-      setManualDateText(format(now, "dd/MM/yyyy"));
-      setManualTimeText(format(now, "HH:mm:ss"));
-      setShowCalendar(false);
       setIsCreatingFolder(false);
       setNavigationStack([]);
       setCurrentSubfolders([]);
@@ -197,38 +181,6 @@ export function FileUpload({
     }
   };
 
-  const handleManualDateChange = (val: string) => {
-    const cleaned = val.replace(/[^0-9/]/g, "");
-    setManualDateText(cleaned);
-    
-    if (cleaned.length === 10) {
-      const parsedDate = parse(cleaned, "dd/MM/yyyy", new Date());
-      if (isValid(parsedDate)) {
-        const current = form.getValues('occurredAt');
-        const finalDate = new Date(parsedDate);
-        finalDate.setHours(current.getHours(), current.getMinutes(), current.getSeconds());
-        form.setValue('occurredAt', finalDate, { shouldValidate: true });
-      }
-    }
-  };
-
-  const handleManualTimeChange = (val: string) => {
-    const cleaned = val.replace(/[^0-9:]/g, "");
-    setManualTimeText(cleaned);
-    
-    if (cleaned.length === 8) {
-      const parts = cleaned.split(':').map(Number);
-      if (parts.length === 3 && parts[0] >= 0 && parts[0] < 24 && parts[1] >= 0 && parts[1] < 60 && parts[2] >= 0 && parts[2] < 60) {
-        const current = form.getValues('occurredAt');
-        const newDate = new Date(current);
-        newDate.setHours(parts[0], parts[1], parts[2]);
-        if (isValid(newDate)) {
-          form.setValue('occurredAt', newDate, { shouldValidate: true });
-        }
-      }
-    }
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = e.target.files ? Array.from(e.target.files) : [];
     if (newFiles.length === 0) return;
@@ -251,9 +203,9 @@ export function FileUpload({
   };
 
   const handleFormSubmit = (data: UploadFormValues) => {
-    if (fileConfigs.length === 0) return;
     onUpload({
         ...data,
+        occurredAt: new Date(), // Automatic capture at submission time
         fileConfigs,
         description: data.description || '',
         targetFolderId: hasWorkFiles ? navigationStack[navigationStack.length - 1]?.id : undefined
@@ -262,17 +214,14 @@ export function FileUpload({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(
-        "bg-zinc-300 text-black p-0 transition-all duration-300 overflow-hidden",
-        showCalendar ? "sm:max-w-[850px]" : "sm:max-w-[600px]"
-      )}>
+      <DialogContent className="bg-zinc-300 text-black p-0 transition-all duration-300 overflow-hidden sm:max-w-[600px]">
         <ScrollArea className="max-h-[90vh]">
-          <div className="flex flex-col sm:flex-row h-full">
-              <div className="flex-1 p-6 border-b sm:border-b-0 sm:border-r border-zinc-400/30">
+          <div className="flex flex-col h-full">
+              <div className="flex-1 p-6">
                   <DialogHeader className="space-y-1 mb-4">
                   <DialogTitle className="font-headline text-lg">Cargar un nuevo hito</DialogTitle>
                   <DialogDescription className="text-zinc-700 text-xs">
-                      Seleccioná por cada archivo su destino correspondiente.
+                      Completá el título y la categoría para registrar el evento. La hora se capturará automáticamente al guardar.
                   </DialogDescription>
                   </DialogHeader>
                   <Form {...form}>
@@ -294,7 +243,7 @@ export function FileUpload({
                               name="name"
                               render={({ field }) => (
                                   <FormItem className="space-y-1 col-span-2">
-                                  <FormLabel className="text-xs font-semibold">Título del hito</FormLabel>
+                                  <FormLabel className="text-xs font-semibold">Título del hito *</FormLabel>
                                   <FormControl>
                                       <Input {...field} className="h-8 text-sm bg-zinc-100 text-black border-zinc-400" />
                                   </FormControl>
@@ -307,7 +256,7 @@ export function FileUpload({
                               name="description"
                               render={({ field }) => (
                                   <FormItem className="space-y-1 col-span-2">
-                                  <FormLabel className="text-xs font-semibold">Descripción / Detalles</FormLabel>
+                                  <FormLabel className="text-xs font-semibold">Descripción / Detalles (Opcional)</FormLabel>
                                   <FormControl>
                                       <Textarea className="min-h-[60px] text-sm bg-zinc-100 text-black border-zinc-400" rows={2} {...field} />
                                   </FormControl>
@@ -317,42 +266,10 @@ export function FileUpload({
                               />
                               <FormField
                               control={form.control}
-                              name="occurredAt"
-                              render={() => (
-                                  <FormItem className="space-y-1 col-span-2">
-                                  <FormLabel className="text-xs font-semibold">Fecha y Hora</FormLabel>
-                                  <div className="flex gap-1">
-                                    <Input 
-                                      placeholder="DD/MM/YYYY" 
-                                      className="h-8 text-sm bg-zinc-100 text-black border-zinc-400 w-28"
-                                      value={manualDateText}
-                                      onChange={(e) => handleManualDateChange(e.target.value)}
-                                    />
-                                    <Input 
-                                      placeholder="HH:mm:ss" 
-                                      className="h-8 text-sm bg-zinc-100 text-black border-zinc-400 w-24"
-                                      value={manualTimeText}
-                                      onChange={(e) => handleManualTimeChange(e.target.value)}
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => setShowCalendar(!showCalendar)}
-                                        className={cn("h-8 w-8 p-0 shrink-0 border-zinc-400", showCalendar && "bg-primary text-white hover:bg-primary")}
-                                    >
-                                        <CalendarIcon className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                  <FormMessage className="text-[10px]" />
-                                  </FormItem>
-                              )}
-                              />
-                              <FormField
-                              control={form.control}
                               name="categoryId"
                               render={({ field }) => (
                                   <FormItem className="space-y-1 col-span-2">
-                                  <FormLabel className="text-xs font-semibold">Categoría</FormLabel>
+                                  <FormLabel className="text-xs font-semibold">Categoría *</FormLabel>
                                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                                       <FormControl>
                                       <SelectTrigger className="h-8 text-sm bg-zinc-100 border-zinc-400">
@@ -492,34 +409,11 @@ export function FileUpload({
                       )}
                       <DialogFooter className="pt-2 gap-2 flex flex-row justify-end">
                         <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-8 border-zinc-400">Cerrar</Button>
-                        <Button type="submit" size="sm" disabled={isUploading || fileConfigs.length === 0} className="h-8 shadow-md">Crear e Iniciar Hito</Button>
+                        <Button type="submit" size="sm" disabled={isUploading} className="h-8 shadow-md">Crear e Iniciar Hito</Button>
                       </DialogFooter>
                   </form>
                   </Form>
               </div>
-
-              {showCalendar && (
-                  <div className="w-full sm:w-[320px] bg-zinc-200 p-4 flex flex-col items-center border-l border-zinc-400/30">
-                      <Calendar
-                          mode="single"
-                          selected={form.watch('occurredAt')}
-                          onSelect={(date) => {
-                              if (date) {
-                                  const current = form.getValues('occurredAt');
-                                  const finalDate = new Date(date);
-                                  finalDate.setHours(current.getHours(), current.getMinutes(), current.getSeconds());
-                                  form.setValue('occurredAt', finalDate);
-                                  setShowCalendar(false);
-                              }
-                          }}
-                          locale={es}
-                          captionLayout="dropdown"
-                          fromYear={1900}
-                          toYear={new Date().getFullYear() + 10}
-                          className="bg-white rounded-lg shadow-xl"
-                      />
-                  </div>
-              )}
           </div>
         </ScrollArea>
       </DialogContent>
