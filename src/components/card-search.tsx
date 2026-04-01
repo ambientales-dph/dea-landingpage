@@ -306,7 +306,7 @@ interface CardSearchProps {
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const { user } = useUser();
   const db = useFirestore();
-  const { allCards, isLoadingCards, refreshCards } = useProject();
+  const { allCards, isLoadingCards: isLoading, refreshCards } = useProject();
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -998,7 +998,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 if (e.target.value.length > 0 && (!selectedCard || e.target.value !== selectedCard.name)) setIsOpen(true);
                 else setIsOpen(false);
               }}
-              placeholder={isLoadingCards ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'}
+              placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'}
               className="w-full min-h-20 bg-white text-foreground pr-10 text-xs border-2 focus-visible:ring-primary shadow-sm"
               autoComplete="off"
             />
@@ -1046,7 +1046,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
       {selectedCard && (
         <DialogUI open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[80vh] max-h-[85vh] flex flex-col gap-0 shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:rounded-xl">
+            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[85vh] max-h-[85vh] flex flex-col gap-0 shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:rounded-xl">
                 
                 {/* Spinner de Carga Minimalista y Bloqueante */}
                 {showGlobalLoading && (

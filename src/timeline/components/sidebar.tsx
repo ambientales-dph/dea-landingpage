@@ -72,6 +72,7 @@ import {
   DropdownMenuPortal,
   DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Label } from '@/components/ui/label';
 import { Textarea } from './ui/textarea';
 import { useFirestore, useUser } from '@/firebase';
@@ -624,44 +625,42 @@ const cardListTitle = (!selectedBoard && !selectedList && cardSearchTerm) ? `Res
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="w-[264px] bg-[#2d3748] border-white/10 shadow-2xl p-0 overflow-hidden">
-                                    <DropdownMenuLabel className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5 flex items-center justify-between">
-                                        <span>Nominados DEA</span>
-                                    </DropdownMenuLabel>
+                                    <div className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5 flex items-center justify-between">
+                                        <span className="font-bold">Nominados DEA</span>
+                                        <DropdownMenuSub>
+                                            <DropdownMenuPrimitive.SubTrigger asChild>
+                                                <button className="text-primary hover:text-white transition-colors p-0.5 outline-none cursor-pointer" title="Incorporar personal">
+                                                    <UserPlus className="h-3.5 w-3.5" />
+                                                </button>
+                                            </DropdownMenuPrimitive.SubTrigger>
+                                            <DropdownMenuPortal>
+                                                <DropdownMenuSubContent className="w-56 bg-[#2d3748] border-white/10 shadow-2xl p-0 overflow-hidden">
+                                                    <DropdownMenuLabel className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5">Personal Disponible</DropdownMenuLabel>
+                                                    <DropdownMenuSeparator className="bg-white/5 m-0" />
+                                                    <ScrollArea className="h-80 w-full">
+                                                        <div className="p-1">
+                                                            {availableToAdd.length > 0 ? (
+                                                                availableToAdd.map((person, idx) => (
+                                                                    <DropdownMenuItem 
+                                                                        key={idx} 
+                                                                        onSelect={() => handleAddMember(person)}
+                                                                        className="text-[11px] text-white hover:bg-white/10 cursor-pointer py-1.5 px-3 rounded-sm"
+                                                                    >
+                                                                        {person.name}
+                                                                    </DropdownMenuItem>
+                                                                ))
+                                                            ) : (
+                                                                <div className="p-4 text-center">
+                                                                    <p className="text-[9px] text-zinc-500 italic">No hay personal pendiente de agregar.</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </ScrollArea>
+                                                </DropdownMenuSubContent>
+                                            </DropdownMenuPortal>
+                                        </DropdownMenuSub>
+                                    </div>
                                     
-                                    <DropdownMenuSeparator className="bg-white/5 m-0" />
-                                    
-                                    <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger className="text-[10px] uppercase font-bold text-primary px-3 py-2 hover:bg-white/5 cursor-pointer">
-                                            <UserPlus className="mr-2 h-3.5 w-3.5" />
-                                            <span>Incorporar Personal...</span>
-                                        </DropdownMenuSubTrigger>
-                                        <DropdownMenuPortal>
-                                            <DropdownMenuSubContent className="w-56 bg-[#2d3748] border-white/10 shadow-2xl p-0 overflow-hidden">
-                                                <DropdownMenuLabel className="text-[9px] text-zinc-400 uppercase tracking-widest px-3 py-2 bg-white/5">Personal Disponible</DropdownMenuLabel>
-                                                <DropdownMenuSeparator className="bg-white/5 m-0" />
-                                                <ScrollArea className="h-80 w-full">
-                                                    <div className="p-1">
-                                                        {availableToAdd.length > 0 ? (
-                                                            availableToAdd.map((person, idx) => (
-                                                                <DropdownMenuItem 
-                                                                    key={idx} 
-                                                                    onSelect={() => handleAddMember(person)}
-                                                                    className="text-[11px] text-white hover:bg-white/10 cursor-pointer py-1.5 px-3 rounded-sm"
-                                                                >
-                                                                    {person.name}
-                                                                </DropdownMenuItem>
-                                                            ))
-                                                        ) : (
-                                                            <div className="p-4 text-center">
-                                                                <p className="text-[9px] text-zinc-500 italic">No hay personal pendiente de agregar.</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </ScrollArea>
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuPortal>
-                                    </DropdownMenuSub>
-
                                     <DropdownMenuSeparator className="bg-white/5 m-0" />
 
                                     <ScrollArea className="h-[200px] w-full">
