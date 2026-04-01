@@ -653,7 +653,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent 
-                                  className="w-auto p-0 border-0 bg-transparent shadow-none" 
+                                  className="w-auto p-0 border-0 bg-transparent shadow-none z-[100]" 
                                   side="right" 
                                   align="start"
                                   sideOffset={20}
