@@ -454,31 +454,10 @@ function HomeContent() {
           setUploadProgress(((index + 1) / totalFiles) * 100);
       }
       
-      const targetDate = new Date(occurredAt);
-      targetDate.setHours(0, 0, 0, 0);
-
-      const dayMilestones = (milestones || []).filter(m => {
-        const mDate = parseISO(m.occurredAt);
-        return isSameDay(mDate, targetDate);
-      });
-      
-      const finalDate = new Date(targetDate);
-      if (dayMilestones.length > 0) {
-        const minutesArray = dayMilestones.map(m => {
-            const d = parseISO(m.occurredAt);
-            return d.getHours() * 60 + d.getMinutes();
-        });
-        const maxMins = Math.max(...minutesArray);
-        const nextMins = Math.max(7 * 60, maxMins + 10);
-        finalDate.setHours(Math.floor(nextMins / 60), nextMins % 60, 0, 0);
-      } else {
-        finalDate.setHours(7, 0, 0, 0);
-      }
-
       const newMilestoneData = {
           name: name,
           description: description,
-          occurredAt: finalDate.toISOString(),
+          occurredAt: occurredAt.toISOString(),
           category: { id: category.id, name: category.name, color: category.color },
           tags: [hasFinal ? 'manual' : 'trabajo'],
           associatedFiles: associatedFiles,
@@ -506,7 +485,7 @@ function HomeContent() {
         setConflicts([]);
         setPendingUploadData(null);
     }
-  }, [categories, selectedCard, firestore, toast, milestones, conflicts, logTimelineActivity]);
+  }, [categories, selectedCard, firestore, toast, logTimelineActivity]);
 
   const handleUpload = React.useCallback(async (data: { 
     fileConfigs: FileConfig[], 

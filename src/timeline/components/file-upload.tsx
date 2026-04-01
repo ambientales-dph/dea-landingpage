@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -16,7 +17,7 @@ import type { Category } from '@/timeline/types';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from './ui/textarea';
 import { 
     UploadCloud, 
@@ -25,11 +26,8 @@ import {
     CalendarIcon, 
     Loader2, 
     ShieldCheck, 
-    FolderEdit, 
     PlusCircle, 
     Folder, 
-    HardDrive, 
-    Map, 
     ChevronRight, 
     Briefcase 
 } from 'lucide-react';
@@ -38,7 +36,6 @@ import { cn } from '@/lib/utils';
 import { format, isValid, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ScrollArea } from './ui/scroll-area';
-import { Switch } from './ui/switch';
 import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/timeline/services/google-drive';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { type FileConfig } from './add-files-dialog';
@@ -88,12 +85,12 @@ export function FileUpload({
 }: FileUploadProps) {
   const [showCalendar, setShowCalendar] = React.useState(false);
   const [manualDateText, setManualDateText] = React.useState('');
+  const [manualTimeText, setManualTimeText] = React.useState('');
   const [isLoadingFolders, setIsLoadingFolders] = React.useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = React.useState(false);
   const [newFolderName, setNewFolderName] = React.useState('');
   const [fileConfigs, setFileConfigs] = React.useState<FileConfig[]>([]);
   
-  // Navegación de carpetas
   const [navigationStack, setNavigationStack] = React.useState<{id: string, name: string}[]>([]);
   const [currentSubfolders, setCurrentSubfolders] = React.useState<{id: string, name: string}[]>([]);
 
@@ -110,12 +107,13 @@ export function FileUpload({
 
   const hasWorkFiles = fileConfigs.some(c => !c.isFinal);
 
-  // Reset al cerrar
   React.useEffect(() => {
     if (!isOpen) {
       form.reset();
-      form.setValue('occurredAt', new Date());
-      setManualDateText(format(new Date(), "dd/MM/yyyy"));
+      const now = new Date();
+      form.setValue('occurredAt', now);
+      setManualDateText(format(now, "dd/MM/yyyy"));
+      setManualTimeText(format(now, "HH:mm:ss"));
       setShowCalendar(false);
       setIsCreatingFolder(false);
       setNavigationStack([]);
@@ -124,28 +122,22 @@ export function FileUpload({
     }
   }, [form, isOpen]);
 
-  // Cargar jerarquía inicial: Cuenca -> Proyecto
   React.useEffect(() => {
     const initExplorer = async () => {
         if (hasWorkFiles && projectCode && isOpen && navigationStack.length === 0) {
             setIsLoadingFolders(true);
             try {
-                // 1. Identificar Cuenca
                 const basinCodeMatch = projectCode.match(/^([A-Z]{2,4})/i);
                 const basin = basinCodeMatch ? CUENCAS.find(c => c.code === basinCodeMatch[1].toUpperCase()) : null;
                 
                 if (basin && basin.driveFolderId) {
-                    // Inicializamos con la Cuenca
                     const basinEntry = { id: basin.driveFolderId, name: basin.name };
-                    
-                    // Buscamos el Proyecto dentro de la cuenca
                     const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
                     const projectEntry = { id: projectFolderId, name: projectCode };
                     
                     setNavigationStack([basinEntry, projectEntry]);
                     form.setValue('targetFolderId', projectFolderId);
                 } else {
-                    // Fallback a solo proyecto si no hay cuenca
                     const projectFolderId = await getOrCreateProjectFolder(projectCode, projectName, false);
                     setNavigationStack([{ id: projectFolderId, name: projectCode }]);
                     form.setValue('targetFolderId', projectFolderId);
@@ -160,7 +152,6 @@ export function FileUpload({
     initExplorer();
   }, [hasWorkFiles, projectCode, projectName, isOpen, navigationStack.length, form]);
 
-  // Cargar subcarpetas cuando cambia el nivel actual
   React.useEffect(() => {
     const fetchSubfolders = async () => {
         if (navigationStack.length > 0 && hasWorkFiles) {
@@ -213,7 +204,27 @@ export function FileUpload({
     if (cleaned.length === 10) {
       const parsedDate = parse(cleaned, "dd/MM/yyyy", new Date());
       if (isValid(parsedDate)) {
-        form.setValue('occurredAt', parsedDate, { shouldValidate: true });
+        const current = form.getValues('occurredAt');
+        const finalDate = new Date(parsedDate);
+        finalDate.setHours(current.getHours(), current.getMinutes(), current.getSeconds());
+        form.setValue('occurredAt', finalDate, { shouldValidate: true });
+      }
+    }
+  };
+
+  const handleManualTimeChange = (val: string) => {
+    const cleaned = val.replace(/[^0-9:]/g, "");
+    setManualTimeText(cleaned);
+    
+    if (cleaned.length === 8) {
+      const parts = cleaned.split(':').map(Number);
+      if (parts.length === 3 && parts[0] >= 0 && parts[0] < 24 && parts[1] >= 0 && parts[1] < 60 && parts[2] >= 0 && parts[2] < 60) {
+        const current = form.getValues('occurredAt');
+        const newDate = new Date(current);
+        newDate.setHours(parts[0], parts[1], parts[2]);
+        if (isValid(newDate)) {
+          form.setValue('occurredAt', newDate, { shouldValidate: true });
+        }
       }
     }
   };
@@ -308,14 +319,20 @@ export function FileUpload({
                               control={form.control}
                               name="occurredAt"
                               render={() => (
-                                  <FormItem className="space-y-1">
-                                  <FormLabel className="text-xs font-semibold">Fecha</FormLabel>
+                                  <FormItem className="space-y-1 col-span-2">
+                                  <FormLabel className="text-xs font-semibold">Fecha y Hora</FormLabel>
                                   <div className="flex gap-1">
                                     <Input 
                                       placeholder="DD/MM/YYYY" 
-                                      className="h-8 text-sm bg-zinc-100 text-black border-zinc-400"
+                                      className="h-8 text-sm bg-zinc-100 text-black border-zinc-400 w-28"
                                       value={manualDateText}
                                       onChange={(e) => handleManualDateChange(e.target.value)}
+                                    />
+                                    <Input 
+                                      placeholder="HH:mm:ss" 
+                                      className="h-8 text-sm bg-zinc-100 text-black border-zinc-400 w-24"
+                                      value={manualTimeText}
+                                      onChange={(e) => handleManualTimeChange(e.target.value)}
                                     />
                                     <Button
                                         type="button"
@@ -334,7 +351,7 @@ export function FileUpload({
                               control={form.control}
                               name="categoryId"
                               render={({ field }) => (
-                                  <FormItem className="space-y-1">
+                                  <FormItem className="space-y-1 col-span-2">
                                   <FormLabel className="text-xs font-semibold">Categoría</FormLabel>
                                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                                       <FormControl>
@@ -488,7 +505,10 @@ export function FileUpload({
                           selected={form.watch('occurredAt')}
                           onSelect={(date) => {
                               if (date) {
-                                  form.setValue('occurredAt', date);
+                                  const current = form.getValues('occurredAt');
+                                  const finalDate = new Date(date);
+                                  finalDate.setHours(current.getHours(), current.getMinutes(), current.getSeconds());
+                                  form.setValue('occurredAt', finalDate);
                                   setShowCalendar(false);
                               }
                           }}
