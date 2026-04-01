@@ -663,7 +663,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                                 selected={parseISO(milestone.occurredAt)}
                                 onSelect={handleDateChange}
                                 disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                                captionLayout="dropdown"
+                                captionLayout="dropdown-buttons"
                                 fromYear={1900}
                                 toYear={new Date().getFullYear()}
                                 locale={es}

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -325,6 +324,9 @@ export function FileUpload({
                                                   }
                                                   initialFocus
                                                   locale={es}
+                                                  captionLayout="dropdown-buttons"
+                                                  fromYear={1900}
+                                                  toYear={new Date().getFullYear()}
                                               />
                                           </PopoverContent>
                                       </Popover>
