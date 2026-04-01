@@ -67,7 +67,7 @@ function HomeContent() {
   const cardIdParam = searchParams.get('cardId');
   const firestore = useFirestore();
   const { user } = useUser();
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
   
   const { allCards, selectedCard, setSelectedCard, refreshCards } = useProject();
 
@@ -382,7 +382,7 @@ function HomeContent() {
     }
 
     setIsUploading(true);
-    const { id: toastId, dismiss, update } = toast({
+    const { id: toastId, dismiss: localDismiss, update } = toast({
       title: "Procesando archivos mixtos...",
       description: "Preparando carpetas en Drive.",
       duration: Infinity,
@@ -504,11 +504,11 @@ function HomeContent() {
       logTimelineActivity('timeline_milestone_created', `Hito creado: "${name}" con ${associatedFiles.length} archivos.`);
 
       setIsUploadOpen(false);
-      dismiss(toastId);
+      localDismiss();
       toast({ title: `Hito "${name}" creado exitosamente.` });
     } catch (error: any) {
         console.error("Upload error:", error);
-        dismiss(toastId);
+        localDismiss();
         toast({ variant: "destructive", title: "Error en la carga", description: error.message });
     } finally {
         setIsUploading(false);
@@ -684,10 +684,10 @@ function HomeContent() {
             toast({ variant: "destructive", title: "Error en limpieza física", description: e.message });
         }
     } finally {
-        if (toastId) toast.dismiss(toastId);
+        if (toastId) dismiss(toastId);
         setIsProcessingTrash(false);
     }
-  }, [selectedCard, firestore, milestones, toast, logTimelineActivity]);
+  }, [selectedCard, firestore, milestones, toast, dismiss, logTimelineActivity]);
 
   // Lógica de limpieza automática de la papelera (30 días)
   const hasCleanedTrashRef = React.useRef<string | null>(null);
