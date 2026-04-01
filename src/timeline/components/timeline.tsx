@@ -310,9 +310,9 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
     >
       <div className="relative h-full w-full">
         
-        {/* Barra de Estado Evolutiva - Posicionamiento Dinámico e Inteligente */}
+        {/* Barra de Estado Evolutiva - Posicionamiento Dinámico */}
         <div className={cn(
-            "absolute inset-x-0 h-8 pointer-events-none z-30 transition-all duration-500 ease-in-out",
+            "absolute inset-x-0 h-8 pointer-events-none z-[15] transition-all duration-500 ease-in-out",
             isDetailOpen ? "bottom-[-45px]" : "top-[15px]"
         )}>
             {statusSegments.map((seg, i) => {
@@ -328,13 +328,10 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
                 
                 if (visibleRight <= visibleLeft) return null;
 
-                // Las etiquetas ahora se escalonan verticalmente para evitar solapamientos
-                // i % 2 determina si la etiqueta va más arriba o más abajo
                 const labelOffset = i % 2 === 0 ? '6px' : '18px';
 
                 return (
                     <React.Fragment key={i}>
-                        {/* Separador Vertical de Cambio de Estado */}
                         {i > 0 && left >= 0 && left <= 100 && (
                             <div 
                                 className={cn(
@@ -386,14 +383,8 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
         <div className="absolute inset-x-0 bottom-7 h-32 z-0 pointer-events-none opacity-40">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={activityData} margin={{ left: 0, right: 0, top: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#888888" stopOpacity={0.4}/>
-                  <stop offset="95%" stopColor="#888888" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
               <XAxis dataKey="time" hide type="number" domain={[startTime, endTime]} />
-              <Area type="monotone" dataKey="count" stroke="#888888" strokeWidth={1} fill="url(#colorActivity)" isAnimationActive={false}/>
+              <Area type="monotone" dataKey="count" stroke="#888888" strokeWidth={1} fill="#888888" fillOpacity={0.1} isAnimationActive={false}/>
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -411,6 +402,24 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
 
         {centralMonthLabel && <div className="absolute bottom-[-50px] w-full text-center z-10 text-lg font-bold text-muted-foreground/50 capitalize">{centralMonthLabel}</div>}
 
+        {/* Capa 1: Palitos (Líneas verticales) - Renderizados por debajo */}
+        {visibleMilestones.map(milestone => {
+          const position = filePositions.get(milestone.id) ?? 0;
+          const height = heights.current.get(milestone.id) ?? 60;
+          return (
+            <div 
+              key={`stick-${milestone.id}`} 
+              className="absolute bottom-7 w-px bg-gray-300 pointer-events-none z-10" 
+              style={{ 
+                left: `${position}%`, 
+                height: `${height}px`, 
+                transform: 'translateX(-50%)' 
+              }} 
+            />
+          );
+        })}
+
+        {/* Capa 2: Globitos y Tooltips - Renderizados por encima */}
         <TooltipProvider>
           {visibleMilestones.map(milestone => {
             const position = filePositions.get(milestone.id) ?? 0;
@@ -418,13 +427,30 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
             const hasFiles = milestone.associatedFiles && milestone.associatedFiles.length > 0;
 
             return (
-              <div key={milestone.id} className={cn("absolute bottom-7 flex flex-col items-center", activeMilestoneId === milestone.id ? 'z-40' : 'z-20')} style={{ left: `${position}%`, transform: 'translateX(-50%)' }}>
+              <div 
+                key={`ball-container-${milestone.id}`} 
+                className={cn(
+                  "absolute flex flex-col items-center", 
+                  activeMilestoneId === milestone.id ? 'z-40' : 'z-20'
+                )} 
+                style={{ 
+                  left: `${position}%`, 
+                  bottom: `calc(1.75rem + ${height}px)`, 
+                  transform: 'translate(-50%, 50%)' 
+                }}
+              >
                 <Tooltip delayDuration={100} onOpenChange={o => setActiveMilestoneId(o ? milestone.id : null)}>
                   <TooltipTrigger asChild>
-                    <div className="relative flex flex-col-reverse items-center cursor-pointer group" onClick={() => onMilestoneClick(milestone)}>
-                       <div className="w-px bg-gray-300" style={{ height: `${height}px` }} />
-                       <div className="w-2.5 h-2.5 rounded-full border-2 border-background shadow-md group-hover:scale-125 transition-transform" style={{ backgroundColor: milestone.category.color }} />
-                       {milestone.isImportant && <div style={{ bottom: `${height + 10}px`}} className="absolute"><Star className="w-4 h-4 text-yellow-400 fill-yellow-400" /></div>}
+                    <div className="relative cursor-pointer group" onClick={() => onMilestoneClick(milestone)}>
+                       <div 
+                         className="w-2.5 h-2.5 rounded-full border-2 border-background shadow-md group-hover:scale-125 transition-transform" 
+                         style={{ backgroundColor: milestone.category.color }} 
+                       />
+                       {milestone.isImportant && (
+                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1">
+                           <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 drop-shadow-sm" />
+                         </div>
+                       )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent className="flex items-center gap-1.5 px-2 py-1 bg-white text-black border-zinc-200 shadow-md">
