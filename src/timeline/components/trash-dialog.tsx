@@ -44,7 +44,7 @@ export function TrashDialog({
             Papelera de Reciclaje
           </DialogTitle>
           <DialogDescription className="text-zinc-300">
-            Los hitos eliminados permanecen aquí indefinidamente. Puedes restaurarlos con todos sus componentes en cualquier momento.
+            Los hitos eliminados permanecen aquí durante <strong>30 días</strong> como máximo, tras los cuales se borran definitivamente de forma automática para optimizar el sistema.
           </DialogDescription>
         </DialogHeader>
 

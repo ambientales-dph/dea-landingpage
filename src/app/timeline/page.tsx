@@ -639,17 +639,22 @@ function HomeContent() {
     }
   }, [selectedCard, firestore, toast, refreshCards, logTimelineActivity]);
 
-  const handleMilestonePermanentDelete = React.useCallback(async (milestoneId: string) => {
+  const handleMilestonePermanentDelete = React.useCallback(async (milestoneId: string, isAutoCleanup: boolean = false) => {
     if (!firestore || !selectedCard) return;
     const hitoToDelete = milestones?.find(m => m.id === milestoneId);
     if (!hitoToDelete) return;
 
     setIsProcessingTrash(true);
-    const { id: toastId, dismiss } = toast({
-      title: "Eliminando permanentemente...",
-      description: "Borrando archivos físicos en Drive.",
-      duration: Infinity,
-    });
+    let toastId: string | undefined;
+    
+    if (!isAutoCleanup) {
+        const t = toast({
+            title: "Eliminando permanentemente...",
+            description: "Borrando archivos físicos en Drive.",
+            duration: Infinity,
+        });
+        toastId = t.id;
+    }
 
     try {
         for (const file of hitoToDelete.associatedFiles) {
@@ -668,15 +673,51 @@ function HomeContent() {
         const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestoneId);
         await deleteDoc(milestoneRef);
         
-        toast({ title: "Hito eliminado definitivamente" });
-        logTimelineActivity('timeline_milestone_purged', `Eliminó permanentemente: "${hitoToDelete.name}"`);
+        if (!isAutoCleanup) {
+            toast({ title: "Hito eliminado definitivamente" });
+            logTimelineActivity('timeline_milestone_purged', `Eliminó permanentemente: "${hitoToDelete.name}"`);
+        } else {
+            console.log(`✅ [LIMPIEZA] Hito "${hitoToDelete.name}" eliminado por antigüedad.`);
+        }
     } catch (e: any) {
-        toast({ variant: "destructive", title: "Error en limpieza física", description: e.message });
+        if (!isAutoCleanup) {
+            toast({ variant: "destructive", title: "Error en limpieza física", description: e.message });
+        }
     } finally {
-        dismiss(toastId);
+        if (toastId) toast.dismiss(toastId);
         setIsProcessingTrash(false);
     }
   }, [selectedCard, firestore, milestones, toast, logTimelineActivity]);
+
+  // Lógica de limpieza automática de la papelera (30 días)
+  const hasCleanedTrashRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!selectedCard || !milestones || milestones.length === 0 || hasCleanedTrashRef.current === selectedCard.id) return;
+
+    const purgeExpiredTrash = async () => {
+        const now = new Date();
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        const expired = milestones.filter(m => {
+            if (!m.isDeleted || !m.deletedAt) return false;
+            // Manejar tanto objeto Timestamp de Firestore como Date
+            const deletedDate = m.deletedAt.toDate ? m.deletedAt.toDate() : new Date(m.deletedAt);
+            return (now.getTime() - deletedDate.getTime()) > thirtyDaysMs;
+        });
+
+        if (expired.length > 0) {
+            console.log(`🧹 [LIMPIEZA] Detectados ${expired.length} hito(s) caducados (>30 días) en papelera.`);
+            hasCleanedTrashRef.current = selectedCard.id;
+            
+            for (const ms of expired) {
+                await handleMilestonePermanentDelete(ms.id, true);
+            }
+        } else {
+            hasCleanedTrashRef.current = selectedCard.id;
+        }
+    };
+
+    purgeExpiredTrash();
+  }, [selectedCard, milestones, handleMilestonePermanentDelete]);
 
   const handleSetRange = React.useCallback((rangeType: '1H' | '1D' | '1M' | '1Y' | 'All') => {
     if (rangeType === 'All') {
