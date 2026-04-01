@@ -1050,7 +1050,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 
                 {/* Spinner de Carga Minimalista y Bloqueante */}
                 {showGlobalLoading && (
-                  <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+                  <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/20 backdrop-blur-sm transition-all duration-300 animate-in fade-in">
                     <div className="flex flex-col items-center gap-3">
                       <div className="h-10 w-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin shadow-sm" />
                       <p className="text-zinc-500 font-bold text-[9px] uppercase tracking-[0.25em] animate-pulse">Sincronizando...</p>
@@ -1169,7 +1169,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editFinanciamiento.length > 0 ? `${editFinanciamiento.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
                                                 <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                                    {FINANCIAMIENTO.map(f => <DropdownMenuCheckboxItem key={f} checked={editFinanciamiento.includes(f)} onCheckedChange={c => setEditFinanciamiento(curr => c ? [...curr, f] : curr.filter(x => x !== f))} onSelect={e => e.preventDefault()}>{f}</DropdownMenuCheckboxItem>)}
+                                                    {FINANCIAMIENTO.map(f => <DropdownMenuCheckboxItem key={f} checked={editFinanciamiento.includes(f)} onCheckedChange={c => setSelectedFinanciamiento(curr => c ? [...curr, f] : curr.filter(x => x !== f))} onSelect={e => e.preventDefault()}>{f}</DropdownMenuCheckboxItem>)}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </div>
