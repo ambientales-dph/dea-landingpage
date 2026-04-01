@@ -225,7 +225,7 @@ export function FileUpload({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-zinc-300 text-black p-0 transition-all duration-300 overflow-hidden sm:max-w-[600px]">
+      <DialogContent className="bg-zinc-300 text-black p-0 transition-all duration-300 overflow-visible sm:max-w-[600px]">
         <ScrollArea className="max-h-[90vh]">
           <div className="flex flex-col h-full">
               <div className="flex-1 p-6">
@@ -314,7 +314,12 @@ export function FileUpload({
                                                   </Button>
                                               </FormControl>
                                           </PopoverTrigger>
-                                          <PopoverContent className="w-auto p-0 bg-white" align="start">
+                                          <PopoverContent 
+                                              className="w-auto p-0 border-0 bg-transparent shadow-none" 
+                                              side="right" 
+                                              align="start"
+                                              sideOffset={20}
+                                          >
                                               <Calendar
                                                   mode="single"
                                                   selected={field.value}

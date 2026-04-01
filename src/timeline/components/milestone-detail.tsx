@@ -641,35 +641,40 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                             value={manualTimeText}
                             onChange={(e) => handleManualTimeChange(e.target.value)}
                           />
-                          <button 
-                              onClick={() => setShowCalendar(!showCalendar)}
-                              className={cn(
-                                  "hover:text-black transition-colors focus:outline-none flex items-center p-1 border border-zinc-400 rounded bg-zinc-100",
-                                  showCalendar && "text-primary border-primary font-bold"
-                              )}
-                          >
-                              <CalendarIcon className="h-3 w-3" />
-                          </button>
+                          <Popover>
+                              <PopoverTrigger asChild>
+                                <button 
+                                    className={cn(
+                                        "hover:text-black transition-colors focus:outline-none flex items-center p-1 border border-zinc-400 rounded bg-zinc-100",
+                                        showCalendar && "text-primary border-primary font-bold"
+                                    )}
+                                >
+                                    <CalendarIcon className="h-3 w-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent 
+                                  className="w-auto p-0 border-0 bg-transparent shadow-none" 
+                                  side="right" 
+                                  align="start"
+                                  sideOffset={20}
+                              >
+                                  <Calendar
+                                      mode="single"
+                                      selected={parseISO(milestone.occurredAt)}
+                                      onSelect={handleDateChange}
+                                      disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                      captionLayout="dropdown-buttons"
+                                      fromYear={1900}
+                                      toYear={new Date().getFullYear()}
+                                      locale={es}
+                                  />
+                              </PopoverContent>
+                          </Popover>
                         </div>
                         <span className="text-[10px] text-zinc-500 italic">
                           {format(parseISO(milestone.occurredAt), "PPP ppp", { locale: es })}
                         </span>
                     </div>
-
-                    {showCalendar && (
-                        <div className="p-2 bg-white rounded-lg shadow-lg border border-zinc-300 animate-in fade-in zoom-in-95 duration-200 z-50">
-                            <Calendar
-                                mode="single"
-                                selected={parseISO(milestone.occurredAt)}
-                                onSelect={handleDateChange}
-                                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                                captionLayout="dropdown-buttons"
-                                fromYear={1900}
-                                toYear={new Date().getFullYear()}
-                                locale={es}
-                            />
-                        </div>
-                    )}
                 </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
