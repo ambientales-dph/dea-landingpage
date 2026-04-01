@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -41,7 +42,7 @@ import { FileConflictDialog, type ConflictStrategy } from '@/timeline/components
 import { useProject } from '@/providers/project-provider';
 import { WHITELIST } from '@/lib/auth-data';
 import { type FileConfig } from '@/timeline/components/add-files-dialog';
-import { ToastAction } from '@/components/ui/toast';
+import { TrashDialog } from '@/timeline/components/trash-dialog';
 
 const STATUS_COLORS_HEX: Record<string, string | null> = {
     'Sin iniciar': 'red',
@@ -75,6 +76,8 @@ function HomeContent() {
   const [selectedMilestone, setSelectedMilestone] = React.useState<Milestone | null>(null);
   const [isUploadOpen, setIsUploadOpen] = React.useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = React.useState(false);
+  const [isTrashOpen, setIsTrashOpen] = React.useState(false);
+  const [isProcessingTrash, setIsProcessingTrash] = React.useState(false);
   const [view, setView] = React.useState<'timeline' | 'summary'>('timeline');
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState(0);
@@ -89,18 +92,10 @@ function HomeContent() {
   const [conflicts, setConflicts] = React.useState<any[]>([]);
 
   const syncPerformedForCard = React.useRef<string | null>(null);
-  const pendingDeletions = React.useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const [firestoreCategories, setFirestoreCategories] = React.useState<Category[]>([]);
   const [milestones, setMilestones] = React.useState<Milestone[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = React.useState(true);
-
-  React.useEffect(() => {
-    return () => {
-      // Limpiar timeouts al desmontar
-      pendingDeletions.current.forEach(timeout => clearTimeout(timeout));
-    };
-  }, []);
 
   React.useEffect(() => {
     if (!firestore || !user) return;
@@ -173,10 +168,14 @@ function HomeContent() {
         return RSA060_MILESTONES.map(m => {
             const currentCat = categories.find(c => c.id === m.category.id);
             return currentCat ? { ...m, category: currentCat } : m;
-        });
+        }).filter(m => !m.isDeleted);
     }
-    return milestones || [];
+    return (milestones || []).filter(m => !m.isDeleted);
   }, [selectedCard, milestones, categories]);
+
+  const deletedMilestones = React.useMemo(() => {
+    return (milestones || []).filter(m => m.isDeleted);
+  }, [milestones]);
 
   const filteredMilestones = React.useMemo(() => {
     return (displayedMilestones || [])
@@ -537,8 +536,6 @@ function HomeContent() {
 
         const foundConflicts = [];
         for (const config of fileConfigs) {
-            // Nota: Para archivos finales en un hito nuevo, no sabemos la carpeta aún (se crea luego), 
-            // pero podemos verificar contra el destino de trabajo si corresponde.
             if (!config.isFinal) {
                 const existing = await findFileInFolder(workRootId, config.file.name);
                 if (existing) foundConflicts.push({ name: config.file.name, existingId: existing.id });
@@ -578,101 +575,97 @@ function HomeContent() {
 
   const handleMilestoneDelete = React.useCallback(async (milestoneId: string) => {
     if (!firestore || !selectedCard) return;
+    
+    try {
+        const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestoneId);
+        await updateDoc(milestoneRef, {
+            isDeleted: true,
+            deletedAt: serverTimestamp()
+        });
+        
+        setSelectedMilestone(null);
+        toast({ 
+            title: "Hito movido a la papelera", 
+            description: "Puedes restaurarlo en cualquier momento desde el menú de papelera." 
+        });
+        
+        logTimelineActivity('timeline_milestone_deleted', `Movió hito a papelera: ${milestoneId}`);
+    } catch (err: any) {
+        toast({ variant: "destructive", title: "Error al borrar", description: err.message });
+    }
+  }, [selectedCard, firestore, toast, logTimelineActivity]);
+
+  const handleMilestoneRestore = React.useCallback(async (milestone: Milestone) => {
+    if (!firestore || !selectedCard) return;
+    setIsProcessingTrash(true);
+
+    try {
+        const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestone.id);
+        await updateDoc(milestoneRef, {
+            isDeleted: false,
+            deletedAt: null
+        });
+
+        if (milestone.category.id === 'cat-status' || milestone.tags?.includes('estado')) {
+            const statusMatch = milestone.description.match(/a "(.*?)". Fecha/);
+            if (statusMatch && statusMatch[1]) {
+                const newStatus = statusMatch[1];
+                const color = STATUS_COLORS_HEX[newStatus] || 'red';
+                await updateTrelloCard({ 
+                    cardId: selectedCard.id, 
+                    cover: { color } 
+                });
+                refreshCards();
+            }
+        }
+
+        toast({ title: "Hito restaurado correctamente" });
+        logTimelineActivity('timeline_milestone_restored', `Restauró hito: "${milestone.name}"`);
+    } catch (err: any) {
+        toast({ variant: "destructive", title: "Error al restaurar", description: err.message });
+    } finally {
+        setIsProcessingTrash(false);
+    }
+  }, [selectedCard, firestore, toast, refreshCards, logTimelineActivity]);
+
+  const handleMilestonePermanentDelete = React.useCallback(async (milestoneId: string) => {
+    if (!firestore || !selectedCard) return;
     const hitoToDelete = milestones?.find(m => m.id === milestoneId);
     if (!hitoToDelete) return;
 
-    // Respaldo para el Deshacer
-    const backupMilestone = { ...hitoToDelete };
-    const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestoneId);
-
-    // 1. Borrado visual (Firestore) inmediato
-    try {
-        await deleteDoc(milestoneRef);
-        setSelectedMilestone(null);
-    } catch (err) {
-        console.error("Error al borrar hito de Firestore:", err);
-        return;
-    }
-
-    // 2. Mostrar Toast con Deshacer
-    const { id: undoToastId, dismiss } = toast({
-        title: "Hito eliminado",
-        description: `Se eliminó "${backupMilestone.name}" del historial.`,
-        duration: 8000,
-        action: (
-            <ToastAction 
-                altText="Deshacer" 
-                onClick={async () => {
-                    // Restaurar en Firestore
-                    await setDoc(milestoneRef, backupMilestone);
-                    
-                    // Si el hito era un cambio de estado, restaurar el estado visual en Trello
-                    if (backupMilestone.category.id === 'cat-status' || backupMilestone.tags?.includes('estado')) {
-                        const statusMatch = backupMilestone.description.match(/a "(.*?)". Fecha/);
-                        if (statusMatch && statusMatch[1]) {
-                            const newStatus = statusMatch[1];
-                            const color = STATUS_COLORS_HEX[newStatus] || 'red';
-                            await updateTrelloCard({ 
-                                cardId: selectedCard.id, 
-                                cover: { color } 
-                            });
-                            refreshCards(); // Sincronizar cache local
-                        }
-                    }
-
-                    // Cancelar el borrado definitivo
-                    const existingTimeout = pendingDeletions.current.get(milestoneId);
-                    if (existingTimeout) {
-                        clearTimeout(existingTimeout);
-                        pendingDeletions.current.delete(milestoneId);
-                    }
-                    
-                    toast({ title: "Hito restaurado correctamente." });
-                }}
-            >
-                Deshacer
-            </ToastAction>
-        )
+    setIsProcessingTrash(true);
+    const { id: toastId, dismiss } = toast({
+      title: "Eliminando permanentemente...",
+      description: "Borrando archivos físicos en Drive.",
+      duration: Infinity,
     });
 
-    // 3. Programar el borrado definitivo en Trello y Drive (8 segundos)
-    const timeout = setTimeout(async () => {
-        pendingDeletions.current.delete(milestoneId);
-        
-        console.log(`🧹 [LIMPIEZA] Borrado definitivo de archivos para hito: ${milestoneId}`);
-
-        try {
-            // Borrar adjuntos de Trello
-            for (const file of backupMilestone.associatedFiles) {
-                if (file.trelloId) await deleteAttachmentFromCard(selectedCard.id, file.trelloId);
-            }
-
-            // Borrar de Drive
-            if (backupMilestone.driveFolderId) {
-                await deleteFileFromDrive(backupMilestone.driveFolderId);
-            } else {
-                for (const file of backupMilestone.associatedFiles) {
-                    const driveId = file.driveId || file.id;
-                    if (driveId) await deleteFileFromDrive(driveId);
-                }
-            }
-
-            // Borrar actividad si correspondía a un comentario automatizado
-            if (milestoneId.startsWith('hito-') && backupMilestone.tags?.includes('comentario')) {
-                const trelloObjectId = milestoneId.replace('hito-', '');
-                await deleteAction(trelloObjectId);
-            }
-
-            logTimelineActivity('timeline_milestone_deleted', `Eliminó permanentemente: "${backupMilestone.name}"`);
-        } catch (e) {
-            console.error("Error en limpieza definitiva:", e);
+    try {
+        for (const file of hitoToDelete.associatedFiles) {
+            if (file.trelloId) await deleteAttachmentFromCard(selectedCard.id, file.trelloId);
         }
-    }, 8500);
 
-    pendingDeletions.current.set(milestoneId, timeout);
+        if (hitoToDelete.driveFolderId) {
+            await deleteFileFromDrive(hitoToDelete.driveFolderId);
+        } else {
+            for (const file of hitoToDelete.associatedFiles) {
+                const driveId = file.driveId || file.id;
+                if (driveId) await deleteFileFromDrive(driveId);
+            }
+        }
 
-  }, [selectedCard, firestore, milestones, toast, logTimelineActivity, refreshCards]);
-
+        const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestoneId);
+        await deleteDoc(milestoneRef);
+        
+        toast({ title: "Hito eliminado definitivamente" });
+        logTimelineActivity('timeline_milestone_purged', `Eliminó permanentemente: "${hitoToDelete.name}"`);
+    } catch (e: any) {
+        toast({ variant: "destructive", title: "Error en limpieza física", description: e.message });
+    } finally {
+        dismiss(toastId);
+        setIsProcessingTrash(false);
+    }
+  }, [selectedCard, firestore, milestones, toast, logTimelineActivity]);
 
   const handleSetRange = React.useCallback((rangeType: '1H' | '1D' | '1M' | '1Y' | 'All') => {
     if (rangeType === 'All') {
@@ -802,8 +795,10 @@ function HomeContent() {
           view={view}
           onGoHome={handleGoHome}
           onFeedbackClick={() => setIsFeedbackOpen(true)}
+          onTrashClick={() => setIsTrashOpen(true)}
           trelloCardUrl={selectedCard?.url ?? null}
           isProjectLoaded={!!selectedCard}
+          deletedCount={deletedMilestones.length}
         />
         <div className="flex-1 flex flex-col overflow-hidden relative">
           {selectedCard && (
@@ -913,6 +908,15 @@ function HomeContent() {
       />
 
       <FeedbackDialog isOpen={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
+      
+      <TrashDialog 
+        isOpen={isTrashOpen} 
+        onOpenChange={setIsTrashOpen}
+        deletedMilestones={deletedMilestones}
+        onRestore={handleMilestoneRestore}
+        onPermanentDelete={handleMilestonePermanentDelete}
+        isProcessing={isProcessingTrash}
+      />
     </div>
   );
 }

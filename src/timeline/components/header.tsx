@@ -1,7 +1,8 @@
+
 'use client';
 
 import { Input } from './ui/input';
-import { Search, List, Home, GanttChartSquare, MessageSquare } from 'lucide-react';
+import { Search, List, Home, GanttChartSquare, MessageSquare, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
 import { cn } from '@/lib/utils';
@@ -20,9 +21,10 @@ interface HeaderProps {
   view: 'timeline' | 'summary';
   onGoHome: () => void;
   onFeedbackClick: () => void;
+  onTrashClick: () => void;
   trelloCardUrl: string | null;
   isProjectLoaded: boolean;
-  onSelectTrainingProject?: () => void;
+  deletedCount: number;
 }
 
 export function Header({ 
@@ -33,15 +35,13 @@ export function Header({
   view, 
   onGoHome, 
   onFeedbackClick,
+  onTrashClick,
   trelloCardUrl, 
   isProjectLoaded,
-  onSelectTrainingProject
+  deletedCount
 }: HeaderProps) {
   
-  // Clases para los botones claros (gris zinc-200)
   const iconButtonClasses = "h-8 w-8 border-none bg-zinc-200 text-zinc-800 hover:bg-zinc-300 hover:text-zinc-900 shadow-sm transition-all duration-200";
-  
-  // Clases para los botones de texto claros
   const textButtonClasses = "h-8 px-3 text-[10px] font-bold uppercase tracking-wider border-none bg-zinc-200 text-zinc-800 hover:bg-zinc-300 hover:text-zinc-900 shadow-sm transition-all duration-200 disabled:opacity-30";
 
   return (
@@ -67,9 +67,7 @@ export function Header({
                             <Home className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Volver al inicio</p>
-                    </TooltipContent>
+                    <TooltipContent><p>Volver al inicio</p></TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -77,9 +75,26 @@ export function Header({
                             {view === 'timeline' ? <List className="h-4 w-4" /> : <GanttChartSquare className="h-4 w-4" />}
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{view === 'timeline' ? 'Ver resumen en tabla' : 'Ver línea de tiempo'}</p>
-                    </TooltipContent>
+                    <TooltipContent><p>{view === 'timeline' ? 'Ver resumen en tabla' : 'Ver línea de tiempo'}</p></TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          onClick={onTrashClick} 
+                          disabled={!isProjectLoaded} 
+                          className={cn(iconButtonClasses, "relative disabled:opacity-30")}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            {deletedCount > 0 && (
+                              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white ring-2 ring-[#2d3748]">
+                                {deletedCount}
+                              </span>
+                            )}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Papelera de reciclaje</p></TooltipContent>
                 </Tooltip>
             </TooltipProvider>
           <Separator orientation="vertical" className="h-8 mx-1 bg-white/10" />

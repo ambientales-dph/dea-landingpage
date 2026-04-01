@@ -22,6 +22,8 @@ export interface Milestone {
   isImportant: boolean;
   history: string[];
   driveFolderId?: string;
+  isDeleted?: boolean;
+  deletedAt?: any;
 }
 
 export interface Category {
