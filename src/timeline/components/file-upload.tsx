@@ -458,7 +458,7 @@ export function FileUpload({
 
             <DialogFooter className="p-4 bg-zinc-200 border-t border-zinc-300 flex flex-row justify-end gap-2 shrink-0">
               <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isUploading} className="h-8 border-zinc-400">Cancelar</Button>
-              <Button form="milestone-upload-form" type="submit" size="sm" disabled={isUploading || fileConfigs.length === 0} className="h-8 shadow-md">Crear e Iniciar Hito</Button>
+              <Button form="milestone-upload-form" type="submit" size="sm" disabled={isUploading} className="h-8 shadow-md">Crear e Iniciar Hito</Button>
             </DialogFooter>
           </div>
 
