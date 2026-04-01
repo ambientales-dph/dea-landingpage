@@ -577,271 +577,289 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
   const projectCode = projectName.match(/\b([A-Z]{2,4}\d{3})\b/i)?.[0] || null;
 
   return (
-    <div className="flex flex-col h-full p-3 overflow-hidden text-black">
-        <div className="flex items-start justify-between gap-2 shrink-0">
-            <div className="flex-1 min-w-0">
-                {isEditingTitle ? (
-                <Input
-                    value={editableTitle}
-                    onChange={(e) => setEditableTitle(e.target.value)}
-                    onBlur={handleTitleSave}
-                    onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleTitleSave();
-                    if (e.key === 'Escape') setIsEditingTitle(false);
-                    }}
-                    className="text-lg font-headline font-medium h-auto p-0 border-0 border-b-2 border-primary rounded-none focus-visible:ring-0 bg-transparent"
-                    autoFocus
-                />
-                ) : (
-                <h2 className="font-headline text-lg font-medium flex items-center gap-2 truncate">
-                    <span className="truncate" title={milestone.name}>{milestone.name}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setIsEditingTitle(true)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                </h2>
-                )}
-                <div className="flex items-center pt-1.5">
-                    <Select value={milestone.category.id} onValueChange={handleCategoryChange}>
-                        <SelectTrigger className="w-auto border-none shadow-none focus:ring-0 gap-2 h-auto p-0 text-xs font-medium text-zinc-700 hover:text-black focus:text-black disabled:opacity-100 bg-transparent">
-                            <SelectValue asChild>
-                                <div className="flex items-center cursor-pointer">
-                                    <div
-                                        className="w-2.5 h-2.5 rounded-full mr-2 shrink-0"
-                                        style={{ backgroundColor: milestone.category.color }}
-                                    />
-                                    <span>{milestone.category.name}</span>
-                                </div>
-                            </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {categories.map(category => (
-                                <SelectItem key={category.id} value={category.id}>
-                                    <div className="flex items-center">
-                                        <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: category.color }} />
-                                        {category.name}
-                                    </div>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="flex flex-col text-xs text-zinc-700 mt-1.5 space-y-2">
-                    <div className="flex items-center gap-2">
-                        <Clock className="h-3 w-3 mr-1" />
-                        <div className="flex gap-1">
-                          <Input 
-                            placeholder="DD/MM/YYYY" 
-                            className="h-7 text-[10px] w-24 bg-zinc-100 text-black border-zinc-400"
-                            value={manualDateText}
-                            onChange={(e) => handleManualDateChange(e.target.value)}
-                          />
-                          <Input 
-                            placeholder="HH:mm:ss" 
-                            className="h-7 text-[10px] w-24 bg-zinc-100 text-black border-zinc-400"
-                            value={manualTimeText}
-                            onChange={(e) => handleManualTimeChange(e.target.value)}
-                          />
-                          <Popover>
-                              <PopoverTrigger asChild>
-                                <button 
-                                    className={cn(
-                                        "hover:text-black transition-colors focus:outline-none flex items-center p-1 border border-zinc-400 rounded bg-zinc-100",
-                                        showCalendar && "text-primary border-primary font-bold"
-                                    )}
-                                >
-                                    <CalendarIcon className="h-3 w-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent 
-                                  className="w-auto p-0 border-0 bg-transparent shadow-none z-[100]" 
-                                  side="right" 
-                                  align="start"
-                                  sideOffset={20}
-                              >
-                                  <Calendar
-                                      mode="single"
-                                      selected={parseISO(milestone.occurredAt)}
-                                      onSelect={handleDateChange}
-                                      disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                                      captionLayout="dropdown-buttons"
-                                      fromYear={1900}
-                                      toYear={new Date().getFullYear()}
-                                      locale={es}
-                                  />
-                              </PopoverContent>
-                          </Popover>
-                        </div>
-                        <span className="text-[10px] text-zinc-500 italic">
-                          {format(parseISO(milestone.occurredAt), "PPP ppp", { locale: es })}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-                <button 
-                    onClick={handleToggleImportant} 
-                    className="p-1 rounded-full text-zinc-500 hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors disabled:hover:text-zinc-500 disabled:hover:bg-transparent"
-                    aria-label={milestone.isImportant ? 'Quitar de importantes' : 'Marcar como importante'}
-                >
-                    <Star className={cn("h-5 w-5", milestone.isImportant && "fill-yellow-400 text-yellow-400")} />
-                </button>
-                <Button variant="ghost" size="icon" onClick={() => setIsExportDialogOpen(true)} className="h-8 w-8 text-zinc-700 hover:text-primary transition-colors" title="Exportar hito a otros proyectos">
-                    <Share2 className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => setIsDeleteDialogOpen(true)} className="h-8 w-8 text-zinc-700 hover:text-destructive transition-colors" title="Eliminar hito">
-                    <Trash2 className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-zinc-700 hover:text-black">
-                    <X className="h-5 w-5" />
-                </Button>
-            </div>
-        </div>
-        
-        <Separator className="my-2 shrink-0 bg-zinc-400/50" />
-        
-        <ScrollArea className="flex-1 -mr-3 pr-3">
-            <div className="space-y-3">
-                {isEditingDescription ? (
-                <Textarea
-                    value={editableDescription}
-                    onChange={(e) => setEditableDescription(e.target.value)}
-                    onBlur={handleDescriptionSave}
-                    onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                        setIsEditingDescription(false);
-                        setEditableDescription(milestone.description);
-                    }
-                    }}
-                    className="text-sm leading-normal w-full bg-zinc-100 border-zinc-400 text-black"
-                    autoFocus
-                    rows={3}
-                />
-                ) : (
-                <div
-                    className={cn(
-                        "text-sm text-zinc-700 leading-normal relative",
-                        "cursor-pointer hover:bg-zinc-400/30 p-2 -m-2 rounded-md transition-colors group"
-                    )}
-                    onClick={() => setIsEditingDescription(true)}
-                >
-                    <p className="whitespace-pre-wrap">{milestone.description || 'Añade una descripción...'}</p>
-                    <Pencil className="h-3 w-3 absolute top-1 right-1 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                )}
-                
-                <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2 items-center">
-                        <Tag className="h-4 w-4 text-zinc-600" />
-                        {(milestone.tags || []).map(tag => (
-                            <Badge key={tag} className="group/badge relative pl-2.5 pr-1 py-0.5 text-xs bg-zinc-200 text-black hover:bg-zinc-200/80 border-transparent">
-                                {tag}
-                                <button 
-                                    onClick={() => handleTagRemove(tag)} 
-                                    className="ml-1 rounded-full opacity-50 group-hover/badge:opacity-100 hover:bg-destructive/10 p-0.5 transition-opacity disabled:hover:bg-transparent text-destructive"
-                                    aria-label={`Quitar etiqueta ${tag}`}
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))}
-                    </div>
-                    <Input 
-                        type="text"
-                        value={newTag}
-                        onChange={(e) => setNewTag(e.target.value)}
-                        onKeyDown={handleTagAdd}
-                        placeholder={"Añadir etiqueta y presionar Enter..."}
-                        className="h-8 bg-zinc-100 text-xs border border-zinc-400 text-black placeholder:text-zinc-500"
+    <div className="flex flex-row h-full overflow-hidden text-black">
+        {/* PANEL PRINCIPAL DE DETALLE */}
+        <div className="flex-1 flex flex-col p-3 min-w-0">
+            <div className="flex items-start justify-between gap-2 shrink-0">
+                <div className="flex-1 min-w-0">
+                    {isEditingTitle ? (
+                    <Input
+                        value={editableTitle}
+                        onChange={(e) => setEditableTitle(e.target.value)}
+                        onBlur={handleTitleSave}
+                        onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleTitleSave();
+                        if (e.key === 'Escape') setIsEditingTitle(false);
+                        }}
+                        className="text-lg font-headline font-medium h-auto p-0 border-0 border-b-2 border-primary rounded-none focus-visible:ring-0 bg-transparent"
+                        autoFocus
                     />
-                </div>
-            
-                <Separator className="bg-zinc-400/50" />
-
-                <div className="space-y-2">
-                    <h3 className="font-semibold flex items-center justify-between gap-2 text-sm text-black">
-                        <div className="flex items-center gap-2">
-                            <Paperclip className="h-4 w-4" /> Archivos del Hito
-                        </div>
-                        <div className="flex gap-1">
-                            {milestone.driveFolderId && (
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="h-7 text-primary border-primary/30 hover:bg-primary/10" 
-                                    onClick={handleSyncFolder}
-                                    disabled={isSyncing}
-                                    title="Sincronizar con carpeta de Drive"
-                                >
-                                    {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                                </Button>
-                            )}
-                            <Button variant="outline" size="sm" className="h-7 text-black border-zinc-400 hover:bg-zinc-200" onClick={() => setIsAddFilesDialogOpen(true)}>
-                                <UploadCloud className="mr-2 h-3 w-3"/>
-                                Subir
-                            </Button>
-                        </div>
-                    </h3>
-                    {uniqueFiles.length > 0 ? (
-                        <ul className="space-y-1.5 border border-zinc-400 rounded-md p-2 bg-zinc-200">
-                           {uniqueFiles.map(file => {
-                                const isTL = file.isTimelineFile || milestone.tags?.includes('intocable');
-                                const finalDownloadUrl = file.downloadUrl || (file.driveId || file.id ? `https://drive.google.com/uc?export=download&id=${file.driveId || file.id}` : null);
-                                
-                                return (
-                                <li key={file.id} className="group/file flex items-center justify-between p-1.5 bg-zinc-100 rounded-md hover:bg-zinc-50 transition-colors">
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                        <FileIcon type={file.type} />
-                                        <span className="text-xs font-medium truncate text-black" title={file.name}>{file.name}</span>
-                                    </div>
-                                    <div className="flex items-center shrink-0 ml-2 gap-2">
-                                        <span className="text-[10px] text-zinc-500">{file.size}</span>
-                                        <div className="flex items-center gap-1">
-                                            {finalDownloadUrl && (
-                                                <a href={finalDownloadUrl} className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Descargar archivo">
-                                                    <Download className="h-3.5 w-3.5" />
-                                                </a>
-                                            )}
-                                            {file.url && !isTL && (
-                                                <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Abrir en Drive">
-                                                    <ExternalLink className="h-3.5 w-3.5" />
-                                                </a>
-                                            )}
-                                            <button onClick={() => setFileToDelete(file)} className="p-1 rounded-md hover:bg-destructive/10 text-zinc-500 hover:text-destructive transition-colors" title="Eliminar">
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </li>
-                                )
-                            })}
-                        </ul>
                     ) : (
-                        <p className="text-xs text-zinc-700 italic">No hay archivos guardados para este hito.</p>
+                    <h2 className="font-headline text-lg font-medium flex items-center gap-2 truncate">
+                        <span className="truncate" title={milestone.name}>{milestone.name}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setIsEditingTitle(true)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                    </h2>
                     )}
-                </div>
-                
-                <Separator className="bg-zinc-400/50" />
-
-                <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="history" className="border-b-0">
-                        <AccordionTrigger className="text-sm font-semibold hover:no-underline py-1 text-black">
-                            <div className="flex items-center gap-2">
-                                <History className="h-4 w-4" /> Historial de Cambios
+                    <div className="flex items-center pt-1.5">
+                        <Select value={milestone.category.id} onValueChange={handleCategoryChange}>
+                            <SelectTrigger className="w-auto border-none shadow-none focus:ring-0 gap-2 h-auto p-0 text-xs font-medium text-zinc-700 hover:text-black focus:text-black disabled:opacity-100 bg-transparent">
+                                <SelectValue asChild>
+                                    <div className="flex items-center cursor-pointer">
+                                        <div
+                                            className="w-2.5 h-2.5 rounded-full mr-2 shrink-0"
+                                            style={{ backgroundColor: milestone.category.color }}
+                                        />
+                                        <span>{milestone.category.name}</span>
+                                    </div>
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {categories.map(category => (
+                                    <SelectItem key={category.id} value={category.id}>
+                                        <div className="flex items-center">
+                                            <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: category.color }} />
+                                            {category.name}
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex flex-col text-xs text-zinc-700 mt-1.5 space-y-2">
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-3 w-3 mr-1" />
+                            <div className="flex gap-1">
+                            <Input 
+                                placeholder="DD/MM/YYYY" 
+                                className="h-7 text-[10px] w-24 bg-zinc-100 text-black border-zinc-400"
+                                value={manualDateText}
+                                onChange={(e) => handleManualDateChange(e.target.value)}
+                            />
+                            <Input 
+                                placeholder="HH:mm:ss" 
+                                className="h-7 text-[10px] w-24 bg-zinc-100 text-black border-zinc-400"
+                                value={manualTimeText}
+                                onChange={(e) => handleManualTimeChange(e.target.value)}
+                            />
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className={cn(
+                                    "h-7 w-7 p-0 border border-zinc-400 rounded bg-zinc-100 transition-all",
+                                    showCalendar && "border-primary ring-1 ring-primary"
+                                )}
+                                onClick={() => setShowCalendar(!showCalendar)}
+                            >
+                                <CalendarIcon className="h-3.5 w-3.5" />
+                            </Button>
                             </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                            <ul className="space-y-1.5 text-xs text-zinc-700 pr-4 max-h-24 overflow-y-auto">
-                            {milestone.history.slice().reverse().map((entry, index) => (
-                                <li key={index}>{entry}</li>
-                            ))}
-                            </ul>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
+                            <span className="text-[10px] text-zinc-500 italic truncate">
+                            {format(parseISO(milestone.occurredAt), "PPP ppp", { locale: es })}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                    <button 
+                        onClick={handleToggleImportant} 
+                        className="p-1 rounded-full text-zinc-500 hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors disabled:hover:text-zinc-500 disabled:hover:bg-transparent"
+                        aria-label={milestone.isImportant ? 'Quitar de importantes' : 'Marcar como importante'}
+                    >
+                        <Star className={cn("h-5 w-5", milestone.isImportant && "fill-yellow-400 text-yellow-400")} />
+                    </button>
+                    <Button variant="ghost" size="icon" onClick={() => setIsExportDialogOpen(true)} className="h-8 w-8 text-zinc-700 hover:text-primary transition-colors" title="Exportar hito a otros proyectos">
+                        <Share2 className="h-5 w-5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setIsDeleteDialogOpen(true)} className="h-8 w-8 text-zinc-700 hover:text-destructive transition-colors" title="Eliminar hito">
+                        <Trash2 className="h-5 w-5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-zinc-700 hover:text-black">
+                        <X className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
-        </ScrollArea>
+            
+            <Separator className="my-2 shrink-0 bg-zinc-400/50" />
+            
+            <ScrollArea className="flex-1 -mr-3 pr-3">
+                <div className="space-y-3">
+                    {isEditingDescription ? (
+                    <Textarea
+                        value={editableDescription}
+                        onChange={(e) => setEditableDescription(e.target.value)}
+                        onBlur={handleDescriptionSave}
+                        onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                            setIsEditingDescription(false);
+                            setEditableDescription(milestone.description);
+                        }
+                        }}
+                        className="text-sm leading-normal w-full bg-zinc-100 border-zinc-400 text-black"
+                        autoFocus
+                        rows={3}
+                    />
+                    ) : (
+                    <div
+                        className={cn(
+                            "text-sm text-zinc-700 leading-normal relative",
+                            "cursor-pointer hover:bg-zinc-400/30 p-2 -m-2 rounded-md transition-colors group"
+                        )}
+                        onClick={() => setIsEditingDescription(true)}
+                    >
+                        <p className="whitespace-pre-wrap">{milestone.description || 'Añade una descripción...'}</p>
+                        <Pencil className="h-3 w-3 absolute top-1 right-1 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2 items-center">
+                            <Tag className="h-4 w-4 text-zinc-600" />
+                            {(milestone.tags || []).map(tag => (
+                                <Badge key={tag} className="group/badge relative pl-2.5 pr-1 py-0.5 text-xs bg-zinc-200 text-black hover:bg-zinc-200/80 border-transparent">
+                                    {tag}
+                                    <button 
+                                        onClick={() => handleTagRemove(tag)} 
+                                        className="ml-1 rounded-full opacity-50 group-hover/badge:opacity-100 hover:bg-destructive/10 p-0.5 transition-opacity disabled:hover:bg-transparent text-destructive"
+                                        aria-label={`Quitar etiqueta ${tag}`}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            ))}
+                        </div>
+                        <Input 
+                            type="text"
+                            value={newTag}
+                            onChange={(e) => setNewTag(e.target.value)}
+                            onKeyDown={handleTagAdd}
+                            placeholder={"Añadir etiqueta y presionar Enter..."}
+                            className="h-8 bg-zinc-100 text-xs border border-zinc-400 text-black placeholder:text-zinc-500"
+                        />
+                    </div>
+                
+                    <Separator className="bg-zinc-400/50" />
 
-        {/* Diálogo de Exportación */}
+                    <div className="space-y-2">
+                        <h3 className="font-semibold flex items-center justify-between gap-2 text-sm text-black">
+                            <div className="flex items-center gap-2">
+                                <Paperclip className="h-4 w-4" /> Archivos del Hito
+                            </div>
+                            <div className="flex gap-1">
+                                {milestone.driveFolderId && (
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-7 text-primary border-primary/30 hover:bg-primary/10" 
+                                        onClick={handleSyncFolder}
+                                        disabled={isSyncing}
+                                        title="Sincronizar con carpeta de Drive"
+                                    >
+                                        {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                    </Button>
+                                )}
+                                <Button variant="outline" size="sm" className="h-7 text-black border-zinc-400 hover:bg-zinc-200" onClick={() => setIsAddFilesDialogOpen(true)}>
+                                    <UploadCloud className="mr-2 h-3 w-3"/>
+                                    Subir
+                                </Button>
+                            </div>
+                        </h3>
+                        {uniqueFiles.length > 0 ? (
+                            <ul className="space-y-1.5 border border-zinc-400 rounded-md p-2 bg-zinc-200">
+                            {uniqueFiles.map(file => {
+                                    const isTL = file.isTimelineFile || milestone.tags?.includes('intocable');
+                                    const finalDownloadUrl = file.downloadUrl || (file.driveId || file.id ? `https://drive.google.com/uc?export=download&id=${file.driveId || file.id}` : null);
+                                    
+                                    return (
+                                    <li key={file.id} className="group/file flex items-center justify-between p-1.5 bg-zinc-100 rounded-md hover:bg-zinc-50 transition-colors">
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <FileIcon type={file.type} />
+                                            <span className="text-xs font-medium truncate text-black" title={file.name}>{file.name}</span>
+                                        </div>
+                                        <div className="flex items-center shrink-0 ml-2 gap-2">
+                                            <span className="text-[10px] text-zinc-500">{file.size}</span>
+                                            <div className="flex items-center gap-1">
+                                                {finalDownloadUrl && (
+                                                    <a href={finalDownloadUrl} className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Descargar archivo">
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </a>
+                                                )}
+                                                {file.url && !isTL && (
+                                                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Abrir en Drive">
+                                                        <ExternalLink className="h-3.5 w-3.5" />
+                                                    </a>
+                                                )}
+                                                <button onClick={() => setFileToDelete(file)} className="p-1 rounded-md hover:bg-destructive/10 text-zinc-500 hover:text-destructive transition-colors" title="Eliminar">
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    )
+                                })}
+                            </ul>
+                        ) : (
+                            <p className="text-xs text-zinc-700 italic">No hay archivos guardados para este hito.</p>
+                        )}
+                    </div>
+                    
+                    <Separator className="bg-zinc-400/50" />
+
+                    <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="history" className="border-b-0">
+                            <AccordionTrigger className="text-sm font-semibold hover:no-underline py-1 text-black">
+                                <div className="flex items-center gap-2">
+                                    <History className="h-4 w-4" /> Historial de Cambios
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <ul className="space-y-1.5 text-xs text-zinc-700 pr-4 max-h-24 overflow-y-auto">
+                                {milestone.history.slice().reverse().map((entry, index) => (
+                                    <li key={index}>{entry}</li>
+                                ))}
+                                </ul>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+                </div>
+            </ScrollArea>
+        </div>
+
+        {/* PANEL LATERAL DE CALENDARIO (Solo si showCalendar es true) */}
+        {showCalendar && (
+            <div className="w-[280px] bg-white border-l border-zinc-400 flex flex-col shrink-0 animate-in slide-in-from-left-2 duration-300">
+                <div className="p-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50 shrink-0">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Seleccionar Fecha</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCalendar(false)}>
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
+                <ScrollArea className="flex-1">
+                    <div className="p-1">
+                        <Calendar
+                            mode="single"
+                            selected={parseISO(milestone.occurredAt)}
+                            onSelect={handleDateChange}
+                            disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                            initialFocus
+                            locale={es}
+                            captionLayout="dropdown-buttons"
+                            fromYear={1900}
+                            toYear={new Date().getFullYear()}
+                        />
+                    </div>
+                    <div className="p-3 m-3 bg-zinc-50 rounded border border-zinc-200">
+                        <p className="text-[10px] text-zinc-500 leading-tight italic">
+                            * Se bloquean las fechas futuras.<br/>
+                            * Los cambios se guardan automáticamente al seleccionar un día.
+                        </p>
+                    </div>
+                </ScrollArea>
+            </div>
+        )}
+
+        {/* Diálogos y Modales auxiliares */}
         <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
             <DialogContent className="sm:max-w-[500px] h-[80vh] flex flex-col p-0 border-0 bg-zinc-100 text-black shadow-2xl overflow-hidden">
                 <DialogHeader className="p-6 bg-primary text-white shrink-0">

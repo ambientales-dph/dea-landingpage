@@ -36,7 +36,6 @@ import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/tim
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { type FileConfig } from './add-files-dialog';
 import { CUENCAS } from '@/lib/cuencas';
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -85,6 +84,7 @@ export function FileUpload({
   const [isCreatingFolder, setIsCreatingFolder] = React.useState(false);
   const [newFolderName, setNewFolderName] = React.useState('');
   const [fileConfigs, setFileConfigs] = React.useState<FileConfig[]>([]);
+  const [showCalendar, setShowCalendar] = React.useState(false);
   
   const [navigationStack, setNavigationStack] = React.useState<{id: string, name: string}[]>([]);
   const [currentSubfolders, setCurrentSubfolders] = React.useState<{id: string, name: string}[]>([]);
@@ -112,6 +112,7 @@ export function FileUpload({
         targetFolderId: 'root'
       });
       setIsCreatingFolder(false);
+      setShowCalendar(false);
       setNavigationStack([]);
       setCurrentSubfolders([]);
       setFileConfigs([]);
@@ -225,263 +226,285 @@ export function FileUpload({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-zinc-300 text-black p-0 transition-all duration-300 overflow-visible sm:max-w-[600px]">
-        <ScrollArea className="max-h-[90vh]">
-          <div className="flex flex-col h-full">
-              <div className="flex-1 p-6">
-                  <DialogHeader className="space-y-1 mb-4">
-                  <DialogTitle className="font-headline text-lg">Cargar un nuevo hito</DialogTitle>
-                  <DialogDescription className="text-zinc-700 text-xs">
-                      Solo el título y la categoría son obligatorios. Podés seleccionar una fecha pasada si lo necesitás.
-                  </DialogDescription>
-                  </DialogHeader>
-                  <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-                      {isUploading ? (
-                      <div className="space-y-4 py-8 text-center flex flex-col items-center justify-center">
-                          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                          <div className="space-y-1">
-                              <p className="text-xs font-medium text-zinc-800">{uploadText}</p>
-                              <p className="text-[10px] text-zinc-600">Este proceso puede tardar unos segundos...</p>
-                          </div>
+      <DialogContent className={cn(
+        "bg-zinc-300 text-black p-0 transition-all duration-300 overflow-hidden flex flex-col shadow-2xl",
+        showCalendar ? "sm:max-w-[900px]" : "sm:max-w-[600px]"
+      )}>
+        <div className="flex flex-row h-full min-h-[550px]">
+          {/* LADO IZQUIERDO: FORMULARIO */}
+          <div className="flex-1 flex flex-col min-w-0 border-r border-zinc-400/30">
+            <DialogHeader className="p-6 bg-zinc-200 border-b border-zinc-300 shrink-0">
+              <DialogTitle className="font-headline text-lg">Cargar un nuevo hito</DialogTitle>
+              <DialogDescription className="text-zinc-700 text-xs">
+                Solo el título y la categoría son obligatorios.
+              </DialogDescription>
+            </DialogHeader>
+
+            <ScrollArea className="flex-1">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleFormSubmit)} id="milestone-upload-form" className="p-6 space-y-4">
+                  {isUploading ? (
+                    <div className="space-y-4 py-8 text-center flex flex-col items-center justify-center h-full">
+                      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-zinc-800">{uploadText}</p>
+                        <p className="text-[10px] text-zinc-600">Este proceso puede tardar unos segundos...</p>
                       </div>
-                      ) : (
-                      <fieldset disabled={isUploading} className="space-y-4">
-                          
-                          <div className="grid grid-cols-2 gap-3">
-                              <FormField
-                              control={form.control}
-                              name="name"
-                              render={({ field }) => (
-                                  <FormItem className="space-y-1 col-span-2">
-                                  <FormLabel className="text-xs font-semibold">Título del hito *</FormLabel>
-                                  <FormControl>
-                                      <Input {...field} className="h-8 text-sm bg-zinc-100 text-black border-zinc-400" />
-                                  </FormControl>
-                                  <FormMessage className="text-[10px]" />
-                                  </FormItem>
-                              )}
-                              />
-                              
-                              <div className="col-span-2 grid grid-cols-2 gap-3">
-                                  <FormField
-                                  control={form.control}
-                                  name="categoryId"
-                                  render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                      <FormLabel className="text-xs font-semibold">Categoría *</FormLabel>
-                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                          <FormControl>
-                                          <SelectTrigger className="h-8 text-sm bg-zinc-100 border-zinc-400">
-                                              <SelectValue placeholder="Seleccioná" />
-                                          </SelectTrigger>
-                                          </FormControl>
-                                          <SelectContent className="max-h-[200px]" position="popper">
-                                          {categories.map(category => (
-                                              <SelectItem key={category.id} value={category.id} className="text-xs">
-                                                  {category.name}
-                                              </SelectItem>
-                                          ))}
-                                          </SelectContent>
-                                      </Select>
-                                      <FormMessage className="text-[10px]" />
-                                      </FormItem>
-                                  )}
-                                  />
-
-                                  <FormField
-                                  control={form.control}
-                                  name="occurredAt"
-                                  render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                      <FormLabel className="text-xs font-semibold">Fecha del hito</FormLabel>
-                                      <Popover>
-                                          <PopoverTrigger asChild>
-                                              <FormControl>
-                                                  <Button
-                                                      variant={"outline"}
-                                                      className={cn(
-                                                          "w-full h-8 pl-3 text-left font-normal bg-zinc-100 border-zinc-400 text-sm",
-                                                          !field.value && "text-muted-foreground"
-                                                      )}
-                                                  >
-                                                      {field.value ? (
-                                                          format(field.value, "dd/MM/yyyy")
-                                                      ) : (
-                                                          <span>Seleccioná fecha</span>
-                                                      )}
-                                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                  </Button>
-                                              </FormControl>
-                                          </PopoverTrigger>
-                                          <PopoverContent 
-                                              className="w-auto p-0 border-0 bg-transparent shadow-none z-[100]" 
-                                              side="right" 
-                                              align="start"
-                                              sideOffset={20}
-                                          >
-                                              <Calendar
-                                                  mode="single"
-                                                  selected={field.value}
-                                                  onSelect={field.onChange}
-                                                  disabled={(date) =>
-                                                      date > new Date() || date < new Date("1900-01-01")
-                                                  }
-                                                  initialFocus
-                                                  locale={es}
-                                                  captionLayout="dropdown-buttons"
-                                                  fromYear={1900}
-                                                  toYear={new Date().getFullYear()}
-                                              />
-                                          </PopoverContent>
-                                      </Popover>
-                                      <FormMessage className="text-[10px]" />
-                                      </FormItem>
-                                  )}
-                                  />
-                              </div>
-
-                              <FormField
-                              control={form.control}
-                              name="description"
-                              render={({ field }) => (
-                                  <FormItem className="space-y-1 col-span-2">
-                                  <FormLabel className="text-xs font-semibold">Descripción / Detalles (Opcional)</FormLabel>
-                                  <FormControl>
-                                      <Textarea className="min-h-[60px] text-sm bg-zinc-100 text-black border-zinc-400" rows={2} {...field} />
-                                  </FormControl>
-                                  <FormMessage className="text-[10px]" />
-                                  </FormItem>
-                              )}
-                              />
-                          </div>
-
-                          <div className="space-y-2 border-t border-zinc-400/30 pt-3">
-                              <Label className="text-xs font-bold uppercase text-zinc-500">Archivos y Clasificación</Label>
-                              <div 
-                                  className="border-2 border-dashed border-zinc-500/50 rounded-lg p-3 text-center cursor-pointer hover:bg-zinc-400/50 transition-colors"
-                                  onClick={() => document.getElementById('file-input-new-ms')?.click()}
-                              >
-                                  <UploadCloud className="mx-auto h-6 w-6 text-zinc-600" />
-                                  <p className="text-[9px] text-zinc-500 mt-1">Hacé clic aquí para seleccionar archivos</p>
-                                  <input id="file-input-new-ms" type="file" className="hidden" multiple onChange={handleFileChange} />
-                              </div>
-                              
-                              {fileConfigs.length > 0 && (
-                                  <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-md border border-zinc-400 p-1.5 bg-zinc-200">
-                                      {fileConfigs.map((config, index) => (
-                                          <div key={index} className="flex items-center justify-between p-1.5 bg-zinc-100 rounded gap-2">
-                                              <div className="flex items-center gap-1.5 truncate flex-1">
-                                                  <FileIconLucide className="h-3 w-3 shrink-0 text-zinc-400" />
-                                                  <span className="text-[10px] truncate font-medium">{config.file.name}</span>
-                                              </div>
-                                              <div className="flex items-center gap-1">
-                                                  <button 
-                                                      type="button"
-                                                      onClick={() => toggleFileType(index)}
-                                                      className={cn(
-                                                          "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all border",
-                                                          config.isFinal 
-                                                              ? "bg-primary/10 border-primary/20 text-primary" 
-                                                              : "bg-amber-50 border-amber-200 text-amber-700"
-                                                      )}
-                                                  >
-                                                      {config.isFinal ? <ShieldCheck className="h-2.5 w-2.5" /> : <Briefcase className="h-2.5 w-2.5" />}
-                                                      {config.isFinal ? 'Final' : 'Trabajo'}
-                                                  </button>
-                                                  <button type="button" onClick={() => removeFile(index)} className="text-destructive hover:bg-red-50 p-0.5 rounded"><X className="h-3 w-3" /></button>
-                                              </div>
-                                          </div>
-                                      ))}
-                                  </div>
-                              )}
-                          </div>
-
-                          {hasWorkFiles && (
-                              <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-2 border-t border-zinc-400/30 pt-3">
-                                  <div className="flex items-center justify-between">
-                                      <Label className="text-[10px] uppercase font-bold text-zinc-500">Destino de Trabajo</Label>
-                                      <Button 
-                                          type="button" 
-                                          variant="ghost" 
-                                          size="xs" 
-                                          className="h-6 text-[9px] gap-1 border border-zinc-400 px-2 hover:bg-zinc-100"
-                                          onClick={() => setIsCreatingFolder(!isCreatingFolder)}
-                                      >
-                                          <PlusCircle className="h-3 w-3" /> Nueva
-                                      </Button>
-                                  </div>
-
-                                  <div className="bg-white/60 rounded-md border border-zinc-400 overflow-hidden shadow-sm">
-                                      <div className="bg-zinc-100/80 px-2 py-1 border-b border-zinc-300 flex items-center flex-wrap gap-1">
-                                          {navigationStack.map((folder, idx) => (
-                                              <React.Fragment key={folder.id}>
-                                                  {idx > 0 && <ChevronRight className="h-2 w-2 text-zinc-400" />}
-                                                  <button 
-                                                      type="button" 
-                                                      onClick={() => handleNavigateBack(idx)}
-                                                      className={cn(
-                                                          "text-[9px] hover:text-primary transition-colors truncate max-w-[120px]",
-                                                          idx === navigationStack.length - 1 ? "font-bold text-zinc-800" : "text-zinc-500"
-                                                      )}
-                                                  >
-                                                      {folder.name}
-                                                  </button>
-                                              </React.Fragment>
-                                          ))}
-                                      </div>
-
-                                      {isCreatingFolder && (
-                                          <div className="flex gap-1 p-1 bg-primary/5 border-b border-zinc-300 animate-in zoom-in-95">
-                                              <Input 
-                                                  placeholder="Nombre..." 
-                                                  className="h-6 text-[10px] bg-white border-zinc-400" 
-                                                  value={newFolderName}
-                                                  onChange={(e) => setNewFolderName(e.target.value)}
-                                                  autoFocus
-                                              />
-                                              <Button type="button" size="sm" className="h-6 text-[9px]" onClick={handleCreateFolder}>Ok</Button>
-                                              <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsCreatingFolder(false)}><X className="h-3 w-3" /></Button>
-                                          </div>
-                                      )}
-
-                                      <ScrollArea className="h-[100px]">
-                                          {isLoadingFolders ? (
-                                              <div className="flex items-center justify-center h-full py-4">
-                                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                              </div>
-                                          ) : currentSubfolders.length > 0 ? (
-                                              <div className="p-1 space-y-0.5">
-                                                  {currentSubfolders.map(folder => (
-                                                      <button 
-                                                          key={folder.id}
-                                                          type="button"
-                                                          onClick={() => handleNavigateIn(folder)}
-                                                          className="w-full flex items-center gap-2 p-1 hover:bg-primary/10 rounded text-left transition-colors group"
-                                                      >
-                                                          <Folder className="h-3 w-3 text-amber-600 group-hover:scale-110 transition-transform" />
-                                                          <span className="text-[10px] truncate">{folder.name}</span>
-                                                      </button>
-                                                  ))}
-                                              </div>
-                                          ) : (
-                                              <div className="p-4 text-center text-[9px] text-zinc-400 italic">Carpeta vacía.</div>
-                                          )}
-                                      </ScrollArea>
-                                  </div>
-                              </div>
+                    </div>
+                  ) : (
+                    <fieldset disabled={isUploading} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem className="space-y-1 col-span-2">
+                              <FormLabel className="text-xs font-semibold">Título del hito *</FormLabel>
+                              <FormControl>
+                                <Input {...field} className="h-8 text-sm bg-zinc-100 text-black border-zinc-400" />
+                              </FormControl>
+                              <FormMessage className="text-[10px]" />
+                            </FormItem>
                           )}
-                      </fieldset>
+                        />
+                        
+                        <div className="col-span-2 grid grid-cols-2 gap-3">
+                          <FormField
+                            control={form.control}
+                            name="categoryId"
+                            render={({ field }) => (
+                              <FormItem className="space-y-1">
+                                <FormLabel className="text-xs font-semibold">Categoría *</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-8 text-sm bg-zinc-100 border-zinc-400">
+                                      <SelectValue placeholder="Seleccioná" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent className="max-h-[200px]" position="popper">
+                                    {categories.map(category => (
+                                      <SelectItem key={category.id} value={category.id} className="text-xs">
+                                        {category.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage className="text-[10px]" />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="occurredAt"
+                            render={({ field }) => (
+                              <FormItem className="space-y-1">
+                                <FormLabel className="text-xs font-semibold">Fecha del hito</FormLabel>
+                                <FormControl>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full h-8 pl-3 text-left font-normal bg-zinc-100 border-zinc-400 text-sm transition-all",
+                                      showCalendar && "border-primary ring-1 ring-primary"
+                                    )}
+                                    onClick={() => setShowCalendar(!showCalendar)}
+                                  >
+                                    {field.value ? format(field.value, "dd/MM/yyyy") : <span>Seleccioná fecha</span>}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                                <FormMessage className="text-[10px]" />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem className="space-y-1 col-span-2">
+                              <FormLabel className="text-xs font-semibold">Descripción / Detalles (Opcional)</FormLabel>
+                              <FormControl>
+                                <Textarea className="min-h-[60px] text-sm bg-zinc-100 text-black border-zinc-400" rows={2} {...field} />
+                              </FormControl>
+                              <FormMessage className="text-[10px]" />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="space-y-2 border-t border-zinc-400/30 pt-3">
+                        <Label className="text-xs font-bold uppercase text-zinc-500">Archivos y Clasificación</Label>
+                        <div 
+                          className="border-2 border-dashed border-zinc-500/50 rounded-lg p-3 text-center cursor-pointer hover:bg-zinc-400/50 transition-colors"
+                          onClick={() => document.getElementById('file-input-new-ms')?.click()}
+                        >
+                          <UploadCloud className="mx-auto h-6 w-6 text-zinc-600" />
+                          <p className="text-[9px] text-zinc-500 mt-1">Hacé clic aquí para seleccionar archivos</p>
+                          <input id="file-input-new-ms" type="file" className="hidden" multiple onChange={handleFileChange} />
+                        </div>
+                        
+                        {fileConfigs.length > 0 && (
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-md border border-zinc-400 p-1.5 bg-zinc-200">
+                            {fileConfigs.map((config, index) => (
+                              <div key={index} className="flex items-center justify-between p-1.5 bg-zinc-100 rounded gap-2">
+                                <div className="flex items-center gap-1.5 truncate flex-1">
+                                  <FileIconLucide className="h-3 w-3 shrink-0 text-zinc-400" />
+                                  <span className="text-[10px] truncate font-medium">{config.file.name}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button 
+                                    type="button"
+                                    onClick={() => toggleFileType(index)}
+                                    className={cn(
+                                      "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all border",
+                                      config.isFinal 
+                                        ? "bg-primary/10 border-primary/20 text-primary" 
+                                        : "bg-amber-50 border-amber-200 text-amber-700"
+                                    )}
+                                  >
+                                    {config.isFinal ? <ShieldCheck className="h-2.5 w-2.5" /> : <Briefcase className="h-2.5 w-2.5" />}
+                                    {config.isFinal ? 'Final' : 'Trabajo'}
+                                  </button>
+                                  <button type="button" onClick={() => removeFile(index)} className="text-destructive hover:bg-red-50 p-0.5 rounded"><X className="h-3 w-3" /></button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {hasWorkFiles && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-2 border-t border-zinc-400/30 pt-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] uppercase font-bold text-zinc-500">Destino de Trabajo</Label>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="xs" 
+                              className="h-6 text-[9px] gap-1 border border-zinc-400 px-2 hover:bg-zinc-100"
+                              onClick={() => setIsCreatingFolder(!isCreatingFolder)}
+                            >
+                              <PlusCircle className="h-3 w-3" /> Nueva
+                            </Button>
+                          </div>
+
+                          <div className="bg-white/60 rounded-md border border-zinc-400 overflow-hidden shadow-sm">
+                            <div className="bg-zinc-100/80 px-2 py-1 border-b border-zinc-300 flex items-center flex-wrap gap-1">
+                              {navigationStack.map((folder, idx) => (
+                                <React.Fragment key={folder.id}>
+                                  {idx > 0 && <ChevronRight className="h-2 w-2 text-zinc-400" />}
+                                  <button 
+                                    type="button" 
+                                    onClick={() => handleNavigateBack(idx)}
+                                    className={cn(
+                                      "text-[9px] hover:text-primary transition-colors truncate max-w-[120px]",
+                                      idx === navigationStack.length - 1 ? "font-bold text-zinc-800" : "text-zinc-500"
+                                    )}
+                                  >
+                                    {folder.name}
+                                  </button>
+                                </React.Fragment>
+                              ))}
+                            </div>
+
+                            {isCreatingFolder && (
+                              <div className="flex gap-1 p-1 bg-primary/5 border-b border-zinc-300 animate-in zoom-in-95">
+                                <Input 
+                                  placeholder="Nombre..." 
+                                  className="h-6 text-[10px] bg-white border-zinc-400" 
+                                  value={newFolderName}
+                                  onChange={(e) => setNewFolderName(e.target.value)}
+                                  autoFocus
+                                />
+                                <Button type="button" size="sm" className="h-6 text-[9px]" onClick={handleCreateFolder}>Ok</Button>
+                                <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsCreatingFolder(false)}><X className="h-3 w-3" /></Button>
+                              </div>
+                            )}
+
+                            <ScrollArea className="h-[100px]">
+                              {isLoadingFolders ? (
+                                <div className="flex items-center justify-center h-full py-4">
+                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                </div>
+                              ) : currentSubfolders.length > 0 ? (
+                                <div className="p-1 space-y-0.5">
+                                  {currentSubfolders.map(folder => (
+                                    <button 
+                                      key={folder.id}
+                                      type="button"
+                                      onClick={() => handleNavigateIn(folder)}
+                                      className="w-full flex items-center gap-2 p-1 hover:bg-primary/10 rounded text-left transition-colors group"
+                                    >
+                                      <Folder className="h-3 w-3 text-amber-600 group-hover:scale-110 transition-transform" />
+                                      <span className="text-[10px] truncate">{folder.name}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="p-4 text-center text-[9px] text-zinc-400 italic">Carpeta vacía.</div>
+                              )}
+                            </ScrollArea>
+                          </div>
+                        </div>
                       )}
-                      <DialogFooter className="pt-2 gap-2 flex flex-row justify-end">
-                        <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-8 border-zinc-400">Cerrar</Button>
-                        <Button type="submit" size="sm" disabled={isUploading} className="h-8 shadow-md">Crear e Iniciar Hito</Button>
-                      </DialogFooter>
-                  </form>
-                  </Form>
-              </div>
+                    </fieldset>
+                  )}
+                </form>
+              </Form>
+            </ScrollArea>
+
+            <DialogFooter className="p-4 bg-zinc-200 border-t border-zinc-300 flex flex-row justify-end gap-2 shrink-0">
+              <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isUploading} className="h-8 border-zinc-400">Cancelar</Button>
+              <Button form="milestone-upload-form" type="submit" size="sm" disabled={isUploading || fileConfigs.length === 0} className="h-8 shadow-md">Crear e Iniciar Hito</Button>
+            </DialogFooter>
           </div>
-        </ScrollArea>
+
+          {/* LADO DERECHO: PANEL DE CALENDARIO INTEGRADO */}
+          {showCalendar && (
+            <div className="w-[300px] bg-white flex flex-col shrink-0 animate-in slide-in-from-left-2 duration-300">
+              <div className="p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50 shrink-0">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Cronología Histórica</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCalendar(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-2">
+                  <Calendar
+                    mode="single"
+                    selected={form.watch('occurredAt')}
+                    onSelect={(date) => {
+                      if (date) form.setValue('occurredAt', date);
+                    }}
+                    disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                    initialFocus
+                    locale={es}
+                    captionLayout="dropdown-buttons"
+                    fromYear={1900}
+                    toYear={new Date().getFullYear()}
+                  />
+                </div>
+                <div className="p-4 m-4 bg-zinc-50 rounded-lg border border-zinc-200 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <CalendarIcon className="h-3 w-3 text-primary mt-0.5" />
+                    <p className="text-[10px] text-zinc-600 leading-tight">
+                      <strong>Hitos Históricos:</strong> Al seleccionar una fecha pasada, el sistema los fijará a las 07:00 AM para asegurar el orden secuencial.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <X className="h-3 w-3 text-red-400 mt-0.5" />
+                    <p className="text-[10px] text-zinc-600 leading-tight">
+                      No se pueden registrar eventos en fechas futuras.
+                    </p>
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
