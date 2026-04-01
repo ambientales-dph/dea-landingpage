@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Input } from './ui/input';
-import { Search, List, ExternalLink, Home, GanttChartSquare, MessageSquare } from 'lucide-react';
+import { Search, List, Home, GanttChartSquare, MessageSquare } from 'lucide-react';
 import { Button } from './ui/button';
 import { Separator } from './ui/separator';
 import { cn } from '@/lib/utils';
@@ -16,7 +15,7 @@ import {
 interface HeaderProps {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
-  onSetRange: (range: '1D' | '1M' | '1Y' | 'All') => void;
+  onSetRange: (range: '1H' | '1D' | '1M' | '1Y' | 'All') => void;
   onToggleView: () => void;
   view: 'timeline' | 'summary';
   onGoHome: () => void;
@@ -82,28 +81,10 @@ export function Header({
                         <p>{view === 'timeline' ? 'Ver resumen en tabla' : 'Ver línea de tiempo'}</p>
                     </TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <a
-                           href={trelloCardUrl ?? undefined}
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           aria-disabled={!trelloCardUrl}
-                           tabIndex={!trelloCardUrl ? -1 : undefined}
-                           className={!trelloCardUrl ? 'pointer-events-none' : ''}
-                        >
-                            <Button size="icon" variant="ghost" disabled={!trelloCardUrl} className={cn(iconButtonClasses, "disabled:opacity-30")}>
-                                <ExternalLink className="h-4 w-4" />
-                            </Button>
-                        </a>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Abrir tarjeta en Trello</p>
-                    </TooltipContent>
-                </Tooltip>
             </TooltipProvider>
           <Separator orientation="vertical" className="h-8 mx-1 bg-white/10" />
           <Button size="sm" variant="ghost" onClick={() => onSetRange('1D')} disabled={!isProjectLoaded} className={textButtonClasses}>Hoy</Button>
+          <Button size="sm" variant="ghost" onClick={() => onSetRange('1H')} disabled={!isProjectLoaded} className={textButtonClasses}>1H</Button>
           <Button size="sm" variant="ghost" onClick={() => onSetRange('1M')} disabled={!isProjectLoaded} className={textButtonClasses}>1M</Button>
           <Button size="sm" variant="ghost" onClick={() => onSetRange('1Y')} disabled={!isProjectLoaded} className={textButtonClasses}>1A</Button>
           <Button size="sm" variant="ghost" onClick={() => onSetRange('All')} disabled={!isProjectLoaded} className={textButtonClasses}>Todo</Button>

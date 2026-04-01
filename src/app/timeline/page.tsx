@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -9,7 +8,7 @@ import { MilestoneDetail } from '@/timeline/components/milestone-detail';
 import { type Milestone, type Category, type AssociatedFile } from '@/timeline/types';
 import { CATEGORIES } from '@/timeline/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { addMonths, parseISO, startOfDay, endOfDay, subMonths, subYears, format, isSameDay } from 'date-fns';
+import { addMonths, parseISO, startOfDay, endOfDay, subMonths, subYears, format, isSameDay, subHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus } from 'lucide-react';
@@ -603,7 +602,7 @@ function HomeContent() {
   }, [selectedCard, firestore, toast, milestones, logTimelineActivity]);
 
 
-  const handleSetRange = React.useCallback((rangeType: '1D' | '1M' | '1Y' | 'All') => {
+  const handleSetRange = React.useCallback((rangeType: '1H' | '1D' | '1M' | '1Y' | 'All') => {
     if (rangeType === 'All') {
         if (milestoneDateBounds.current) {
             setDateRange({ start: subMonths(parseISO(milestoneDateBounds.current.start), 1), end: addMonths(parseISO(milestoneDateBounds.current.end), 1) });
@@ -611,7 +610,8 @@ function HomeContent() {
         return;
     }
     const now = new Date();
-    if (rangeType === '1D') setDateRange({ start: startOfDay(now), end: endOfDay(now) });
+    if (rangeType === '1H') setDateRange({ start: subHours(now, 1), end: now });
+    else if (rangeType === '1D') setDateRange({ start: startOfDay(now), end: endOfDay(now) });
     else if (rangeType === '1M') setDateRange({ start: subMonths(now, 1), end: now });
     else if (rangeType === '1Y') setDateRange({ start: subYears(now, 1), end: now });
   }, []);
