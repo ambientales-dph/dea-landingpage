@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { RECURSOS, RECURSOS_PROPIOS, type Recurso } from '@/lib/recursos';
-import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2, Folder as FolderIcon, FileText, Library } from 'lucide-react';
+import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2, Folder as FolderIcon, FileText, Library, Plus, Link as LinkIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
@@ -99,6 +99,10 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Estados para ingreso manual
+  const [manualUrl, setManualUrl] = useState('');
+  const [manualTitle, setManualTitle] = useState('');
+
   const prevSelectedCardId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -152,6 +156,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
         setCrossrefResults([]);
         setPlosResults([]);
         setDoajResults([]);
+        setManualUrl('');
+        setManualTitle('');
     }
   }, [isOpen]);
 
@@ -268,6 +274,24 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     }
   };
 
+  const handleManualUrlChange = (url: string) => {
+    setManualUrl(url);
+    if (url.trim()) {
+        try {
+            const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+            const pathname = urlObj.pathname;
+            const lastPart = pathname.split('/').filter(Boolean).pop();
+            if (lastPart && !manualTitle) {
+                // Decodificar URI y limpiar extensión si la hay
+                const decoded = decodeURIComponent(lastPart).split('.')[0];
+                setManualTitle(decoded.replace(/-/g, ' ').replace(/_/g, ' '));
+            }
+        } catch (e) {
+            // Ignorar errores de URL inválida mientras escribe
+        }
+    }
+  };
+
   const handlePinToggle = (resource: PinnedResource) => {
     updateAndStorePinnedResources(prev => {
       const isAlreadyPinned = prev.some(p => p.url === resource.url);
@@ -278,6 +302,24 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
         return [{ ...rest, isScientific: resource.isScientific ?? isScientificUrl(resource.url) }, ...prev];
       }
     });
+  };
+
+  const handleAddManualResource = () => {
+    if (!manualUrl.trim()) return;
+    
+    const finalUrl = manualUrl.startsWith('http') ? manualUrl : `https://${manualUrl}`;
+    const finalTitle = manualTitle.trim() || manualUrl;
+
+    const resource: PinnedResource = {
+        title: finalTitle,
+        url: finalUrl,
+        isScientific: isScientificUrl(finalUrl)
+    };
+
+    handlePinToggle(resource);
+    setManualUrl('');
+    setManualTitle('');
+    toast({ title: 'Recurso fijado', description: `Se ha agregado "${finalTitle}" a tus pines.` });
   };
 
   const handleAttachResource = async (resource: PinnedResource) => {
@@ -407,18 +449,24 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0">
+      <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 border-0 shadow-2xl">
           <DialogTitle className="sr-only">Biblioteca de Recursos</DialogTitle>
           <DialogDescription className="sr-only">
             Buscá en nuestros recursos o en publicaciones científicas externas.
           </DialogDescription>
           <Card className="w-full h-full flex flex-col border-0 rounded-lg">
-              <CardHeader>
-                  <CardTitleComponent>Biblioteca de Recursos</CardTitleComponent>
-                  <CardDescriptionComponent>
-                      Buscá en nuestros recursos o en publicaciones científicas externas.
-                  </CardDescriptionComponent>
-                  <div className="pt-2">
+              <CardHeader className="bg-muted/30 border-b shrink-0 space-y-4 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitleComponent className="text-lg font-bold">Biblioteca de Recursos</CardTitleComponent>
+                        <CardDescriptionComponent className="text-xs">
+                            Buscá en nuestros recursos o en publicaciones científicas externas.
+                        </CardDescriptionComponent>
+                    </div>
+                    <Library className="h-8 w-8 text-primary/40" />
+                  </div>
+                  
+                  <div className="grid gap-4">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -426,7 +474,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                         value={searchQuery}
                         onChange={(e) => handleQueryChange(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="pl-9 pr-8"
+                        className="pl-9 pr-8 h-10 text-sm bg-white shadow-sm"
                       />
                       {searchQuery && (
                         <Button
@@ -439,17 +487,47 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                         </Button>
                       )}
                     </div>
+
+                    <div className="p-3 bg-primary/5 rounded-lg border border-primary/10 flex flex-col gap-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Agregar Enlace Externo</p>
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <LinkIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                <Input 
+                                    placeholder="Pegá el link aquí (URL)..." 
+                                    className="h-8 pl-8 text-xs bg-white border-zinc-200"
+                                    value={manualUrl}
+                                    onChange={(e) => handleManualUrlChange(e.target.value)}
+                                />
+                            </div>
+                            <Input 
+                                placeholder="Título del documento..." 
+                                className="h-8 text-xs bg-white border-zinc-200 flex-[0.8]"
+                                value={manualTitle}
+                                onChange={(e) => setManualTitle(e.target.value)}
+                            />
+                            <Button 
+                                size="sm" 
+                                className="h-8 gap-1.5 px-3 font-bold text-[10px] uppercase tracking-tighter"
+                                disabled={!manualUrl.trim()}
+                                onClick={handleAddManualResource}
+                            >
+                                <Pin className="h-3.5 w-3.5" />
+                                Fijar
+                            </Button>
+                        </div>
+                    </div>
                   </div>
               </CardHeader>
-              <CardContent className="flex-grow min-h-0">
-                  <ScrollArea className="h-full pr-4">
+              <CardContent className="flex-grow min-h-0 p-0">
+                  <ScrollArea className="h-full px-6 py-4">
                       {manuallyPinnedResources.length > 0 && (
-                        <Collapsible className="mb-4">
+                        <Collapsible className="mb-4" defaultOpen={true}>
                           <div className="flex items-center justify-between mb-2 rounded-md hover:bg-muted/50">
                             <CollapsibleTrigger asChild>
                               <div className="group flex flex-grow items-center gap-2 p-2 text-sm font-semibold text-fuchsia-600 text-left cursor-pointer">
                                   <Pin className="h-4 w-4" />
-                                  <span>Recursos Fijados</span>
+                                  <span className="uppercase tracking-widest text-[10px] font-black">Recursos Fijados</span>
                               </div>
                             </CollapsibleTrigger>
                             <div className="flex items-center pr-1">
@@ -472,7 +550,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                             </div>
                           </div>
                           <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-                              <div className="flex flex-col">
+                              <div className="flex flex-col gap-1">
                                   {manuallyPinnedResources.map((resource, index) => {
                                     const isAttached = attachedResources.some(att => att.url === resource.url);
                                     const attachmentId = isAttached ? attachedResources.find(att => att.url === resource.url)?.attachmentId : undefined;
@@ -482,42 +560,45 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                     return (
                                       <div
                                           key={`pinned-${resource.url}`}
-                                          className={cn("group/item flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-muted/40' : 'bg-muted/20')}
+                                          className={cn("group/item flex items-center justify-between py-2 px-3 rounded-md border transition-all", index % 2 === 0 ? 'bg-white border-zinc-100 shadow-sm' : 'bg-muted/20 border-transparent')}
                                       >
-                                          <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-2 overflow-hidden">
+                                          <a href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-3 overflow-hidden">
                                             {resource.isScientific ? (
-                                                <BookText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                                                <BookText className="h-4 w-4 text-zinc-400 flex-shrink-0 mt-1" />
                                             ) : (
-                                                <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                                                <Link2 className="h-4 w-4 text-zinc-400 flex-shrink-0 mt-1" />
                                             )}
                                             <div className="flex-grow flex flex-col gap-0.5 overflow-hidden">
-                                                <span className="text-sm font-medium text-foreground group-hover/item:underline">{highlightText(resource.title, searchQuery)}</span>
+                                                <span className="text-sm font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(resource.title, searchQuery)}</span>
                                                 {resource.authors && (
-                                                    <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(resource.authors) ? resource.authors.join(', ') : resource.authors, searchQuery)}</span>
+                                                    <span className="text-[10px] text-muted-foreground truncate">{highlightText(Array.isArray(resource.authors) ? resource.authors.join(', ') : resource.authors, searchQuery)}</span>
                                                 )}
                                                 {resource.publication && (
-                                                    <span className="text-xs text-muted-foreground italic">{highlightText(resource.publication, searchQuery)}</span>
+                                                    <span className="text-[10px] text-muted-foreground italic truncate">{highlightText(resource.publication, searchQuery)}</span>
                                                 )}
                                             </div>
                                           </a>
-                                          <div className="flex flex-shrink-0 ml-2">
+                                          <div className="flex flex-shrink-0 ml-4 items-center gap-1">
                                             {selectedCard && (
                                                 <Button 
                                                   variant="ghost" 
                                                   size="icon" 
-                                                  className="h-7 w-7"
+                                                  className={cn(
+                                                    "h-8 w-8 rounded-full transition-all",
+                                                    isAttached ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-zinc-300 hover:text-zinc-600 hover:bg-muted"
+                                                  )}
                                                   onClick={() => isAttached ? handleRemoveAttachment(resourceWithId) : handleAttachResource(resource)}
                                                   disabled={!!attachingId}
+                                                  title={isAttached ? "Quitar del proyecto" : "Adjuntar al proyecto"}
                                                 >
                                                   <Paperclip className={cn(
-                                                    "h-4 w-4 transition-colors",
-                                                    attachingId === resource.url && 'animate-pulse',
-                                                    isAttached ? 'text-foreground' : 'text-gray-400 group-hover/item:text-foreground'
+                                                    "h-4 w-4",
+                                                    attachingId === resource.url && 'animate-pulse'
                                                   )} />
                                                 </Button>
                                             )}
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(resource)}>
-                                                <Pin className={cn("h-4 w-4", pinned ? "fill-current" : "")} />
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-fuchsia-500 hover:text-fuchsia-600 hover:bg-fuchsia-50" onClick={() => handlePinToggle(resource)} title="Quitar de fijados">
+                                                <Pin className={cn("h-4 w-4 fill-current")} />
                                             </Button>
                                           </div>
                                       </div>
@@ -532,13 +613,13 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                           <Collapsible>
                             <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
                                 <div className="flex items-center gap-2">
-                                    <Paperclip className="h-4 w-4 text-fuchsia-600" />
-                                    <span>Artículos Adjuntos al Proyecto</span>
+                                    <Paperclip className="h-4 w-4 text-primary" />
+                                    <span className="uppercase tracking-widest text-[10px] font-black">Enlaces del Proyecto</span>
                                 </div>
                                 <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                             </CollapsibleTrigger>
                             <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-                               <div className="flex flex-col mt-2">
+                               <div className="flex flex-col mt-2 gap-1">
                                   {scientificAttachmentsFromCard.map((attachment, index) => {
                                     const pinnedVersion = pinnedResources.find(p => p.url === attachment.url);
                                     const itemToRender = pinnedVersion || attachment;
@@ -548,31 +629,32 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                     return (
                                        <div
                                           key={`attached-${attachment.attachmentId}`}
-                                          className={cn("group/item flex items-center justify-between py-1.5 px-2 rounded-md", index % 2 === 0 ? 'bg-fuchsia-500/10' : 'bg-fuchsia-500/5')}
+                                          className={cn("group/item flex items-center justify-between py-2 px-3 rounded-md border transition-all", index % 2 === 0 ? 'bg-primary/5 border-primary/10' : 'bg-white border-zinc-100')}
                                       >
-                                          <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-2 overflow-hidden">
-                                            <BookText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                                          <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow items-start gap-3 overflow-hidden">
+                                            <BookText className="h-4 w-4 text-zinc-400 flex-shrink-0 mt-1" />
                                             <div className="flex-grow flex flex-col gap-0.5 overflow-hidden">
-                                                <span className="text-sm font-medium text-foreground group-hover/item:underline">{highlightText(itemToRender.title, searchQuery)}</span>
+                                                <span className="text-sm font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(itemToRender.title, searchQuery)}</span>
                                                 {itemToRender.authors && (
-                                                    <span className="text-xs text-muted-foreground">{highlightText(Array.isArray(itemToRender.authors) ? itemToRender.authors.join(', ') : itemToRender.authors, searchQuery)}</span>
+                                                    <span className="text-[10px] text-muted-foreground truncate">{highlightText(Array.isArray(itemToRender.authors) ? itemToRender.authors.join(', ') : itemToRender.authors, searchQuery)}</span>
                                                 )}
                                                 {itemToRender.publication && (
-                                                    <span className="text-xs text-muted-foreground italic">{highlightText(itemToRender.publication, searchQuery)}</span>
+                                                    <span className="text-[10px] text-muted-foreground italic truncate">{highlightText(itemToRender.publication, searchQuery)}</span>
                                                 )}
                                             </div>
                                           </a>
-                                          <div className="flex flex-shrink-0 ml-2">
+                                          <div className="flex flex-shrink-0 ml-4 items-center gap-1">
                                             <Button 
                                               variant="ghost" 
                                               size="icon" 
-                                              className="h-7 w-7"
+                                              className="h-8 w-8 rounded-full text-primary bg-primary/10 hover:bg-primary/20"
                                               onClick={() => handleRemoveAttachment(attachment)}
                                               disabled={!!attachingId}
+                                              title="Quitar adjunto"
                                             >
-                                              <Paperclip className={cn( "h-4 w-4 transition-colors text-foreground", attachingId === attachment.url && 'animate-pulse' )}/>
+                                              <Paperclip className={cn( "h-4 w-4", attachingId === attachment.url && 'animate-pulse' )}/>
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-fuchsia-500 hover:text-fuchsia-600" onClick={() => handlePinToggle(itemToPin)}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-fuchsia-500 hover:text-fuchsia-600 hover:bg-fuchsia-50" onClick={() => handlePinToggle(itemToPin)} title="Fijar recurso">
                                                 <Pin className={cn("h-4 w-4", isPinned ? "fill-current" : "")} />
                                             </Button>
                                           </div>
@@ -584,38 +666,41 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                           </Collapsible>
                       )}
 
-                      {(manuallyPinnedResources.length > 0 || (selectedCard && scientificAttachmentsFromCard.length > 0)) && <Separator className="my-4" />}
+                      {(manuallyPinnedResources.length > 0 || (selectedCard && scientificAttachmentsFromCard.length > 0)) && <Separator className="my-6" />}
 
                       <Collapsible className="mb-4" defaultOpen={false}>
                         <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
                            <div className="flex items-center gap-2">
-                              <FolderIcon className="h-4 w-4 text-fuchsia-600" />
-                              <span>Recursos externos ({filteredLocalResources.length})</span>
+                              <FolderIcon className="h-4 w-4 text-primary" />
+                              <span className="uppercase tracking-widest text-[10px] font-black">Índice del Departamento ({filteredLocalResources.length})</span>
                           </div>
                           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                           {filteredLocalResources.length > 0 ? (
-                            <div className="flex flex-col">
+                            <div className="flex flex-col gap-1">
                                 {filteredLocalResources.map((resource, index) => (
-                                    <a
-                                      key={resource.url}
-                                      href={resource.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={cn(
-                                        "flex items-center gap-3 py-1.5 px-2 rounded-md hover:bg-white",
-                                        index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20'
-                                      )}
-                                    >
-                                      <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                      <span className="text-sm text-foreground">{highlightText(resource.title, searchQuery)}</span>
-                                    </a>
+                                    <div key={resource.url} className={cn("group/item flex items-center justify-between py-1.5 px-3 rounded-md transition-colors", index % 2 === 0 ? 'bg-[#cceeff]/40' : 'bg-muted/20')}>
+                                        <a
+                                          href={resource.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-3 flex-1 overflow-hidden"
+                                        >
+                                          <Link2 className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                                          <span className="text-sm text-foreground font-medium group-hover/item:text-primary transition-colors truncate">{highlightText(resource.title, searchQuery)}</span>
+                                        </a>
+                                        <div className="flex items-center ml-2">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-fuchsia-500/40 hover:text-fuchsia-600 hover:bg-fuchsia-50" onClick={() => handlePinToggle({ title: resource.title, url: resource.url })}>
+                                                <Pin className={cn("h-3.5 w-3.5", isManuallyPinned(resource.url) ? "fill-current opacity-100" : "")} />
+                                            </Button>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                           ) : (
-                            searchQuery && <p className="p-4 text-center text-sm text-muted-foreground">
-                              No se encontraron recursos externos que coincidan con tu búsqueda.
+                            searchQuery && <p className="p-4 text-center text-xs text-muted-foreground italic">
+                              No se encontraron recursos locales para tu búsqueda.
                             </p>
                           )}
                         </CollapsibleContent>
@@ -623,176 +708,176 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
 
                       {(elsevierResults.length > 0 || snrdResults.length > 0 || crossrefResults.length > 0 || plosResults.length > 0 || doajResults.length > 0 || isSearchingExternal) && (
                         <>
-                          <Separator className="my-4" />
+                          <Separator className="my-6" />
                           <div className="space-y-4">
                             
-                            <Collapsible defaultOpen={false}>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
+                            <Collapsible defaultOpen={true}>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50">
                                     <div className="flex items-center gap-2">
-                                        <Database className="h-4 w-4" />
-                                        Resultados de Repositorios Nacionales (SNRD)
-                                        {!isSearchingExternal && <Badge variant="secondary">{snrdResults.length}</Badge>}
+                                        <Database className="h-4 w-4 text-primary" />
+                                        <span className="uppercase tracking-widest text-[10px] font-black">Repositorios Nacionales (SNRD)</span>
+                                        {!isSearchingExternal && <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold">{snrdResults.length}</Badge>}
                                     </div>
                                     <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {isSearchingExternal ? <SkeletonLoader /> : snrdResults.length > 0 ? (
-                                        <div className="flex flex-col">
+                                        <div className="flex flex-col gap-1">
                                             {snrdResults.map((article, index) => {
                                                 const pinned = isManuallyPinned(article.url);
                                                 return (
-                                                  <div key={article.handle || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.handle || index} className={cn( "group/item flex items-start justify-between py-2 px-3 rounded-md border transition-all", index % 2 !== 0 ? 'bg-muted/20 border-transparent' : 'bg-white border-zinc-100 shadow-sm' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
-                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
+                                                          <span className="text-sm font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground italic truncate">{highlightText(article.publication, searchQuery)}</span>
                                                       </a>
-                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
-                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
+                                                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full flex-shrink-0 ml-4 hover:bg-fuchsia-50" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-zinc-300 group-hover/item:text-fuchsia-500")} />
                                                       </Button>
                                                   </div>
                                                 )
                                             })}
                                         </div>
                                     ) : (
-                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en repositorios nacionales.</p>
+                                        <p className="px-2 py-4 text-xs text-muted-foreground italic">No se encontraron artículos en SNRD.</p>
                                     )}
                                 </CollapsibleContent>
                             </Collapsible>
                             
 
                             <Collapsible defaultOpen={false}>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50">
                                     <div className="flex items-center gap-2">
-                                        <Globe className="h-4 w-4" />
-                                        Resultados de Búsqueda en Elsevier
-                                        {!isSearchingExternal && <Badge variant="secondary">{elsevierResults.length}</Badge>}
+                                        <Globe className="h-4 w-4 text-primary" />
+                                        <span className="uppercase tracking-widest text-[10px] font-black">Elsevier / Scopus</span>
+                                        {!isSearchingExternal && <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold">{elsevierResults.length}</Badge>}
                                     </div>
                                     <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {isSearchingExternal ? <SkeletonLoader /> : elsevierResults.length > 0 ? (
-                                        <div className="flex flex-col">
+                                        <div className="flex flex-col gap-1">
                                             {elsevierResults.map((article, index) => {
                                                 const pinned = isManuallyPinned(article.url);
                                                 return (
-                                                  <div key={article.doi || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.doi || index} className={cn( "group/item flex items-start justify-between py-2 px-3 rounded-md border transition-all", index % 2 !== 0 ? 'bg-muted/20 border-transparent' : 'bg-white border-zinc-100 shadow-sm' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
-                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors, searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publicationName, searchQuery)}</span>
+                                                          <span className="text-sm font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground">{highlightText(article.authors, searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground italic truncate">{highlightText(article.publicationName, searchQuery)}</span>
                                                       </a>
-                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publicationName, isScientific: true })}>
-                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
+                                                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full flex-shrink-0 ml-4 hover:bg-fuchsia-50" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publicationName, isScientific: true })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-zinc-300 group-hover/item:text-fuchsia-500")} />
                                                       </Button>
                                                   </div>
                                                 )
                                             })}
                                         </div>
                                     ) : (
-                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en Elsevier.</p>
+                                        <p className="px-2 py-4 text-xs text-muted-foreground italic">No se encontraron artículos en Elsevier.</p>
                                     )}
                                 </CollapsibleContent>
                             </Collapsible>
 
                             <Collapsible defaultOpen={false}>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50">
                                     <div className="flex items-center gap-2">
-                                        <BookText className="h-4 w-4" />
-                                        Resultados de Crossref
-                                        {!isSearchingExternal && <Badge variant="secondary">{crossrefResults.length}</Badge>}
+                                        <BookText className="h-4 w-4 text-primary" />
+                                        <span className="uppercase tracking-widest text-[10px] font-black">Crossref / DOI</span>
+                                        {!isSearchingExternal && <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold">{crossrefResults.length}</Badge>}
                                     </div>
                                     <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {isSearchingExternal ? <SkeletonLoader /> : crossrefResults.length > 0 ? (
-                                        <div className="flex flex-col">
+                                        <div className="flex flex-col gap-1">
                                             {crossrefResults.map((article, index) => {
                                                 const pinned = isManuallyPinned(article.url);
                                                 return (
-                                                  <div key={article.doi || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.doi || index} className={cn( "group/item flex items-start justify-between py-2 px-3 rounded-md border transition-all", index % 2 !== 0 ? 'bg-muted/20 border-transparent' : 'bg-white border-zinc-100 shadow-sm' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
-                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
+                                                          <span className="text-sm font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground italic truncate">{highlightText(article.publication, searchQuery)}</span>
                                                       </a>
-                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
-                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
+                                                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full flex-shrink-0 ml-4 hover:bg-fuchsia-50" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-zinc-300 group-hover/item:text-fuchsia-500")} />
                                                       </Button>
                                                   </div>
                                                 )
                                             })}
                                         </div>
                                     ) : (
-                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en Crossref.</p>
+                                        <p className="px-2 py-4 text-xs text-muted-foreground italic">No se encontraron artículos en Crossref.</p>
                                     )}
                                 </CollapsibleContent>
                             </Collapsible>
                             
                             <Collapsible defaultOpen={false}>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-between text-sm font-semibold text-foreground p-2 rounded-md hover:bg-muted/50">
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50">
                                     <div className="flex items-center gap-2">
-                                        <BookText className="h-4 w-4" />
-                                        Resultados de PLOS
-                                        {!isSearchingExternal && <Badge variant="secondary">{plosResults.length}</Badge>}
+                                        <BookText className="h-4 w-4 text-primary" />
+                                        <span className="uppercase tracking-widest text-[10px] font-black">PLOS / Public Science</span>
+                                        {!isSearchingExternal && <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold">{plosResults.length}</Badge>}
                                     </div>
                                     <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {isSearchingExternal ? <SkeletonLoader /> : plosResults.length > 0 ? (
-                                        <div className="flex flex-col">
+                                        <div className="flex flex-col gap-1">
                                             {plosResults.map((article, index) => {
                                                 const pinned = isManuallyPinned(article.url);
                                                 return (
-                                                  <div key={article.id || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.id || index} className={cn( "group/item flex items-start justify-between py-2 px-3 rounded-md border transition-all", index % 2 !== 0 ? 'bg-muted/20 border-transparent' : 'bg-white border-zinc-100 shadow-sm' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
-                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
+                                                          <span className="text-sm font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground italic truncate">{highlightText(article.publication, searchQuery)}</span>
                                                       </a>
-                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
-                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
+                                                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full flex-shrink-0 ml-4 hover:bg-fuchsia-50" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-zinc-300 group-hover/item:text-fuchsia-500")} />
                                                       </Button>
                                                   </div>
                                                 )
                                             })}
                                         </div>
                                     ) : (
-                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en PLOS.</p>
+                                        <p className="px-2 py-4 text-xs text-muted-foreground italic">No se encontraron artículos en PLOS.</p>
                                     )}
                                 </CollapsibleContent>
                             </Collapsible>
 
                              <Collapsible defaultOpen={false}>
-                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-left">
                                     <div className="flex items-center gap-2">
-                                        <Library className="h-4 w-4" />
-                                        Resultados de DOAJ (Acceso Abierto)
-                                        {!isSearchingExternal && <Badge variant="secondary">{doajResults.length}</Badge>}
+                                        <Library className="h-4 w-4 text-primary" />
+                                        <span className="uppercase tracking-widest text-[10px] font-black">DOAJ (Acceso Abierto)</span>
+                                        {!isSearchingExternal && <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold">{doajResults.length}</Badge>}
                                     </div>
                                     <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
                                     {isSearchingExternal ? <SkeletonLoader /> : doajResults.length > 0 ? (
-                                        <div className="flex flex-col">
+                                        <div className="flex flex-col gap-1">
                                             {doajResults.map((article, index) => {
                                                 const pinned = isManuallyPinned(article.url);
                                                 return (
-                                                  <div key={article.id || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md hover:bg-white", index % 2 !== 0 ? 'bg-muted/40' : 'bg-muted/20' )}>
+                                                  <div key={article.id || index} className={cn( "group/item flex items-start justify-between py-2 px-3 rounded-md border transition-all", index % 2 !== 0 ? 'bg-muted/20 border-transparent' : 'bg-white border-zinc-100 shadow-sm' )}>
                                                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
-                                                          <span className="text-sm font-medium text-foreground">{highlightText(article.title, searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
-                                                          <span className="text-xs text-muted-foreground italic">{highlightText(article.publication, searchQuery)}</span>
+                                                          <span className="text-sm font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-[10px] text-muted-foreground italic truncate">{highlightText(article.publication, searchQuery)}</span>
                                                       </a>
-                                                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-2" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
-                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-muted-foreground group-hover/item:text-foreground")} />
+                                                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full flex-shrink-0 ml-4 hover:bg-fuchsia-50" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
+                                                        <Pin className={cn("h-4 w-4", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-zinc-300 group-hover/item:text-fuchsia-500")} />
                                                       </Button>
                                                   </div>
                                                 )
                                             })}
                                         </div>
                                     ) : (
-                                        <p className="px-2 pt-2 text-sm text-muted-foreground">No se encontraron artículos en DOAJ.</p>
+                                        <p className="px-2 py-4 text-xs text-muted-foreground italic">No se encontraron artículos en DOAJ.</p>
                                     )}
                                 </CollapsibleContent>
                             </Collapsible>
@@ -801,24 +886,24 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                         </>
                       )}
                       
-                    <Separator className="my-4" />
+                    <Separator className="my-6" />
 
-                    <Collapsible defaultOpen={false}>
+                    <Collapsible defaultOpen={true}>
                         <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
                            <div className="flex items-center gap-2">
-                              <FolderIcon className="h-4 w-4 text-fuchsia-600" />
-                              <span>Recursos Propios</span>
+                              <FolderIcon className="h-4 w-4 text-primary" />
+                              <span className="uppercase tracking-widest text-[10px] font-black">Recursos Internos</span>
                           </div>
                           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
+                        <CollapsibleContent className="mt-4 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-6">
                             {RECURSOS_PROPIOS.map((resource, index) => {
                                 const colors = [
-                                    'bg-sky-50 hover:bg-sky-100',
-                                    'bg-teal-50 hover:bg-teal-100',
-                                    'bg-violet-50 hover:bg-violet-100',
-                                    'bg-amber-50 hover:bg-amber-100',
+                                    'bg-sky-50 border-sky-100 hover:bg-sky-100',
+                                    'bg-teal-50 border-teal-100 hover:bg-teal-100',
+                                    'bg-violet-50 border-violet-100 hover:bg-violet-100',
+                                    'bg-amber-50 border-amber-100 hover:bg-amber-100',
                                 ];
                                 return (
                                   <a
@@ -827,12 +912,12 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className={cn(
-                                        "group flex flex-col items-center justify-center rounded-lg border text-card-foreground shadow-sm transition-colors p-4 aspect-square",
+                                        "group flex flex-col items-center justify-center rounded-xl border text-card-foreground shadow-sm transition-all p-4 aspect-square hover:shadow-md hover:-translate-y-1",
                                         colors[index % colors.length]
                                     )}
                                   >
-                                    <FileText className="h-10 w-10 text-muted-foreground mb-2 transition-transform group-hover:scale-110" />
-                                    <span className="text-center text-xs font-medium">{resource.title}</span>
+                                    <FileText className="h-10 w-10 text-zinc-400 mb-2 transition-transform group-hover:scale-110" />
+                                    <span className="text-center text-[10px] font-bold uppercase leading-tight">{resource.title}</span>
                                   </a>
                                 );
                             })}
