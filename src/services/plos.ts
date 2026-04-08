@@ -8,10 +8,12 @@ export interface PlosArticle {
   id: string;
 }
 
+/**
+ * Busca artículos en Public Library of Science (PLOS).
+ */
 export async function searchPlos(query: string): Promise<PlosArticle[]> {
-    // Search in title and abstract for better relevance
-    const searchQuery = `title:(${encodeURIComponent(`"${query}"`)}) OR abstract:(${encodeURIComponent(`"${query}"`)})`;
-    const url = `https://api.plos.org/search?q=${searchQuery}&fl=id,title_display,author_display,journal_name&rows=25`;
+    // Query abierta para PLOS para evitar 0 resultados por filtrado excesivo
+    const url = `https://api.plos.org/search?q=${encodeURIComponent(query)}&fl=id,title_display,author_display,journal_name&rows=25&sort=score desc`;
 
     try {
         const response = await fetch(url, {
@@ -19,11 +21,11 @@ export async function searchPlos(query: string): Promise<PlosArticle[]> {
                 'Accept': 'application/json',
                 'User-Agent': 'DEA-App/1.0 (mailto:ambientales.dph@gmail.com)',
             },
-            next: { revalidate: 3600 } // Cache for 1 hour
+            next: { revalidate: 3600 } // Cache por 1 hora
         });
 
         if (!response.ok) {
-            console.error(`Error from PLOS API: ${response.status} ${await response.text()}`);
+            console.error(`Error from PLOS API: ${response.status}`);
             return [];
         }
 

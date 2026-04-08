@@ -8,8 +8,12 @@ export interface DoajArticle {
   id: string;
 }
 
+/**
+ * Busca artículos en el Directory of Open Access Journals (DOAJ).
+ */
 export async function searchDoaj(query: string): Promise<DoajArticle[]> {
-    const url = `https://doaj.org/api/search/articles/bibjson.title:"${encodeURIComponent(query)}"?pageSize=25`;
+    // Búsqueda general en lugar de restringida a título
+    const url = `https://doaj.org/api/search/articles/${encodeURIComponent(query)}?pageSize=25`;
 
     try {
         const response = await fetch(url, {
@@ -17,11 +21,11 @@ export async function searchDoaj(query: string): Promise<DoajArticle[]> {
                 'Accept': 'application/json',
                 'User-Agent': 'DEA-App/1.0 (mailto:ambientales.dph@gmail.com)',
             },
-            next: { revalidate: 3600 } // Cache for 1 hour
+            next: { revalidate: 3600 } // Cache por 1 hora
         });
 
         if (!response.ok) {
-            console.error(`Error from DOAJ API: ${response.status} ${await response.text()}`);
+            console.error(`Error from DOAJ API: ${response.status}`);
             return [];
         }
 
@@ -32,7 +36,8 @@ export async function searchDoaj(query: string): Promise<DoajArticle[]> {
             const bibjson = result.bibjson;
             if (!bibjson) return null;
 
-            const fulltextLink = bibjson.link?.find((l: any) => l.type === 'fulltext')?.url;
+            // Intentar obtener link de texto completo, si no el primero disponible
+            const fulltextLink = bibjson.link?.find((l: any) => l.type === 'fulltext')?.url || bibjson.link?.[0]?.url;
             if (!fulltextLink) return null;
             
             const authors = bibjson.author?.map((a: any) => a.name).filter(Boolean) || ['Autor desconocido'];
