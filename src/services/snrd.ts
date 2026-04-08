@@ -13,7 +13,7 @@ export interface SNRDArticle {
  * Utiliza la API de VuFind del Ministerio de Ciencia, Tecnología e Innovación.
  */
 export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
-  // Utilizamos el endpoint de búsqueda general de la API de VuFind
+  // Endpoint de búsqueda general de la API de VuFind del MinCyT
   const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(query)}&type=AllFields&limit=50&sort=relevance`;
 
   try {
@@ -21,13 +21,15 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        // Encabezados más robustos para evitar bloqueos del servidor institucional
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Cache-Control': 'no-cache',
       },
-      next: { revalidate: 3600 } // Cache por 1 hora
+      next: { revalidate: 3600 } 
     });
 
     if (!response.ok) {
-      console.error(`Error de la API de SNRD: ${response.status}`);
+      console.error(`Error de la API de SNRD: ${response.status} ${response.statusText}`);
       return [];
     }
 
@@ -42,45 +44,50 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
       const id = record.id;
       if (!id) return null;
 
-      // La URL pública de visualización no suele llevar /vufind/ en el medio
+      // URL pública de visualización en el portal nacional
       const resourceUrl = `https://repositoriosdigitales.mincyt.gob.ar/Record/${id}`;
       
-      // Los autores en VuFind pueden venir de diversas formas (string, array, u objeto)
-      let authors: string[] = [];
+      // Extracción profunda de autores (pueden venir en varios formatos en VuFind)
+      let authorList: string[] = [];
+      
       if (record.authors) {
-          const parseAuthorObject = (obj: any) => {
-              if (Array.isArray(obj)) return obj;
-              if (typeof obj === 'object' && obj !== null) return Object.keys(obj);
-              return [];
-          };
+          const { primary, secondary, corporate } = record.authors;
           
-          authors = [
-              ...parseAuthorObject(record.authors.primary),
-              ...parseAuthorObject(record.authors.secondary)
+          const process = (obj: any) => {
+              if (!obj) return [];
+              if (Array.isArray(obj)) return obj;
+              if (typeof obj === 'object') return Object.keys(obj);
+              return [String(obj)];
+          };
+
+          authorList = [
+              ...process(primary),
+              ...process(secondary),
+              ...process(corporate)
           ].filter(Boolean);
       }
       
-      if (authors.length === 0) {
-          authors.push('Autor desconocido');
+      if (authorList.length === 0) {
+          authorList.push('Autor o Institución desconocida');
       }
 
-      // El nombre de la publicación suele estar en publisher o journal
+      // El nombre de la publicación suele estar en publisher o containerTitle
       const publication = 
         (Array.isArray(record.publisher) ? record.publisher[0] : record.publisher) || 
         (Array.isArray(record.containerTitle) ? record.containerTitle[0] : record.containerTitle) ||
-        'Publicación desconocida';
+        'Registro Nacional (SNRD)';
 
       return {
         title: record.title || 'Sin título',
         url: resourceUrl,
-        authors: authors,
+        authors: authorList,
         publication: String(publication),
         handle: id,
       };
     }).filter((article): article is SNRDArticle => article !== null);
 
-  } catch (error) {
-    console.error('Error al obtener datos de SNRD:', error);
+  } catch (error: any) {
+    console.error('Error crítico al conectar con SNRD:', error.message);
     return [];
   }
 }
