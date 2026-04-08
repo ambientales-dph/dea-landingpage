@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -20,7 +19,7 @@ import { searchSNRD, type SNRDArticle } from '@/services/snrd';
 import { searchCrossref, type CrossrefArticle } from '@/services/crossref';
 import { searchPlos, type PlosArticle } from '@/services/plos';
 import { searchDoaj, type DoajArticle } from '@/services/doaj';
-import { addAttachmentToTrelloCard, removeAttachmentFromTrelloCard, type TrelloCard, type TrelloAttachment } from '@/services/trello';
+import { addAttachmentToTrelloCard, removeAttachmentFromTrelloCard, type TrelloCard } from '@/services/trello';
 import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -81,7 +80,7 @@ const isScientificUrl = (url: string): boolean => {
     const { hostname } = new URL(url);
     return scientificDomains.some(domain => hostname.includes(domain));
   } catch (e) {
-    return false; // Invalid URL
+    return false;
   }
 };
 
@@ -100,7 +99,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Estados para ingreso manual
   const [manualUrl, setManualUrl] = useState('');
   const [manualTitle, setManualTitle] = useState('');
 
@@ -216,17 +214,12 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
       toast({
         variant: 'destructive',
         title: 'Búsqueda demasiado corta',
-        description: 'Por favor, ingresá al menos 3 caracteres para buscar en plataformas externas.',
+        description: 'Ingresá al menos 3 caracteres para buscar en plataformas externas.',
       });
       return;
     }
     
     setIsSearchingExternal(true);
-    setElsevierResults([]);
-    setSnrdResults([]);
-    setCrossrefResults([]);
-    setPlosResults([]);
-    setDoajResults([]);
     try {
       const [elsevier, snrd, crossref, plos, doaj] = await Promise.all([
         searchElsevier(searchQuery),
@@ -241,16 +234,10 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
       setPlosResults(plos);
       setDoajResults(doaj);
     } catch (e) {
-      console.error("Failed to search external sources", e);
-      setElsevierResults([]);
-      setSnrdResults([]);
-      setCrossrefResults([]);
-      setPlosResults([]);
-      setDoajResults([]);
       toast({
         variant: 'destructive',
         title: 'Error de búsqueda',
-        description: 'No se pudo contactar a las plataformas de búsqueda externas.',
+        description: 'No se pudo contactar a las plataformas externas.',
       });
     } finally {
       setIsSearchingExternal(false);
@@ -283,13 +270,10 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
             const pathname = urlObj.pathname;
             const lastPart = pathname.split('/').filter(Boolean).pop();
             if (lastPart && !manualTitle) {
-                // Decodificar URI y limpiar extensión si la hay
                 const decoded = decodeURIComponent(lastPart).split('.')[0];
                 setManualTitle(decoded.replace(/-/g, ' ').replace(/_/g, ' '));
             }
-        } catch (e) {
-            // Ignorar errores de URL inválida mientras escribe
-        }
+        } catch (e) {}
     }
   };
 
@@ -320,7 +304,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     handlePinToggle(resource);
     setManualUrl('');
     setManualTitle('');
-    toast({ title: 'Recurso fijado', description: `Se ha agregado "${finalTitle}" a tus pines.` });
+    toast({ title: 'Recurso fijado', description: `Se agregó "${finalTitle}" a tus pines.` });
   };
 
   const handleAttachResource = async (resource: PinnedResource) => {
@@ -363,7 +347,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
       toast({
         variant: 'destructive',
         title: 'Error al adjuntar',
-        description: error instanceof Error ? error.message : 'No se pudo adjuntar el recurso a la tarjeta.',
+        description: 'No se pudo adjuntar el recurso a la tarjeta.',
       });
     } finally {
       setAttachingId(null);
@@ -392,7 +376,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
         title: '¡Éxito!',
         description: `El recurso "${resource.title}" se quitó de la tarjeta.`,
       });
-      // Also remove from manual pins if it exists there
       updateAndStorePinnedResources(prev =>
         prev.filter(r => r.url !== resource.url)
       );
@@ -400,7 +383,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
       toast({
         variant: 'destructive',
         title: 'Error al quitar adjunto',
-        description: error instanceof Error ? error.message : 'No se pudo quitar el recurso de la tarjeta.',
+        description: 'No se pudo quitar el recurso de la tarjeta.',
       });
     } finally {
       setAttachingId(null);
@@ -450,12 +433,12 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 border-0 shadow-2xl">
+      <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 border-0 shadow-2xl overflow-hidden bg-white">
           <DialogTitle className="sr-only">Biblioteca de Recursos</DialogTitle>
           <DialogDescription className="sr-only">
-            Buscá en nuestros recursos o en publicaciones científicas externas.
+            Buscá en recursos o publicaciones científicas.
           </DialogDescription>
-          <Card className="w-full h-full flex flex-col border-0 rounded-lg">
+          <div className="w-full h-full flex flex-col">
               <CardHeader className="bg-muted/30 border-b shrink-0 space-y-3 p-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -495,7 +478,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                             <div className="relative flex-1">
                                 <LinkIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-400" />
                                 <Input 
-                                    placeholder="Pegá el link aquí (URL)..." 
+                                    placeholder="Pegá el link (URL)..." 
                                     className="h-7 pl-7 text-[11px] bg-white border-zinc-200"
                                     value={manualUrl}
                                     onChange={(e) => handleManualUrlChange(e.target.value)}
@@ -520,7 +503,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                     </div>
                   </div>
               </CardHeader>
-              <CardContent className="flex-grow min-h-0 p-0">
+              <CardContent className="flex-grow min-h-0 p-0 overflow-hidden">
                   <ScrollArea className="h-full px-4 py-2">
                       {manuallyPinnedResources.length > 0 && (
                         <Collapsible className="mb-2" defaultOpen={true}>
@@ -538,7 +521,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                     size="icon"
                                     onClick={() => updateAndStorePinnedResources([])}
                                     className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                    aria-label="Limpiar pines manuales"
                                 >
                                     <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -590,7 +572,6 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                                   )}
                                                   onClick={() => isAttached ? handleRemoveAttachment(resourceWithId) : handleAttachResource(resource)}
                                                   disabled={!!attachingId}
-                                                  title={isAttached ? "Quitar del proyecto" : "Adjuntar al proyecto"}
                                                 >
                                                   <Paperclip className={cn(
                                                     "h-3.5 w-3.5",
@@ -598,7 +579,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                                   )} />
                                                 </Button>
                                             )}
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-fuchsia-500 hover:text-fuchsia-600 hover:bg-fuchsia-50" onClick={() => handlePinToggle(resource)} title="Quitar de fijados">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-fuchsia-500 hover:text-fuchsia-600 hover:bg-fuchsia-50" onClick={() => handlePinToggle(resource)}>
                                                 <Pin className={cn("h-3.5 w-3.5 fill-current")} />
                                             </Button>
                                           </div>
@@ -651,11 +632,10 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                               className="h-7 w-7 rounded-full text-primary bg-primary/10 hover:bg-primary/20"
                                               onClick={() => handleRemoveAttachment(attachment)}
                                               disabled={!!attachingId}
-                                              title="Quitar adjunto"
                                             >
                                               <Paperclip className={cn( "h-3.5 w-3.5", attachingId === attachment.url && 'animate-pulse' )}/>
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-fuchsia-500 hover:text-fuchsia-600 hover:bg-fuchsia-50" onClick={() => handlePinToggle(itemToPin)} title="Fijar recurso">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-fuchsia-500 hover:text-fuchsia-600 hover:bg-fuchsia-50" onClick={() => handlePinToggle(itemToPin)}>
                                                 <Pin className={cn("h-3.5 w-3.5", isPinned ? "fill-current" : "")} />
                                             </Button>
                                           </div>
@@ -701,7 +681,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                             </div>
                           ) : (
                             searchQuery && <p className="p-3 text-center text-[11px] text-muted-foreground italic">
-                              No se encontraron recursos externos para tu búsqueda.
+                              No hay recursos para tu búsqueda.
                             </p>
                           )}
                         </CollapsibleContent>
@@ -927,7 +907,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                       </Collapsible>
                   </ScrollArea>
               </CardContent>
-          </Card>
+          </div>
       </DialogContent>
     </Dialog>
   );

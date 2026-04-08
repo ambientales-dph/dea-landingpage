@@ -13,14 +13,15 @@ export interface SNRDArticle {
  * Utiliza la API de VuFind del Ministerio de Ciencia, Tecnología e Innovación.
  */
 export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
-  // Simplificamos al máximo los parámetros para asegurar compatibilidad y cobertura
-  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(query)}&type=AllFields&limit=100&sort=relevance`;
+  // Utilizamos el endpoint de búsqueda general de la API de VuFind
+  const url = `https://repositoriosdigitales.mincyt.gob.ar/vufind/api/v1/search?lookfor=${encodeURIComponent(query)}&type=AllFields&limit=50&sort=relevance`;
 
   try {
     const response = await fetch(url, {
+      method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
       },
       next: { revalidate: 3600 } // Cache por 1 hora
     });
@@ -38,35 +39,45 @@ export async function searchSNRD(query: string): Promise<SNRDArticle[]> {
     }
 
     return records.map((record: any): SNRDArticle | null => {
-      const handle = record.id;
-      if (!handle) return null;
+      const id = record.id;
+      if (!id) return null;
 
-      const resourceUrl = `https://repositoriosdigitales.mincyt.gob.ar/vufind/Record/${handle}`;
+      // La URL pública de visualización no suele llevar /vufind/ en el medio
+      const resourceUrl = `https://repositoriosdigitales.mincyt.gob.ar/Record/${id}`;
       
-      const authors: string[] = [];
+      // Los autores en VuFind pueden venir de diversas formas (string, array, u objeto)
+      let authors: string[] = [];
       if (record.authors) {
-          // El formato de autores de VuFind puede venir como objeto o array dependiendo del registro
-          const primary = record.authors.primary || {};
-          const secondary = record.authors.secondary || {};
+          const parseAuthorObject = (obj: any) => {
+              if (Array.isArray(obj)) return obj;
+              if (typeof obj === 'object' && obj !== null) return Object.keys(obj);
+              return [];
+          };
           
-          const primaryNames = Array.isArray(primary) ? primary : Object.keys(primary);
-          const secondaryNames = Array.isArray(secondary) ? secondary : Object.keys(secondary);
-          
-          authors.push(...primaryNames, ...secondaryNames);
+          authors = [
+              ...parseAuthorObject(record.authors.primary),
+              ...parseAuthorObject(record.authors.secondary)
+          ].filter(Boolean);
       }
       
       if (authors.length === 0) {
           authors.push('Autor desconocido');
       }
 
+      // El nombre de la publicación suele estar en publisher o journal
+      const publication = 
+        (Array.isArray(record.publisher) ? record.publisher[0] : record.publisher) || 
+        (Array.isArray(record.containerTitle) ? record.containerTitle[0] : record.containerTitle) ||
+        'Publicación desconocida';
+
       return {
         title: record.title || 'Sin título',
         url: resourceUrl,
         authors: authors,
-        publication: record.publicationDates?.[0] || record.publisher || 'Publicación desconocida',
-        handle: handle,
+        publication: String(publication),
+        handle: id,
       };
-    }).filter((article: any): article is SNRDArticle => article !== null);
+    }).filter((article): article is SNRDArticle => article !== null);
 
   } catch (error) {
     console.error('Error al obtener datos de SNRD:', error);
