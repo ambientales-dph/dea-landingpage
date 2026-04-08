@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -672,7 +673,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                         <CollapsibleTrigger className="group flex w-full items-center justify-between p-2 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
                            <div className="flex items-center gap-2">
                               <FolderIcon className="h-4 w-4 text-primary" />
-                              <span className="uppercase tracking-widest text-[10px] font-black">Índice del Departamento ({filteredLocalResources.length})</span>
+                              <span className="uppercase tracking-widest text-[10px] font-black">Recursos externos ({filteredLocalResources.length})</span>
                           </div>
                           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                         </CollapsibleTrigger>
@@ -700,7 +701,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                             </div>
                           ) : (
                             searchQuery && <p className="p-4 text-center text-xs text-muted-foreground italic">
-                              No se encontraron recursos locales para tu búsqueda.
+                              No se encontraron recursos externos para tu búsqueda.
                             </p>
                           )}
                         </CollapsibleContent>
