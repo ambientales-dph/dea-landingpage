@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, Palette, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, HardDrive, History, AlertTriangle, BookText } from 'lucide-react';
+import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, History, AlertTriangle, BookText, Settings } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -64,8 +64,6 @@ import React from 'react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { WHITELIST, AuthorizedUser } from '@/lib/auth-data';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
 import { getDriveResourceName, extractIdFromUrl, listFolderContents, getTimelineFolderForProject, getProjectFolderIdInTL } from '@/services/google-drive';
 import { sendProjectEmail } from '@/app/actions/email-actions';
@@ -76,7 +74,7 @@ import { EQUIPO_DEA, EQUIPO_SIG, EQUIPO_DRON } from '@/lib/equipo';
 import { MUNICIPIOS } from '@/lib/municipios';
 import { PROYECTISTAS } from '@/lib/proyectistas';
 import { FINANCIAMIENTO } from '@/lib/financiamiento';
-import { DESCRIPCION_PLANTILLA, CUENCAS } from '@/lib/cuencas';
+import { CUENCAS } from '@/lib/cuencas';
 
 const ESTADOS_PROYECTO = [
     "Sin iniciar",
@@ -87,16 +85,6 @@ const ESTADOS_PROYECTO = [
     "Rescindido",
     "En seguimiento"
 ];
-
-const STATUS_COLORS: Record<string, string | null> = {
-    'Sin iniciar': 'red',
-    'Iniciado': 'orange',
-    'Neutralizado': 'pink',
-    'Terminado': 'yellow',
-    'Con DIA': 'green',
-    'Rescindido': 'black',
-    'En seguimiento': 'sky',
-};
 
 const trelloCoverColors = [
     { name: 'green', hex: '#4bce97', label: 'Verde' },
@@ -130,7 +118,6 @@ const trelloColorToStyle = (color: string | null | undefined): React.CSSProperti
 };
 
 const isDriveFolder = (url: string) => url.includes('drive.google.com') && (url.includes('/folders/') || (url.includes('id=') && !url.includes('/file/')));
-const isDriveFile = (url: string) => (url.includes('drive.google.com') || url.includes('docs.google.com')) && (url.includes('/file/d/') || url.includes('/open?id=') || url.includes('/document/d/'));
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -144,89 +131,32 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
     const [isSending, setIsSending] = useState(false);
     const { toast } = useToast();
 
-    useEffect(() => {
-        if (!isOpen) {
-            const cleanup = () => {
-                document.body.style.pointerEvents = '';
-                document.body.style.overflow = '';
-            };
-            cleanup();
-            const timer = setTimeout(cleanup, 300);
-            return () => clearTimeout(timer);
-        }
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (isOpen) {
-            setSubject('');
-            setBody('');
-        }
-    }, [isOpen]);
+    useEffect(() => { if (!isOpen) { const cleanup = () => { document.body.style.pointerEvents = ''; document.body.style.overflow = ''; }; cleanup(); const timer = setTimeout(cleanup, 300); return () => clearTimeout(timer); } }, [isOpen]);
+    useEffect(() => { if (isOpen) { setSubject(''); setBody(''); } }, [isOpen]);
 
     const handleSend = async () => {
         if (!userEmail) return;
         setIsSending(true);
-
         try {
-            const result = await sendProjectEmail({
-                to: recipient.email,
-                subject: subject || '(Sin asunto) - Portal DEA',
-                body: body,
-                replyTo: userEmail
-            });
-
-            if (result.success) {
-                toast({ title: 'Correo enviado', description: `Se ha enviado tu consulta a ${recipient.name}.` });
-                onOpenChange(false);
-            } else {
-                toast({ variant: 'destructive', title: 'Error al enviar', description: result.error });
-            }
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error de red', description: 'No se pudo contactar con el servidor de correo.' });
-        } finally {
-            setIsSending(false);
-        }
+            const result = await sendProjectEmail({ to: recipient.email, subject: subject || '(Sin asunto) - Portal DEA', body: body, replyTo: userEmail });
+            if (result.success) { toast({ title: 'Correo enviado', description: `Se ha enviado tu consulta a ${recipient.name}.` }); onOpenChange(false); }
+            else { toast({ variant: 'destructive', title: 'Error al enviar', description: result.error }); }
+        } catch (error) { toast({ variant: 'destructive', title: 'Error de red', description: 'No se pudo contactar con el servidor de correo.' }); }
+        finally { setIsSending(false); }
     };
 
     return (
         <DialogUI open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md shadow-2xl">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-sm font-bold">
-                        <Mail className="h-5 w-5 text-primary" />
-                        Enviar consulta a {recipient.name}
-                    </DialogTitle>
-                    <DialogDescription className="text-[10px]">
-                        Tu mensaje será enviado desde ambientales.dph@gmail.com. Las respuestas llegarán directamente a <strong>{userEmail}</strong>.
-                    </DialogDescription>
+                    <DialogTitle className="flex items-center gap-2 text-sm font-bold"><Mail className="h-5 w-5 text-primary" />Enviar consulta a {recipient.name}</DialogTitle>
+                    <DialogDescription className="text-[10px]">Tu mensaje será enviado desde ambientales.dph@gmail.com. Las respuestas llegarán directamente a <strong>{userEmail}</strong>.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Asunto</Label>
-                        <Input 
-                            placeholder="Escribí el asunto aquí..." 
-                            value={subject} 
-                            onChange={(e) => setSubject(e.target.value)}
-                            className="text-xs"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Mensaje</Label>
-                        <Textarea 
-                            placeholder="Escribí tu mensaje aquí..." 
-                            value={body} 
-                            onChange={(e) => setBody(e.target.value)}
-                            className="min-h-[150px] text-xs"
-                        />
-                    </div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Asunto</Label><Input placeholder="Asunto..." value={subject} onChange={(e) => setSubject(e.target.value)} className="text-xs" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Mensaje</Label><Textarea placeholder="Mensaje..." value={body} onChange={(e) => setBody(e.target.value)} className="min-h-[150px] text-xs" /></div>
                 </div>
-                <DialogFooter>
-                    <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={isSending}>Cancelar</Button>
-                    <Button size="sm" onClick={handleSend} disabled={(!subject.trim() && !body.trim()) || isSending} className="gap-2">
-                        {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                        {isSending ? 'Enviando...' : 'Enviar Mail'}
-                    </Button>
-                </DialogFooter>
+                <DialogFooter><Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={isSending}>Cancelar</Button><Button size="sm" onClick={handleSend} disabled={(!subject.trim() && !body.trim()) || isSending}>{isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enviar Mail'}</Button></DialogFooter>
             </DialogContent>
         </DialogUI>
     );
@@ -234,63 +164,22 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
 
 const ParticipantBadge = ({ participant, userEmail }: { participant: AuthorizedUser, userEmail: string | null }) => {
     const [isEmailOpen, setIsEmailOpen] = useState(false);
-
-    const handleWhatsAppClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!participant.phone) return;
-        const cleanPhone = participant.phone.replace(/\D/g, '');
-        window.open(`https://wa.me/${cleanPhone}`, '_blank');
-    };
-
+    const handleWhatsAppClick = (e: React.MouseEvent) => { e.stopPropagation(); if (!participant.phone) return; window.open(`https://wa.me/${participant.phone.replace(/\D/g, '')}`, '_blank'); };
     const hasEmail = !!participant.email && participant.email.includes('@');
     const hasPhone = !!participant.phone;
 
     return (
         <>
-            <span 
-                className="inline-flex items-center gap-1 cursor-default rounded-md bg-white px-1.5 py-0.5 transition-all duration-200 hover:bg-muted/50 group select-none border border-muted/60 shadow-sm"
-            >
-                <strong className="break-words text-foreground font-bold">
-                    {participant.name}
-                </strong>
+            <span className="inline-flex items-center gap-1 cursor-default rounded-md bg-white px-1.5 py-0.5 transition-all duration-200 hover:bg-muted/50 group select-none border border-muted/60 shadow-sm">
+                <strong className="break-words text-foreground font-bold">{participant.name}</strong>
                 {(hasEmail || hasPhone) && (
                     <div className="flex items-center gap-0.5 shrink-0 ml-1 border-l pl-1 border-muted-foreground/20">
-                        {hasEmail && (
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-primary/20 hover:text-primary transition-colors"
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    setTimeout(() => setIsEmailOpen(true), 100);
-                                }}
-                                title={`Enviar mail a ${participant.name}`}
-                            >
-                                <Mail className="h-full w-full" />
-                            </Button>
-                        )}
-                        {hasPhone && (
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:bg-green-500/20 hover:text-green-600 transition-colors"
-                                onClick={handleWhatsAppClick}
-                                title={`Enviar WhatsApp a ${participant.name}`}
-                            >
-                                <WhatsAppIcon className="h-full w-full" />
-                            </Button>
-                        )}
+                        {hasEmail && <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:text-primary transition-colors" onClick={(e) => { e.stopPropagation(); setTimeout(() => setIsEmailOpen(true), 100); }}><Mail className="h-full w-full" /></Button>}
+                        {hasPhone && <Button variant="ghost" size="icon" className="h-5 w-5 p-0.5 text-muted-foreground/60 hover:text-green-600 transition-colors" onClick={handleWhatsAppClick}><WhatsAppIcon className="h-full w-full" /></Button>}
                     </div>
                 )}
             </span>
-            {hasEmail && (
-                <QuickEmailDialog 
-                    isOpen={isEmailOpen} 
-                    onOpenChange={setIsEmailOpen} 
-                    recipient={participant} 
-                    userEmail={userEmail} 
-                />
-            )}
+            {hasEmail && <QuickEmailDialog isOpen={isEmailOpen} onOpenChange={setIsEmailOpen} recipient={participant} userEmail={userEmail} />}
         </>
     );
 };
@@ -306,10 +195,12 @@ interface CardSearchProps {
 export default function CardSearch({ onCardSelect, selectedCard, onClear, isSummaryOpen, onSummaryOpenChange }: CardSearchProps) {
   const { user } = useUser();
   const db = useFirestore();
-  const { allCards, isLoadingCards: isLoading, refreshCards } = useProject();
+  const { allCards, isLoadingCards, refreshCards } = useProject();
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isRawEditing, setIsRawEditing] = useState(false);
+  const [rawDescription, setRawDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [activity, setActivity] = useState<TrelloAction[]>([]);
@@ -318,24 +209,33 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [attachmentSort, setAttachmentSort] = useState<'name' | 'type'>('name');
   const [allBoards, setAllBoards] = useState<TrelloBoard[]>([]);
   const [boardLists, setBoardLists] = useState<{ id: string, name: string }[]>([]);
-  const [isBoardsLoading, setIsBoardsLoading] = useState(false);
-  const [isListsLoading, setIsListsLoading] = useState(false);
   const [editedBoardId, setEditedBoardId] = useState('');
   const [editedListId, setEditedListId] = useState('');
   const [driveNames, setDriveNames] = useState<Record<string, { name: string, isFolder: boolean }>>({});
 
-  // Estados para edición estructurada
-  const [editStatus, setEditStatus] = useState('Sin iniciar');
+  // Estados Edición Estructurada
+  const [editEstado, setEditEstado] = useState('Sin iniciar');
   const [editPartidos, setEditPartidos] = useState<string[]>([]);
-  const [editProyectistas, setEditProyectistas] = useState<string[]>([]);
+  const [editReferencia, setEditReferencia] = useState('');
+  const [editExtension, setEditExtension] = useState('');
+  const [editPoblacion, setEditPoblacion] = useState('');
+  const [editPresupuesto, setEditPresupuesto] = useState('');
   const [editFinanciamiento, setEditFinanciamiento] = useState<string[]>([]);
   const [editEquipo, setEditEquipo] = useState<string[]>([]);
   const [editSig, setEditSig] = useState<string[]>([]);
   const [editDron, setEditDron] = useState<string[]>([]);
-  const [editExtraDesc, setEditExtraDesc] = useState('');
+  const [editSeguimiento, setEditSeguimiento] = useState('');
+  const [editProyectistas, setEditProyectistas] = useState<string[]>([]);
+  const [editExpediente, setEditExpediente] = useState('');
+  const [editProvidencia, setEditProvidencia] = useState('');
+  const [editResolucion, setEditResolucion] = useState('');
+  const [editFechaDia, setEditFechaDia] = useState('');
+  const [editContratista, setEditContratista] = useState('');
+  const [editRespAmbiental, setEditRespAmbiental] = useState('');
+  const [editOtroDrive, setEditOtroDrive] = useState('');
+  const [editDriveProyectista, setEditDriveProyectista] = useState('');
 
   const [tlFolderId, setTlFolderId] = useState<string | null>(null);
   const [inspectionPath, setInspectionPath] = useState<{ id: string, name: string }[]>([]);
@@ -343,14 +243,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [isInspecting, setIsInspecting] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
-  const [exportOptions, setExportOptions] = useState({
-    includeAttachments: true,
-    includeComments: true
-  });
-  const [isExporting, setIsExporting] = useState(false);
-
   const [looseFiles, setLooseFiles] = useState<any[]>([]);
   const [isReorgAssistantOpen, setIsReorgAssistantOpen] = useState(false);
   const recentlyMovedIds = useRef<Set<string>>(new Set());
@@ -358,526 +250,127 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Sincronizar el buscador con el proyecto activo
-  useEffect(() => {
-    if (selectedCard) {
-      setQuery(selectedCard.name);
-    } else {
-      setQuery('');
-    }
-  }, [selectedCard]);
+  useEffect(() => { if (selectedCard) setQuery(selectedCard.name); else setQuery(''); }, [selectedCard]);
 
   const filteredCards = useMemo(() => {
-    const normalizedQuery = removeAccents(query.toLowerCase().trim());
-    if (!normalizedQuery) return [];
-
-    return allCards.filter((card) => {
-      const normalizedName = removeAccents(card.name.toLowerCase());
-      const codeMatch = card.name.match(/\(([A-Z]{2,4}\d{3})\)$/);
-      const code = codeMatch ? codeMatch[1].toLowerCase() : '';
-      
-      return normalizedName.includes(normalizedQuery) || code.includes(normalizedQuery);
-    });
+    const q = removeAccents(query.toLowerCase().trim());
+    if (!q) return [];
+    return allCards.filter(c => removeAccents(c.name.toLowerCase()).includes(q) || (c.name.match(/\(([^)]+)\)$/)?.[1] || '').toLowerCase().includes(q));
   }, [allCards, query]);
 
-  const handleSelect = (card: TrelloCard) => {
-    onCardSelect(null);
-    setActivity([]);
-    setDriveNames({});
-    setLooseFiles([]);
-    setFolderContents([]);
-    setInspectionPath([]);
-    
-    setTimeout(() => {
-        setQuery(card.name);
-        onCardSelect(card);
-        setIsOpen(false);
-    }, 50);
-  };
+  const handleSelect = (card: TrelloCard) => { onCardSelect(null); setActivity([]); setDriveNames({}); setLooseFiles([]); setFolderContents([]); setInspectionPath([]); setTimeout(() => { setQuery(card.name); onCardSelect(card); setIsOpen(false); }, 50); };
 
-  const extractFieldFromDesc = (desc: string, field: string): string => {
+  const extractField = (desc: string, field: string) => {
     if (!desc) return '';
     const lines = desc.split('\n');
-    const fieldLower = field.toLowerCase().trim();
-    
-    for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.toLowerCase().startsWith(fieldLower + ':')) {
-            let val = trimmedLine.substring(fieldLower.length + 1).trim();
-            val = val.replace(/^\*\*|\*\*$/g, '').trim();
-            if (val === '****' || val === '') return '';
-            return val;
-        }
-    }
+    const fL = field.toLowerCase().trim();
+    for (const line of lines) { if (line.trim().toLowerCase().startsWith(fL + ':')) return line.trim().substring(field.length + 1).trim().replace(/^\*\*|\*\*$/g, '').trim(); }
     return '';
-  };
-
-  const extractListFromDesc = (desc: string, field: string): string[] => {
-    const val = extractFieldFromDesc(desc, field);
-    if (!val) return [];
-    return val.split(/[,;]/).map(s => s.trim()).filter(Boolean);
   };
 
   const handleEditClick = () => {
     if (!selectedCard) return;
-    setEditedName(selectedCard.name.replace(/\([^)]+\)$/, '').trim());
+    const d = selectedCard.desc || '';
+    setEditedName(selectedCard.name.replace(/\s*\([^)]+\)$/, '').trim());
     setEditedBoardId(selectedCard.boardId || '');
     setEditedListId(selectedCard.idList || '');
-
-    const desc = selectedCard.desc || '';
-    setEditStatus(extractFieldFromDesc(desc, 'ESTADO') || 'Sin iniciar');
-    setEditPartidos(extractListFromDesc(desc, 'PARTIDO'));
-    setEditProyectistas(extractListFromDesc(desc, '- Proyectista'));
-    setEditFinanciamiento(extractListFromDesc(desc, 'FINANCIAMIENTO'));
-    setEditEquipo(extractListFromDesc(desc, '- Diagnóstico ambiental-socioeconómico'));
-    setEditSig(extractListFromDesc(desc, '- Información SIG-imágenes'));
-    setEditDron(extractListFromDesc(desc, '- Información LIDAR/vuelos Dron'));
-
-    // Extraer lo que no es campo controlado para mantenerlo en "Otros detalles"
-    const templateFields = [
-        'ESTADO', 'PARTIDO', 'FINANCIAMIENTO', 
-        '- Diagnóstico ambiental-socioeconómico', 
-        '- Información SIG-imágenes', 
-        '- Información LIDAR/vuelos Dron',
-        '- Proyectista'
-    ];
-    
-    const otherLines = desc.split('\n').filter(line => {
-        const trimmed = line.trim();
-        if (!trimmed) return false;
-        return !templateFields.some(f => trimmed.toLowerCase().startsWith(f.toLowerCase() + ':'));
-    }).join('\n');
-    
-    setEditExtraDesc(otherLines);
+    setEditEstado(extractField(d, '·ESTADO') || 'Sin iniciar');
+    setEditPartidos(extractField(d, '·PARTIDO').split(/[,;]/).map(s => s.trim()).filter(Boolean));
+    setEditReferencia(extractField(d, '·REFERENCIA GEOGRÁFICA'));
+    setEditExtension(extractField(d, '·EXTENSIÓN (Ha o Km)'));
+    setEditPoblacion(extractField(d, '·POBLACIÓN BENEFICIADA'));
+    setEditPresupuesto(extractField(d, '·PRESUPUESTO'));
+    setEditFinanciamiento(extractField(d, '·FINANCIAMIENTO').split(/[,;]/).map(s => s.trim()).filter(Boolean));
+    setEditEquipo(extractField(d, '·Diagnóstico ambiental-socioeconómico').split(/[,;]/).map(s => s.trim()).filter(Boolean));
+    setEditSig(extractField(d, '·Información SIG-imágenes').split(/[,;]/).map(s => s.trim()).filter(Boolean));
+    setEditDron(extractField(d, '·Información LIDAR/vuelos Dron').split(/[,;]/).map(s => s.trim()).filter(Boolean));
+    setEditSeguimiento(extractField(d, '·Seguimiento de obra'));
+    setEditProyectistas(extractField(d, '·Proyectista').split(/[,;]/).map(s => s.trim()).filter(Boolean));
+    setEditExpediente(extractField(d, '·EXPEDIENTE'));
+    setEditProvidencia(extractField(d, '·PROVIDENCIA'));
+    setEditResolucion(extractField(d, '·RESOLUCIÓN'));
+    setEditFechaDia(extractField(d, '·FECHA DIA'));
+    setEditContratista(extractField(d, '·CONTRATISRA'));
+    setEditRespAmbiental(extractField(d, '·RESPONSABLE AMBIENTAL'));
+    setEditOtroDrive(extractField(d, '·Otro Drive de trabajo'));
+    setEditDriveProyectista(extractField(d, '·Drive del proyectista'));
     setIsEditing(true);
   };
 
-  const handleToggleLabel = async (labelId: string, isRemoving: boolean) => {
-    if (!selectedCard) return;
-    try {
-      if (isRemoving) {
-        await removeLabelFromCard({ cardId: selectedCard.id, labelId });
-      } else {
-        await addLabelToCard({ cardId: selectedCard.id, labelId });
-      }
-      fetchCardData();
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Error con las etiquetas' });
-    }
-  };
+  const handleRawEditClick = () => { if (selectedCard) { setRawDescription(selectedCard.desc || ''); setIsRawEditing(true); } };
 
-  const handlePostComment = async () => {
-    if (!selectedCard || !newComment.trim()) return;
-    setIsCommenting(true);
+  const handleSaveRawEdit = async () => {
+    if (!selectedCard) return;
+    setIsSaving(true);
     try {
-      await addCommentToCard({ cardId: selectedCard.id, text: newComment });
-      setNewComment('');
-      fetchCardData();
-      toast({ title: 'Comentario enviado' });
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Error al comentar' });
-    } finally {
-      setIsCommenting(false);
-    }
+        await updateTrelloCard({ cardId: selectedCard.id, desc: rawDescription });
+        const updated = await getCardById(selectedCard.id);
+        onCardSelect(updated);
+        setIsRawEditing(false);
+        refreshCards();
+        toast({ title: 'Descripción actualizada' });
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error al guardar RAW', description: e.message }); }
+    finally { setIsSaving(false); }
   };
 
   const handleSaveEdit = async () => {
     if (!selectedCard) return;
     setIsSaving(true);
     try {
-        // Obtenemos la cuenca actual para enviar el ID correcto al action
         const cuencaCodeMatch = selectedCard.name.match(/\(([A-Z]{2,4})\d{3}\)$/);
-        const cuencaCode = cuencaCodeMatch ? cuencaCodeMatch[1] : null;
-        const selectedCuenca = CUENCAS.find(c => c.code === cuencaCode);
-
-        // Preparamos FormData para usar el action centralizado que maneja Drive
+        const cuenca = cuencaCodeMatch ? CUENCAS.find(c => c.code === cuencaCodeMatch[1]) : null;
         const formData = new FormData();
         formData.append('cardId', selectedCard.id);
         formData.append('nombre', editedName);
-        formData.append('cuenca', selectedCuenca?.id || '');
-        formData.append('estado', editStatus);
+        formData.append('cuenca', cuenca?.id || '');
+        formData.append('estado', editEstado);
         formData.append('partido', editPartidos.join(', '));
-        formData.append('proyectista', editProyectistas.join(', '));
+        formData.append('referencia', editReferencia);
+        formData.append('extension', editExtension);
+        formData.append('poblacion', editPoblacion);
+        formData.append('presupuesto', editPresupuesto);
         formData.append('financiamiento', editFinanciamiento.join(', '));
-        formData.append('diagnosticoEquipo', editEquipo.join('; '));
-        formData.append('informacionSig', editSig.join('; '));
-        formData.append('informacionDron', editDron.join('; '));
-        formData.append('userEmail', user?.email || '');
+        formData.append('diagnostico', editEquipo.join('; '));
+        formData.append('sig', editSig.join('; '));
+        formData.append('dron', editDron.join('; '));
+        formData.append('seguimiento', editSeguimiento);
+        formData.append('proyectista', editProyectistas.join('; '));
+        formData.append('expediente', editExpediente);
+        formData.append('providencia', editProvidencia);
+        formData.append('resolucion', editResolucion);
+        formData.append('fechaDia', editFechaDia);
+        formData.append('contratista', editContratista);
+        formData.append('respAmbiental', editRespAmbiental);
+        formData.append('otroDrive', editOtroDrive);
+        formData.append('driveProyectista', editDriveProyectista);
 
         const result = await updateProject({ success: false }, formData);
-
         if (result.success) {
-            // Registrar actividad en Firestore (opcional si el action ya lo hace, pero aquí lo reforzamos si es necesario)
-            if (user && db) {
-                const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
-                const activityData = {
-                    userId: user.uid,
-                    userName: authorizedUser?.name || user.displayName || 'Usuario',
-                    userEmail: user.email,
-                    userPhoto: user.photoURL || '',
-                    actionType: result.isStatusChange ? 'status_change' : 'update_project',
-                    projectName: result.projectName || selectedCard.name,
-                    detail: result.isStatusChange ? `Cambió estado a "${editStatus}"` : 'Edición estructurada desde ficha',
-                    cardId: selectedCard.id,
-                    timestamp: serverTimestamp(),
-                };
-                await addDoc(collection(db, 'app_activities'), activityData);
-            }
-
             const updated = await getCardById(selectedCard.id);
             onCardSelect(updated);
             setIsEditing(false);
             refreshCards();
-            toast({ title: 'Cambios guardados', description: 'Proyecto actualizado y permisos de Drive sincronizados.' });
-        } else {
-            toast({ variant: 'destructive', title: 'Error al guardar', description: result.message });
-        }
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Error inesperado', description: e.message });
-    } finally {
-        setIsSaving(false);
-    }
+            toast({ title: 'Ficha actualizada' });
+        } else toast({ variant: 'destructive', title: 'Error', description: result.message });
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error inesperado', description: e.message }); }
+    finally { setIsSaving(false); }
   };
 
-  const handleExport = async () => {
-    if (!selectedCard) return;
-    setIsExporting(true);
-    try {
+  const handlePrintCard = () => {
       const doc = new jsPDF();
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.text(selectedCard.name, 20, 20);
-      
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.text(`Tablero: ${selectedCard.boardName}`, 20, 30);
-      
-      doc.setFontSize(12);
-      doc.text('Descripción:', 20, 45);
-      doc.setFontSize(10);
-      const splitDesc = doc.splitTextToSize(selectedCard.desc || 'Sin descripción', 170);
-      doc.text(splitDesc, 20, 55);
-      
-      let y = 55 + (splitDesc.length * 5) + 10;
-
-      if (exportOptions.includeAttachments && selectedCard.attachments?.length > 0) {
-        if (y > 250) { doc.addPage(); y = 20; }
-        doc.setFont('helvetica', 'bold');
-        doc.text('Archivos Adjuntos:', 20, y);
-        doc.setFont('helvetica', 'normal');
-        y += 7;
-        selectedCard.attachments.forEach(att => {
-          if (y > 280) { doc.addPage(); y = 20; }
-          doc.text(`- ${att.name}: ${att.url}`, 20, y);
-          y += 5;
-        });
-        y += 5;
-      }
-
-      if (exportOptions.includeComments && activity.length > 0) {
-        const comments = activity.filter(a => a.type === 'commentCard');
-        if (comments.length > 0) {
-          if (y > 250) { doc.addPage(); y = 20; }
-          doc.setFont('helvetica', 'bold');
-          doc.text('Comentarios:', 20, y);
-          doc.setFont('helvetica', 'normal');
-          y += 7;
-          comments.forEach(c => {
-            if (y > 270) { doc.addPage(); y = 20; }
-            const date = format(new Date(c.date), 'dd/MM/yyyy HH:mm');
-            const text = `${c.memberCreator.fullName} (${date}): ${c.data.text}`;
-            const splitText = doc.splitTextToSize(text, 170);
-            doc.text(splitText, 20, y);
-            y += (splitText.length * 5) + 2;
-          });
-        }
-      }
-
-      doc.save(`Ficha-${selectedCard.name}.pdf`);
-      setIsExportDialogOpen(false);
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Error al exportar PDF' });
-    } finally {
-      setIsExporting(false);
-    }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text(selectedCard?.name || '', 20, 20);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+      const splitDesc = doc.splitTextToSize(selectedCard?.desc || '', 170);
+      doc.text(splitDesc, 20, 35);
+      doc.save(`Ficha-${selectedCard?.name || 'obra'}.pdf`);
   };
 
-  const commentsOnly = useMemo(() => activity.filter(a => a.type === 'commentCard'), [activity]);
-
-  useEffect(() => {
-    if (isEditing) {
-      const loadBoards = async () => {
-        setIsBoardsLoading(true);
-        try {
-          const b = await getTrelloBoards();
-          setAllBoards(b);
-        } finally {
-          setIsBoardsLoading(false);
-        }
-      };
-      loadBoards();
-    }
-  }, [isEditing]);
-
-  useEffect(() => {
-    if (isEditing && editedBoardId) {
-      const loadLists = async () => {
-        setIsListsLoading(true);
-        try {
-          const l = await getListsOnBoard(editedBoardId);
-          setBoardLists(l);
-        } finally {
-          setIsListsLoading(false);
-        }
-      };
-      loadLists();
-    }
-  }, [isEditing, editedBoardId]);
-
-  useEffect(() => {
-    if (!isSummaryOpen) {
-      const cleanup = () => {
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-      };
-      cleanup();
-      const timer = setTimeout(cleanup, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isSummaryOpen]);
-
-  useEffect(() => {
-    setInspectionPath([]);
-    setFolderContents([]);
-    setNextPageToken(null);
-    setIsInspecting(false);
-    setTlFolderId(null);
-    setLooseFiles([]);
-    recentlyMovedIds.current.clear();
-  }, [selectedCard?.id, isSummaryOpen]);
-
-  const isCurrentlyInTL = useMemo(() => {
-    if (inspectionPath.length === 0) return false;
-    return inspectionPath[0].name === 'Línea de Tiempo';
-  }, [inspectionPath]);
-
-  const isCurrentlyInExternal = useMemo(() => {
-    if (inspectionPath.length === 0) return false;
-    return inspectionPath[0].id === 'virtual-external';
-  }, [inspectionPath]);
-
-  const formatFolderName = (name: string) => {
-    const pattern = /^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})_(.*)$/;
-    const match = name.match(pattern);
-    if (match) {
-      const [, yy, mm, dd, hh, min, ss, rest] = match;
-      return `${yy}/${mm}/${dd} ${hh}:${min}:${ss} - ${rest}`;
-    }
-    return name;
-  };
-
-  const sortedFolderContents = useMemo(() => {
-    return [...folderContents].sort((a, b) => {
-      const pattern = /^(\d{12})_(.*)$/;
-      const matchA = a.name.match(pattern);
-      const matchB = b.name.match(pattern);
-
-      if (matchA && matchB) {
-        return matchB[1].localeCompare(matchA[1]);
-      }
-      
-      if (matchA) return -1;
-      if (matchB) return 1;
-
-      if (a.mimeType === 'application/vnd.google-apps.folder' && b.mimeType !== 'application/vnd.google-apps.folder') return -1;
-      if (a.mimeType !== 'application/vnd.google-apps.folder' && b.mimeType === 'application/vnd.google-apps.folder') return 1;
-      
-      return a.name.localeCompare(b.name);
-    });
-  }, [folderContents]);
-
-  useEffect(() => {
-    const fetchContents = async () => {
-      if (inspectionPath.length === 0 || isCurrentlyInExternal) {
-        setIsInspecting(false);
-        if (!isCurrentlyInExternal) {
-            setFolderContents([]);
-            setNextPageToken(null);
-        }
-        return;
-      }
-
-      setIsInspecting(true);
-      const currentFolder = inspectionPath[inspectionPath.length - 1];
-      try {
-        const result = await listFolderContents(currentFolder.id);
-        setFolderContents(result.files);
-        setNextPageToken(result.nextPageToken);
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Error al leer carpeta', description: 'No se pudieron cargar los archivos.' });
-        setInspectionPath(prev => prev.slice(0, -1));
-      } finally {
-        setIsInspecting(false);
-      }
-    };
-
-    fetchContents();
-  }, [inspectionPath, toast, isCurrentlyInExternal]);
-
-  const handleLoadMore = async () => {
-    if (!nextPageToken || isInspecting || isLoadingMore) return;
-    
-    setIsLoadingMore(true);
-    const currentFolder = inspectionPath[inspectionPath.length - 1];
-    try {
-      const result = await listFolderContents(currentFolder.id, nextPageToken);
-      setFolderContents(prev => [...prev, ...result.files]);
-      setNextPageToken(result.nextPageToken);
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error al cargar más', description: 'No se pudieron traer más archivos.' });
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
-
-  const handleEnterFolder = async (id: string, name: string) => {
-    setInspectionPath(prev => [...prev, { id, name }]);
-  };
-
-  const handlePopFolder = () => {
-    setInspectionPath(prev => prev.slice(0, -1));
-  };
-
-  const handleAttachmentClick = async (att: any) => {
-    const isTL = att.name === 'Línea de Tiempo';
-    const isExternal = att.name === 'Enlaces Externos';
-    const id = await extractIdFromUrl(att.url);
-    
-    if (isTL && tlFolderId) {
-        handleEnterFolder(tlFolderId, 'Línea de Tiempo');
-    } else if (isExternal) {
-        handleEnterFolder('virtual-external', 'Enlaces Externos');
-    } else if (isDriveFolder(att.url) && id) {
-        handleEnterFolder(id, att.name);
-    }
-  };
-
-  const handleDriveFileClick = (file: any) => {
-    if (file.mimeType === 'application/vnd.google-apps.folder') {
-      handleEnterFolder(file.id, file.name);
-    } else if (!isCurrentlyInTL) {
-      window.open(file.webViewLink, '_blank');
-    }
-  };
-
-  const handleDownloadFile = async (file: any) => {
-    let downloadUrl = file.webContentLink;
-    
-    if (!downloadUrl) {
-        const id = file.id || await extractIdFromUrl(file.url);
-        if (id) {
-            downloadUrl = `https://drive.google.com/uc?export=download&id=${id}`;
-        }
-    }
-
-    if (downloadUrl) {
-      window.open(downloadUrl, '_blank');
-    } else {
-      toast({ variant: 'destructive', title: 'Descarga no disponible', description: 'No se pudo generar el enlace.' });
-    }
-  };
-
-  useEffect(() => {
-    if (selectedCard?.desc) {
-      const regex = /https?:\/\/drive\.google\.com\/\S+/gi;
-      const matches = selectedCard.desc.match(regex);
-      if (matches) {
-        matches.forEach(async (url) => {
-          if (!driveNames[url]) {
-            const result = await getDriveResourceName(url);
-            if (result) {
-              setDriveNames(prev => ({ ...prev, [url]: result }));
-            }
-          }
-        });
-      }
-    }
-  }, [selectedCard?.desc, driveNames]);
-
-  const renderDescription = (desc: string) => {
-    const parts: (string | JSX.Element)[] = [];
-    if (!desc) return parts;
-    
-    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*|(https?:\/\/drive\.google\.com\/\S+)|(\S+\.(?:jpg|jpeg|png|gif|bmp|webp|svg|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)\S*)/gi;
-    let lastIndex = 0;
-    let match;
-    
-    while ((match = regex.exec(desc)) !== null) {
-        if (match.index > lastIndex) parts.push(desc.substring(lastIndex, match.index));
-        
-        const [fullMatch, linkText, linkUrlRaw, boldText, standaloneDriveUrl, standaloneUrl] = match;
-        
-        if (linkText !== undefined && linkUrlRaw !== undefined) {
-            const urlMatch = linkUrlRaw.trim().match(/^\S+/);
-            if (!urlMatch) continue;
-            const linkUrl = urlMatch[0];
-            const isDrive = isDriveFolder(linkUrl) || isDriveFile(linkUrl);
-            const driveData = driveNames[linkUrl];
-            const DriveIcon = (driveData?.isFolder ?? isDriveFolder(linkUrl)) ? Folder : FileText;
-            
-            parts.push(
-                <a href={linkUrl} key={match.index} target="_blank" rel="noopener noreferrer" className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors mb-1 max-w-full overflow-hidden shrink-0 min-w-0 break-words whitespace-normal",
-                    isDrive ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}>
-                    {isDrive ? <DriveIcon className="h-3.5 w-3.5 shrink-0" /> : <DriveIcon className="h-3.5 w-3.5 shrink-0" />}
-                    <span className="flex-1 min-w-0 break-words whitespace-normal">{linkText || driveData?.name || (isDrive ? (isDriveFolder(linkUrl) ? 'Carpeta Drive' : 'Archivo Drive') : 'Abrir')}</span>
-                </a>
-            );
-        } else if (boldText !== undefined) {
-            const possibleNames = boldText.split(';').map(n => n.trim());
-            const detectedParts: (string | JSX.Element)[] = [];
-            
-            possibleNames.forEach((name, idx) => {
-                const participant = WHITELIST.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
-                if (participant) {
-                    detectedParts.push(
-                        <ParticipantBadge 
-                            key={`${match.index}-${idx}`} 
-                            participant={participant} 
-                            userEmail={user?.email || null} 
-                        />
-                    );
-                } else {
-                    detectedParts.push(<strong key={`${match.index}-${idx}`} className="break-words font-bold">{name}</strong>);
-                }
-                
-                if (idx < possibleNames.length - 1) {
-                    detectedParts.push("; ");
-                }
-            });
-
-            parts.push(<React.Fragment key={match.index}>{detectedParts}</React.Fragment>);
-        } else if (standaloneDriveUrl !== undefined) {
-            const driveData = driveNames[standaloneDriveUrl];
-            const isFolder = driveData?.isFolder ?? isDriveFolder(standaloneDriveUrl);
-            const DriveIcon = isFolder ? Folder : FileText;
-            const label = driveData?.name || (isFolder ? 'Carpeta Drive' : 'Archivo Drive');
-            
-            parts.push(
-                <a href={standaloneDriveUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 mb-1 max-w-full overflow-hidden shrink-0 min-w-0 break-words whitespace-normal">
-                    <DriveIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="flex-1 min-w-0 break-words whitespace-normal">{label}</span>
-                </a>
-            );
-        } else if (standaloneUrl !== undefined) {
-             parts.push(<a href={standaloneUrl} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 mb-1 max-w-full overflow-hidden shrink-0 min-w-0 break-words whitespace-normal"><span className="flex-1 min-w-0 break-words whitespace-normal">{standaloneUrl.split('/').pop()}</span></a>);
-        }
-        lastIndex = regex.lastIndex;
-    }
-    
-    if (lastIndex < desc.length) parts.push(desc.substring(lastIndex));
-    return parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>);
+  const handlePostComment = async () => {
+    if (!selectedCard || !newComment.trim()) return;
+    setIsCommenting(true);
+    try { await addCommentToCard({ cardId: selectedCard.id, text: newComment }); setNewComment(''); fetchCardData(); toast({ title: 'Comentario enviado' }); }
+    catch (e) { toast({ variant: 'destructive', title: 'Error al comentar' }); }
+    finally { setIsCommenting(false); }
   };
 
   const fetchCardData = useCallback(async () => {
@@ -886,658 +379,210 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setIsActivityLoading(true);
     try {
         const codeMatch = selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i);
-        const projectCode = codeMatch ? codeMatch[0].toUpperCase() : null;
-
-        const [refreshedCard, cardActivity, labels, tlId, tlProjectRootId] = await Promise.all([
-            getCardById(selectedCard.id),
-            getCardActivity(selectedCard.id),
-            getBoardLabels(selectedCard.boardId),
-            projectCode ? getTimelineFolderForProject(projectCode, selectedCard.name) : Promise.resolve(null),
-            projectCode ? getProjectFolderIdInTL(projectCode, selectedCard.name) : Promise.resolve(null)
+        const pCode = codeMatch ? codeMatch[0].toUpperCase() : null;
+        const [refCard, cAct, labels, tlId, tlProjRootId] = await Promise.all([
+            getCardById(selectedCard.id), getCardActivity(selectedCard.id), getBoardLabels(selectedCard.boardId),
+            pCode ? getTimelineFolderForProject(pCode, selectedCard.name) : Promise.resolve(null),
+            pCode ? getProjectFolderIdInTL(pCode, selectedCard.name) : Promise.resolve(null)
         ]);
-        
-        onCardSelect(refreshedCard);
-        setActivity(cardActivity);
-        setBoardLabels(labels || []);
-        setTlFolderId(tlId);
-
-        let allLooseFiles: any[] = [];
-        
-        const workFolderAtts = refreshedCard.attachments?.filter(a => isDriveFolder(a.url)) || [];
-        for (const att of workFolderAtts) {
-            const rootId = await extractIdFromUrl(att.url);
-            if (rootId) {
-                const contents = await listFolderContents(rootId);
-                const loose = contents.files
-                    .filter(f => f.mimeType !== 'application/vnd.google-apps.folder' && !recentlyMovedIds.current.has(f.id))
-                    .map(f => ({ ...f, parentId: rootId }));
-                allLooseFiles = [...allLooseFiles, ...loose];
-            }
+        onCardSelect(refCard); setActivity(cAct); setBoardLabels(labels || []); setTlFolderId(tlId);
+        let allLoose: any[] = [];
+        const workAtts = refCard.attachments?.filter(a => isDriveFolder(a.url)) || [];
+        for (const att of workAtts) {
+            const rId = await extractIdFromUrl(att.url);
+            if (rId) { const cont = await listFolderContents(rId); const loose = cont.files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder' && !recentlyMovedIds.current.has(f.id)).map(f => ({ ...f, parentId: rId })); allLoose = [...allLoose, ...loose]; }
         }
-
-        if (tlProjectRootId) {
-            const tlContents = await listFolderContents(tlProjectRootId);
-            const tlLoose = tlContents.files
-                .filter(f => f.mimeType !== 'application/vnd.google-apps.folder' && !recentlyMovedIds.current.has(f.id))
-                .map(f => ({ ...f, parentId: tlProjectRootId }));
-            allLooseFiles = [...allLooseFiles, ...tlLoose];
-        }
-
-        const uniqueLoose = Array.from(new Map(allLooseFiles.map(f => [f.id, f])).values());
-        setLooseFiles(uniqueLoose);
-
-    } catch (error) {
-        console.error('Error refreshing card data:', error);
-    } finally {
-        setIsRefreshing(false);
-        setIsActivityLoading(false);
-    }
+        if (tlProjRootId) { const tlCont = await listFolderContents(tlProjRootId); const tlLoose = tlCont.files.filter(f => f.mimeType !== 'application/vnd.google-apps.folder' && !recentlyMovedIds.current.has(f.id)).map(f => ({ ...f, parentId: tlProjRootId })); allLoose = [...allLoose, ...tlLoose]; }
+        setLooseFiles(Array.from(new Map(allLoose.map(f => [f.id, f])).values()));
+    } catch (error) { console.error(error); }
+    finally { setIsRefreshing(false); setIsActivityLoading(false); }
   }, [selectedCard?.id, onCardSelect]);
 
-  useEffect(() => {
-    if (isSummaryOpen && selectedCard) {
-        fetchCardData();
-    }
-  }, [isSummaryOpen, selectedCard?.id, fetchCardData]);
-
-  const externalAttachments = useMemo(() => {
-    if (!selectedCard) return [];
-    return (selectedCard.attachments || []).filter(att => !isDriveFolder(att.url));
-  }, [selectedCard]);
+  useEffect(() => { if (isSummaryOpen && selectedCard) fetchCardData(); }, [isSummaryOpen, selectedCard?.id, fetchCardData]);
 
   const sortedAttachments = useMemo(() => {
-    const attachments = selectedCard?.attachments || [];
-    
-    const driveFolders = attachments.filter(att => isDriveFolder(att.url));
+    const res = (selectedCard?.attachments || []).filter(a => isDriveFolder(a.url));
+    if (tlFolderId) res.push({ id: 'tl-virtual-folder', name: 'Línea de Tiempo', url: `https://drive.google.com/drive/folders/${tlFolderId}`, previews: [] } as any);
+    const ext = (selectedCard?.attachments || []).filter(a => !isDriveFolder(a.url));
+    if (ext.length > 0) res.push({ id: 'virtual-external', name: 'Enlaces Externos', url: '#', previews: [] } as any);
+    return res.sort((a, b) => a.name.localeCompare(b.name));
+  }, [selectedCard, tlFolderId]);
 
-    const result = [...driveFolders];
-
-    if (tlFolderId) {
-        result.push({
-            id: 'tl-virtual-folder',
-            name: 'Línea de Tiempo',
-            url: `https://drive.google.com/drive/folders/${tlFolderId}`,
-            previews: []
-        });
+  const renderDescription = (desc: string) => {
+    const parts: (string | JSX.Element)[] = [];
+    if (!desc) return parts;
+    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*|(https?:\/\/drive\.google\.com\/\S+)/gi;
+    let lastIndex = 0; let match;
+    while ((match = regex.exec(desc)) !== null) {
+        if (match.index > lastIndex) parts.push(desc.substring(lastIndex, match.index));
+        const [full, linkT, linkU, boldT, driveU] = match;
+        if (linkT && linkU) {
+            const isD = isDriveFolder(linkU);
+            parts.push(<a href={linkU} key={match.index} target="_blank" rel="noopener noreferrer" className={cn("inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium mb-1", isD ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{isD ? <Folder className="h-3 w-3" /> : <LinkIcon className="h-3 w-3" />} {linkT}</a>);
+        } else if (boldT) {
+            const names = boldT.split(';').map(n => n.trim());
+            names.forEach((name, idx) => {
+                const part = WHITELIST.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
+                if (part) parts.push(<ParticipantBadge key={`${match.index}-${idx}`} participant={part} userEmail={user?.email || null} />);
+                else parts.push(<strong key={`${match.index}-${idx}`}>{name}</strong>);
+                if (idx < names.length - 1) parts.push("; ");
+            });
+        } else if (driveU) parts.push(<a href={driveU} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary mb-1"><Folder className="h-3 w-3" /> Drive</a>);
+        lastIndex = regex.lastIndex;
     }
-
-    if (externalAttachments.length > 0) {
-        result.push({
-            id: 'virtual-external',
-            name: 'Enlaces Externos',
-            url: '#',
-            previews: []
-        });
-    }
-
-    return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [selectedCard, tlFolderId, externalAttachments]);
-
-  const isScientificUrl = (url: string): boolean => {
-    if (!url) return false;
-    const domains = ['doi.org', 'sciencedirect.com', 'scielo.org', 'repositoriosdigitales.mincyt.gob.ar'];
-    try {
-        const { hostname } = new URL(url);
-        return domains.some(d => hostname.includes(d));
-    } catch { return false; }
+    if (lastIndex < desc.length) parts.push(desc.substring(lastIndex));
+    return parts;
   };
-
-  const showGlobalLoading = isRefreshing || isActivityLoading;
 
   return (
     <div className="flex w-full flex-col">
       <div className="relative w-full">
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
-            <Textarea
-              ref={inputRef}
-              value={query}
-              onFocus={() => { if (query && (!selectedCard || query !== selectedCard.name)) setIsOpen(true); }}
-              onChange={(e) => { 
-                setQuery(e.target.value); 
-                if (e.target.value.length > 0 && (!selectedCard || e.target.value !== selectedCard.name)) setIsOpen(true);
-                else setIsOpen(false);
-              }}
-              placeholder={isLoading ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'}
-              className="w-full min-h-20 bg-white text-foreground pr-10 text-xs border-2 focus-visible:ring-primary shadow-sm"
-              autoComplete="off"
-            />
+            <Textarea ref={inputRef} value={query} onFocus={() => { if (query && (!selectedCard || query !== selectedCard.name)) setIsOpen(true); }} onChange={(e) => { setQuery(e.target.value); if (e.target.value.length > 0 && (!selectedCard || e.target.value !== selectedCard.name)) setIsOpen(true); else setIsOpen(false); }} placeholder={isLoadingCards ? 'Cargando tarjetas...' : 'Buscá por palabra clave o código...'} className="w-full min-h-20 bg-white text-foreground pr-10 text-xs border-2 focus-visible:ring-primary shadow-sm" autoComplete="off" />
           </PopoverTrigger>
-          <PopoverContent 
-            className="p-0 w-[--radix-popover-trigger-width] border-0 shadow-2xl bg-white" 
-            onOpenAutoFocus={(e) => e.preventDefault()}
-          >
+          <PopoverContent className="p-0 w-[--radix-popover-trigger-width] border-0 shadow-2xl bg-white" onOpenAutoFocus={(e) => e.preventDefault()}>
             <Command className="bg-white">
-              <CommandList className="max-h-[300px] bg-white p-2">
-                {filteredCards.length === 0 && query.length > 0 && (!selectedCard || query !== selectedCard.name) && (
-                  <CommandEmpty className="text-muted-foreground py-4 text-center text-xs">No hay resultados.</CommandEmpty>
-                )}
-                <CommandGroup>
-                  {filteredCards.map((card) => (
-                    <CommandItem 
-                      key={card.id} 
-                      onSelect={() => handleSelect(card)} 
-                      className="cursor-pointer text-[11px] mb-1 p-2 rounded-md transition-all duration-200"
-                      style={trelloColorToStyle(card.cover?.color)}
-                    >
-                      <div className="flex flex-col gap-0.5 overflow-hidden">
-                        <span className="whitespace-normal leading-tight font-normal">{card.name}</span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
+              <CommandList className="max-h-[300px] p-2">
+                {filteredCards.length === 0 && query.length > 0 && (!selectedCard || query !== selectedCard.name) && <CommandEmpty className="text-muted-foreground py-4 text-center text-xs">No hay resultados.</CommandEmpty>}
+                <CommandGroup>{filteredCards.map(c => <CommandItem key={c.id} onSelect={() => handleSelect(c)} className="cursor-pointer text-[11px] mb-1 p-2 rounded-md transition-all" style={trelloColorToStyle(c.cover?.color)}><span className="whitespace-normal leading-tight">{c.name}</span></CommandItem>)}</CommandGroup>
               </CommandList>
             </Command>
           </PopoverContent>
         </Popover>
-        {query && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => {
-              onClear();
-            }} 
-            className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        )}
+        {query && <Button variant="ghost" size="icon" onClick={onClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"><X className="h-5 w-5" /></Button>}
       </div>
 
       {selectedCard && (
-        <DialogUI open={isSummaryOpen} onOpenChange={(open) => { if (!open) setIsEditing(false); onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full overflow-hidden border-0 bg-white h-[85vh] max-h-[85vh] flex flex-col gap-0 shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:rounded-xl">
+        <DialogUI open={isSummaryOpen} onOpenChange={(open) => { if (!open) { setIsEditing(false); setIsRawEditing(false); } onSummaryOpenChange(open); }}>
+            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full border-0 bg-white h-[85vh] flex flex-col gap-0 shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:rounded-xl overflow-hidden">
+                {(isRefreshing || isActivityLoading) && <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/20 backdrop-blur-sm"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}
                 
-                {/* Spinner de Carga Minimalista y Bloqueante */}
-                {showGlobalLoading && (
-                  <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/20 backdrop-blur-sm transition-all duration-300 animate-in fade-in">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="h-10 w-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin shadow-sm" />
-                      <p className="text-zinc-500 font-bold text-[9px] uppercase tracking-[0.25em] animate-pulse">Sincronizando...</p>
+                <DialogHeader style={{ backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#4d95ca', color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white' }} className="p-5 shrink-0 relative">
+                    <div className="flex flex-col gap-3 pr-12">
+                        {isEditing ? <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} className="text-base font-semibold bg-white/10 text-inherit border-white/30 h-auto p-2" /> : <DialogTitle className="text-sm md:text-base font-bold flex items-start gap-2">{selectedCard.name} <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100"><LinkIcon className="h-4 w-4" /></a></DialogTitle>}
+                        <div className="flex flex-wrap gap-1.5">{(selectedCard.labels || []).map(l => <Badge key={l.id} className="text-[9px] h-5" style={{ backgroundColor: l.color ? trelloCoverColors.find(c => c.name === l.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>{l.name}</Badge>)}</div>
+                        {!isEditing && !isRawEditing && (
+                            <div className="flex gap-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handlePrintCard} title="Imprimir"><Printer className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleEditClick} title="Editar"><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={fetchCardData} disabled={isRefreshing} title="Sincronizar"><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
+                            </div>
+                        )}
                     </div>
-                  </div>
-                )}
+                    <div className="absolute top-4 right-4 flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 rounded-full" onClick={handleRawEditClick} title="Edición RAW"><Settings className="h-5 w-5" /></Button>
+                    </div>
+                </DialogHeader>
 
-                <div className="bg-white flex flex-col h-full overflow-hidden flex-1 min-h-0 w-full max-w-full box-border">
-                    <DialogHeader 
-                        style={{
-                            backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || 'hsl(var(--primary))',
-                            color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white'
-                        }} 
-                        className="p-5 sm:p-6 rounded-t-lg text-left sm:text-left flex flex-col gap-3 shrink-0 overflow-hidden box-border"
-                    >
-                        <div className="flex flex-col w-full pr-8 box-border min-w-0">
-                            {isEditing ? (
-                                <Input 
-                                    value={editedName} 
-                                    onChange={(e) => setEditedName(e.target.value)} 
-                                    className="text-base font-semibold bg-white/10 text-inherit border-white/30 h-auto p-2 w-full" 
-                                />
-                            ) : (
-                              <DialogTitle className="text-sm md:text-base font-bold whitespace-normal break-words leading-tight w-full flex items-start gap-2 min-w-0">
-                                <span className="flex-1 min-w-0 max-w-full overflow-hidden break-words whitespace-normal">{selectedCard.name}</span>
-                                <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 shrink-0"><LinkIcon className="h-4 w-4" /></a>
-                              </DialogTitle>
-                            )}
-                        </div>
-                        
-                        <div className="flex flex-col gap-2 w-full max-w-full overflow-hidden box-border">
-                            <div className="flex flex-wrap gap-1.5 max-w-full overflow-hidden box-border">
-                                {(selectedCard.labels || []).map(label => (
-                                    <Badge key={label.id} className="text-[10px] group cursor-default h-5 px-2 break-words whitespace-normal max-w-full" style={{ backgroundColor: label.color ? trelloCoverColors.find(c => c.name === label.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>
-                                      {label.name}
-                                      {isEditing && <X className="ml-1 h-2 w-2 cursor-pointer hover:text-red-200 shrink-0" onClick={() => handleToggleLabel(label.id, true)} />}
-                                    </Badge>
-                                ))}
-                                {isEditing && (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-5 w-5 rounded-full bg-white/20 shrink-0"><Plus className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                    <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                      {(boardLabels || []).map(l => (
-                                        <DropdownMenuCheckboxItem key={l.id} checked={(selectedCard.labels || []).some(sl => sl.id === l.id)} onCheckedChange={() => handleToggleLabel(l.id, (selectedCard.labels || []).some(sl => sl.id === l.id))}>
-                                          <div className="flex items-center gap-2"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: trelloCoverColors.find(c => l.color === c.name)?.hex || '#ccc' }} />{l.name}</div>
-                                        </DropdownMenuCheckboxItem>
-                                      ))}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                {looseFiles.length > 0 && <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between"><div className="flex items-center gap-2 text-amber-800 text-[10px] font-bold uppercase"><AlertTriangle className="h-3.5 w-3.5" /><span>{looseFiles.length} archivos antiguos fuera de estructura</span></div><Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => setIsReorgAssistantOpen(true)}>Reorganizar</Button></div>}
+
+                <ScrollArea className="flex-1">
+                    <div className="p-6">
+                        {isRawEditing ? (
+                            <div className="space-y-4">
+                                <Label className="text-[10px] font-black uppercase text-zinc-500">Edición de Texto Puro</Label>
+                                <Textarea value={rawDescription} onChange={(e) => setRawDescription(e.target.value)} className="min-h-[400px] text-xs font-mono bg-zinc-50" />
+                                <p className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded">Cuidado: el borrado de prefijos (·) puede afectar el motor de campos estructurados.</p>
+                            </div>
+                        ) : isEditing ? (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Estado</Label><Select value={editEstado} onValueChange={setEditEstado}><SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger><SelectContent>{ESTADOS_PROYECTO.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent></Select></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Partido/s</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editPartidos.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{MUNICIPIOS.map(m => <DropdownMenuCheckboxItem key={m} checked={editPartidos.includes(m)} onCheckedChange={c => setEditPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="col-span-2 space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Referencia Geográfica</Label><Input value={editReferencia} onChange={(e) => setEditReferencia(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Extensión (Ha o Km)</Label><Input value={editExtension} onChange={(e) => setEditExtension(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Población</Label><Input value={editPoblacion} onChange={(e) => setEditPoblacion(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Presupuesto</Label><Input value={editPresupuesto} onChange={(e) => setEditPresupuesto(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Financiamiento</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editFinanciamiento.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{FINANCIAMIENTO.map(f => <DropdownMenuCheckboxItem key={f} checked={editFinanciamiento.includes(f)} onCheckedChange={c => setEditFinanciamiento(curr => c ? [...curr, f] : curr.filter(x => x !== f))} onSelect={e => e.preventDefault()}>{f}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                </div>
+                                <Separator />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">DEA</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editEquipo.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{EQUIPO_DEA.map(p => <DropdownMenuCheckboxItem key={p} checked={editEquipo.includes(p)} onCheckedChange={c => setEditEquipo(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">SIG</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editSig.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{EQUIPO_SIG.map(p => <DropdownMenuCheckboxItem key={p} checked={editSig.includes(p)} onCheckedChange={c => setEditSig(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">Dron</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editDron.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{EQUIPO_DRON.map(p => <DropdownMenuCheckboxItem key={p} checked={editDron.includes(p)} onCheckedChange={c => setEditDron(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">Seguimiento</Label><Input value={editSeguimiento} onChange={(e) => setEditSeguimiento(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="col-span-2 space-y-1"><Label className="text-[10px] font-bold text-primary">Proyectista/s</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editProyectistas.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{PROYECTISTAS.map(p => <DropdownMenuCheckboxItem key={p} checked={editProyectistas.includes(p)} onCheckedChange={c => setEditProyectistas(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                </div>
+                                <Separator />
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Expediente</Label><Input value={editExpediente} onChange={(e) => setEditExpediente(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Providencia</Label><Input value={editProvidencia} onChange={(e) => setEditProvidencia(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Resolución</Label><Input value={editResolucion} onChange={(e) => setEditResolucion(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Fecha DIA</Label><Input value={editFechaDia} onChange={(e) => setEditFechaDia(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Contratista</Label><Input value={editContratista} onChange={(e) => setEditContratista(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Resp. Ambiental</Label><Input value={editRespAmbiental} onChange={(e) => setEditRespAmbiental(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="col-span-3 space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Otro Drive Trabajo</Label><Input value={editOtroDrive} onChange={(e) => setEditOtroDrive(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="col-span-3 space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Drive Proyectista</Label><Input value={editDriveProyectista} onChange={(e) => setEditDriveProyectista(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2">Descripción Técnica</h3>
+                                <div className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">{renderDescription(selectedCard.desc)}</div>
+                                
+                                {sortedAttachments.length > 0 && (
+                                    <div className="mt-8 space-y-4">
+                                        <Separator />
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary">PORTALES DE ARCHIVOS ({sortedAttachments.length})</h3>
+                                            {inspectionPath.length > 0 && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setInspectionPath(prev => prev.slice(0, -1))}><ChevronLeft className="h-4 w-4" /></Button>}
+                                        </div>
+                                        <div className="border rounded-xl p-3 bg-muted/5 min-h-[100px]">
+                                            {isInspecting ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div> : (
+                                                <div className="space-y-1.5">
+                                                    {inspectionPath.length === 0 ? sortedAttachments.map(att => (
+                                                        <button key={att.id} onClick={async () => { 
+                                                            const id = await extractIdFromUrl(att.url);
+                                                            if (id || att.id === 'virtual-external') setInspectionPath(prev => [...prev, { id: id || 'virtual-external', name: att.name }]);
+                                                        }} className="flex items-center gap-3 p-3 bg-white border border-zinc-100 rounded-lg shadow-sm hover:border-primary transition-all w-full text-left">
+                                                            {att.name === 'Línea de Tiempo' ? <History className="h-4 w-4 text-primary" /> : att.id === 'virtual-external' ? <LinkIcon className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-amber-600" />}
+                                                            <div className="flex-1"><span className="text-xs font-bold">{att.name}</span></div>
+                                                            <ChevronDown className="h-3.5 w-3.5 text-zinc-300 -rotate-90" />
+                                                        </button>
+                                                    )) : folderContents.length === 0 ? <p className="text-[10px] text-muted-foreground italic p-4 text-center">Carpeta vacía</p> : folderContents.map(f => {
+                                                        const isTL = inspectionPath[0].name === 'Línea de Tiempo';
+                                                        return (
+                                                            <div key={f.id} className="flex items-center justify-between p-2 bg-white rounded border border-zinc-50 shadow-sm group">
+                                                                <div className="flex items-center gap-2 truncate flex-1 cursor-pointer" onClick={() => { if(f.mimeType === 'application/vnd.google-apps.folder') setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(!isTL) window.open(f.webViewLink, '_blank'); }}>
+                                                                    {f.mimeType === 'application/vnd.google-apps.folder' ? <Folder className="h-3.5 w-3.5 text-primary" /> : <FileText className="h-3.5 w-3.5 text-zinc-400" />}
+                                                                    <span className="text-[11px] truncate">{f.name}</span>
+                                                                </div>
+                                                                <div className="flex gap-1">
+                                                                    {f.webContentLink && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(f.webContentLink, '_blank')}><Download className="h-3.5 w-3.5" /></Button>}
+                                                                    {!isTL && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(f.webViewLink, '_blank')}><ExternalLink className="h-3.5 w-3.5" /></Button>}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {nextPageToken && <Button variant="ghost" size="sm" className="w-full text-[9px]" onClick={async () => { setIsLoadingMore(true); try { const r = await listFolderContents(inspectionPath[inspectionPath.length-1].id, nextPageToken); setFolderContents(p => [...p, ...r.files]); setNextPageToken(r.nextPageToken); } finally { setIsLoadingMore(false); } }}>{isLoadingMore ? 'Cargando...' : 'Ver más'}</Button>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 )}
-                            </div>
-
-                            {!isEditing && (
-                              <div className="flex flex-wrap items-center gap-2 justify-start w-full mt-1 shrink-0 box-border">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={() => setIsExportDialogOpen(true)} title="Exportar Ficha"><Printer className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={handleEditClick} title="Editar Ficha"><Edit className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 shrink-0" onClick={fetchCardData} disabled={isRefreshing} title="Actualizar Datos"><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
-                              </div>
-                            )}
-                        </div>
-                    </DialogHeader>
-
-                    {looseFiles.length > 0 && (
-                        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-amber-800 text-[10px] font-bold uppercase tracking-tight">
-                                <AlertTriangle className="h-3.5 w-3.5" />
-                                <span>{`Se detectaron ${looseFiles.length} ${looseFiles.length === 1 ? 'archivo antiguo fuera' : 'archivos antiguos fuera'} de estructura`}</span>
-                            </div>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-7 text-[10px] bg-white border-amber-300 text-amber-800 hover:bg-amber-100"
-                                onClick={() => setIsReorgAssistantOpen(true)}
-                            >
-                                Reorganizar ahora
-                            </Button>
+                            </>
+                        )}
+                    </div>
+                    {!isEditing && !isRawEditing && (
+                        <div className="px-6 pb-6 space-y-4">
+                            <Separator />
+                            <div className="flex gap-2"><Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs h-16 flex-1" /><Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="h-16 w-12"><Send className="h-4 w-4" /></Button></div>
+                            <div className="space-y-4">{activity.filter(a => a.type === 'commentCard').map(a => (<div key={a.id} className="flex gap-3 text-xs"><Avatar className="h-6 w-6 border"><AvatarFallback className="text-[10px]">{a.memberCreator?.fullName?.charAt(0)}</AvatarFallback></Avatar><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1"><span className="font-semibold">{a.memberCreator?.fullName}</span><span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(a.date), { locale: es, addSuffix: true })}</span></div><div className="bg-muted p-2 rounded-md whitespace-pre-wrap">{a.data.text}</div></div></div>))}</div>
                         </div>
                     )}
+                </ScrollArea>
 
-                    <ScrollArea className="flex-1 overflow-y-auto w-full max-w-full box-border">
-                        <div className="p-6 w-full max-w-full overflow-hidden box-border min-w-0">
-                            <h3 className="font-semibold text-sm mb-2 text-primary uppercase text-[10px] tracking-wider text-left">Descripción</h3>
-                            {isEditing ? (
-                                <div className="space-y-4 py-2">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Estado Actual</Label>
-                                            <Select value={editStatus} onValueChange={setEditStatus}>
-                                                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Seleccioná estado" /></SelectTrigger>
-                                                <SelectContent>{ESTADOS_PROYECTO.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Partido(s)</Label>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editPartidos.length > 0 ? `${editPartidos.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                                    {MUNICIPIOS.map(m => <DropdownMenuCheckboxItem key={m} checked={editPartidos.includes(m)} onCheckedChange={c => setEditPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Proyectista/s</Label>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editProyectistas.length > 0 ? `${editProyectistas.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                                    {PROYECTISTAS.map(p => <DropdownMenuCheckboxItem key={p} checked={editProyectistas.includes(p)} onCheckedChange={c => setEditProyectistas(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Financiamiento</Label>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editFinanciamiento.length > 0 ? `${editFinanciamiento.length} sel.` : 'Seleccioná'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                                    {FINANCIAMIENTO.map(f => <DropdownMenuCheckboxItem key={f} checked={editFinanciamiento.includes(f)} onCheckedChange={c => setSelectedFinanciamiento(curr => c ? [...curr, f] : curr.filter(x => x !== f))} onSelect={e => e.preventDefault()}>{f}</DropdownMenuCheckboxItem>)}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                    </div>
-
-                                    <Separator className="my-1" />
-                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Equipo Técnico</p>
-
-                                    <div className="space-y-1">
-                                        <Label className="text-[11px] font-medium">Diagnóstico Ambiental (DEA)</Label>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editEquipo.length > 0 ? `${editEquipo.length} sel.` : 'Seleccioná responsables'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                            <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                                {EQUIPO_DEA.map(p => <DropdownMenuCheckboxItem key={p} checked={editEquipo.includes(p)} onCheckedChange={c => setEditEquipo(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <Label className="text-[11px] font-medium">Equipo SIG</Label>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editSig.length > 0 ? `${editSig.length} sel.` : 'Personal SIG'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                                    {EQUIPO_SIG.map(p => <DropdownMenuCheckboxItem key={p} checked={editSig.includes(p)} onCheckedChange={c => setEditSig(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[11px] font-medium">Equipo Dron</Label>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editDron.length > 0 ? `${editDron.length} sel.` : 'Personal Dron'} <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                                <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                                    {EQUIPO_DRON.map(p => <DropdownMenuCheckboxItem key={p} checked={editDron.includes(p)} onCheckedChange={c => setEditDron(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Otros detalles (Expedientes, etc.)</Label>
-                                        <Textarea 
-                                            value={editExtraDesc} 
-                                            onChange={(e) => setEditExtraDesc(e.target.value)} 
-                                            className="text-xs min-h-[100px] bg-white"
-                                            placeholder="Ingresá expedientes, resoluciones u otros campos libres..."
-                                        />
-                                    </div>
-                                </div>
-                            ) : <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words min-w-0 w-full max-w-full overflow-hidden leading-relaxed text-left">{renderDescription(selectedCard.desc)}</div>}
-                        </div>
-
-                        {sortedAttachments.length > 0 && !isEditing && (
-                          <div className="p-6 pt-0 w-full max-w-full overflow-hidden box-border min-w-0">
-                            <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
-                              <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2">
-                                  {inspectionPath.length > 0 && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePopFolder} title="Volver">
-                                      <ChevronLeft className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80">
-                                    {inspectionPath.length > 0 ? (
-                                      <span className="flex items-center gap-1">
-                                        {isCurrentlyInTL ? <History className="h-3 w-3" /> : isCurrentlyInExternal ? <LinkIcon className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
-                                        {formatFolderName(inspectionPath[inspectionPath.length - 1].name)}
-                                      </span>
-                                    ) : (
-                                      `Portales de Archivos (${sortedAttachments.length})`
-                                    )}
-                                    <ChevronDown className="h-3 w-3" />
-                                  </CollapsibleTrigger>
-                                </div>
-                                <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1 px-2" onClick={() => setAttachmentSort(s => s === 'name' ? 'type' : 'name')}>
-                                  <ArrowDownUp className="h-3 w-3" />
-                                  {attachmentSort === 'name' ? 'Nombre' : 'Tipo'}
-                                </Button>
-                              </div>
-                              <CollapsibleContent className="space-y-1 w-full max-w-full overflow-hidden min-w-0 box-border border rounded-md p-2 bg-muted/5">
-                                {isInspecting ? (
-                                  <div className="flex items-center justify-center p-8">
-                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                  </div>
-                                ) : (
-                                  <>
-                                    {inspectionPath.length === 0 ? (
-                                      sortedAttachments.map(att => {
-                                        const isWorkFolder = att.id !== 'tl-virtual-folder' && att.id !== 'virtual-external';
-                                        return (
-                                          <ContextMenu key={att.id}>
-                                            <ContextMenuTrigger asChild>
-                                              <button 
-                                                onClick={() => handleAttachmentClick(att)}
-                                                className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs group w-full max-w-full overflow-hidden min-w-0 box-border break-words whitespace-normal text-left transition-colors"
-                                              >
-                                                {att.name === 'Línea de Tiempo' ? (
-                                                  <History className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                                ) : att.id === 'virtual-external' ? (
-                                                  <LinkIcon className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                                ) : (
-                                                  <Folder className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-                                                )}
-                                                <div className="flex flex-col flex-1 min-w-0">
-                                                  <span className="font-bold min-w-0 break-words whitespace-normal">{att.name}</span>
-                                                  {att.name === 'Línea de Tiempo' && <span className="text-[8px] text-zinc-500 uppercase">Documentación Final • Solo Descarga</span>}
-                                                  {att.id === 'virtual-external' && <span className="text-[8px] text-zinc-500 uppercase">Bibliografía y Recursos • {externalAttachments.length} enlaces</span>}
-                                                </div>
-                                              </button>
-                                            </ContextMenuTrigger>
-                                            {isWorkFolder && (
-                                              <ContextMenuContent>
-                                                <ContextMenuItem onClick={() => window.open(att.url, '_blank')}>
-                                                  <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
-                                                </ContextMenuItem>
-                                              </ContextMenuContent>
-                                            )}
-                                          </ContextMenu>
-                                        );
-                                      })
-                                    ) : isCurrentlyInExternal ? (
-                                        externalAttachments.length === 0 ? (
-                                            <div className="p-4 text-center text-[10px] text-muted-foreground italic">No hay enlaces externos vinculados.</div>
-                                        ) : (
-                                            externalAttachments.map(att => (
-                                                <div key={att.id} className="flex items-center group w-full pr-2">
-                                                    <button 
-                                                        onClick={() => window.open(att.url, '_blank')}
-                                                        className="flex items-start gap-2 p-2 rounded-md hover:bg-muted text-xs flex-1 min-w-0 box-border break-words whitespace-normal text-left transition-colors"
-                                                    >
-                                                        {isScientificUrl(att.url) ? (
-                                                            <BookText className="h-3.5 w-3.5 text-fuchsia-600 shrink-0 mt-0.5" />
-                                                        ) : (
-                                                            <LinkIcon className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                                        )}
-                                                        <div className="flex flex-col flex-1 min-w-0">
-                                                            <span className="flex-1 min-w-0 break-words whitespace-normal font-medium">{att.name}</span>
-                                                            {isScientificUrl(att.url) && (
-                                                                <span className="text-[8px] font-bold text-fuchsia-600 uppercase">Recurso Científico</span>
-                                                            )}
-                                                        </div>
-                                                    </button>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                                                        onClick={(e) => { e.stopPropagation(); window.open(att.url, '_blank'); }}
-                                                        title="Abrir en pestaña nueva"
-                                                    >
-                                                        <ExternalLink className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
-                                            ))
-                                        )
-                                    ) : (
-                                      <>
-                                        {sortedFolderContents.length === 0 ? (
-                                          <div className="p-4 text-center text-[10px] text-muted-foreground italic">Carpeta vacía</div>
-                                        ) : (
-                                          sortedFolderContents.map(file => (
-                                            <ContextMenu key={file.id}>
-                                              <div className="flex items-center group w-full pr-2">
-                                                <ContextMenuTrigger asChild>
-                                                  <button 
-                                                    onClick={() => handleDriveFileClick(file)}
-                                                    className={cn(
-                                                      "flex items-start gap-2 p-2 rounded-md text-xs flex-1 min-w-0 box-border break-words whitespace-normal text-left transition-colors",
-                                                      isCurrentlyInTL && file.mimeType !== 'application/vnd.google-apps.folder' ? "cursor-default opacity-80" : "hover:bg-muted"
-                                                    )}
-                                                  >
-                                                    {file.mimeType === 'application/vnd.google-apps.folder' ? (
-                                                      <Folder className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                                    ) : (
-                                                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                                                    )}
-                                                    <div className="flex flex-col flex-1 min-w-0">
-                                                      <span className="flex-1 min-w-0 break-words whitespace-normal">
-                                                        {file.mimeType === 'application/vnd.google-apps.folder' ? formatFolderName(file.name) : file.name}
-                                                      </span>
-                                                      {isCurrentlyInTL && file.mimeType !== 'application/vnd.google-apps.folder' && (
-                                                          <span className="text-[8px] font-bold text-primary uppercase">Archivo de Hito • Solo Descarga</span>
-                                                      )}
-                                                    </div>
-                                                  </button>
-                                                </ContextMenuTrigger>
-                                                {file.mimeType !== 'application/vnd.google-apps.folder' && (
-                                                  <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                                                    onClick={(e) => { e.stopPropagation(); handleDownloadFile(file); }}
-                                                    title="Descargar archivo"
-                                                  >
-                                                    <Download className="h-3.5 w-3.5" />
-                                                  </Button>
-                                                )}
-                                              </div>
-                                              <ContextMenuContent className="w-48">
-                                                {file.mimeType === 'application/vnd.google-apps.folder' ? (
-                                                  <>
-                                                    {!isCurrentlyInTL && (
-                                                        <ContextMenuItem onClick={() => window.open(file.webViewLink, '_blank')}>
-                                                            <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
-                                                        </ContextMenuItem>
-                                                    )}
-                                                    <ContextMenuItem disabled className="text-zinc-400">
-                                                        <Folder className="mr-2 h-4 w-4" /> Navegar carpeta
-                                                    </ContextMenuItem>
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    {!isCurrentlyInTL && (
-                                                      <ContextMenuItem onClick={() => window.open(file.webViewLink, '_blank')}>
-                                                        <ExternalLink className="mr-2 h-4 w-4" /> Abrir en Drive
-                                                      </ContextMenuItem>
-                                                    )}
-                                                    <ContextMenuItem onClick={() => handleDownloadFile(file)}>
-                                                      <Download className="mr-2 h-4 w-4" /> Descargar Archivo
-                                                    </ContextMenuItem>
-                                                  </>
-                                                )}
-                                              </ContextMenuContent>
-                                            </ContextMenu>
-                                          ))
-                                        )}
-                                        {nextPageToken && (
-                                          <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            className="w-full text-[10px] mt-2 h-8 hover:bg-primary/5 text-primary font-bold gap-2"
-                                            onClick={handleLoadMore}
-                                            disabled={isLoadingMore}
-                                          >
-                                            {isLoadingMore ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronDown className="h-3 w-3" />}
-                                            MOSTRAR MÁS ARCHIVOS
-                                          </Button>
-                                        )}
-                                      </>
-                                    )}
-                                  </>
-                                )}
-                              </CollapsibleContent>
-                            </Collapsible>
-                          </div>
-                        )}
-
-                        {!isEditing && (
-                            <div className="p-6 pt-0 space-y-4 w-full max-w-full overflow-hidden box-border min-w-0">
-                                <Separator className="mb-4" />
-                                <div className="flex gap-2 items-start w-full max-w-full overflow-hidden box-border min-w-0">
-                                    <Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs min-h-[60px] flex-1 min-w-0 max-w-full box-border break-words whitespace-normal" />
-                                    <Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="shrink-0 h-10 w-10"><Send className="h-4 w-4" /></Button>
-                                </div>
-                                <Collapsible defaultOpen={true} className="w-full max-w-full overflow-hidden min-w-0 box-border">
-                                    <CollapsibleTrigger className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-primary hover:text-primary/80 mb-4">COMENTARIOS <ChevronDown className="h-3 w-3" /></CollapsibleTrigger>
-                                    <CollapsibleContent className="space-y-4 pb-4 w-full max-w-full overflow-hidden min-w-0 box-border">
-                                        {commentsOnly.length > 0 ? commentsOnly.map(action => (
-                                            <div key={action.id} className="flex gap-3 text-xs w-full max-w-full min-w-0 overflow-hidden box-border">
-                                                <Avatar className="h-6 w-6 shrink-0 border"><AvatarFallback className="text-[10px]">{action.memberCreator?.fullName?.charAt(0) || 'U'}</AvatarFallback></Avatar>
-                                                <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
-                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                      <span className="font-semibold truncate max-w-[120px]">{action.memberCreator?.fullName || 'Usuario'}</span>
-                                                      <span className="text-[10px] text-muted-foreground shrink-0">{formatDistanceToNow(new Date(action.date), { locale: es, addSuffix: true })}</span>
-                                                    </div>
-                                                    <div className="bg-muted p-2 rounded-md border whitespace-pre-wrap break-words text-xs leading-relaxed max-w-full overflow-hidden box-border min-w-0 text-left">
-                                                      {action.data.text}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )) : (
-                                          <div className="text-center py-4 text-xs text-muted-foreground italic">No hay comentarios aún.</div>
-                                        )}
-                                    </CollapsibleContent>
-                                </Collapsible>
-                            </div>
-                        )}
-                    </ScrollArea>
-                </div>
-
-                {isEditing && (
-                    <DialogFooter className="border-t p-4 gap-2 bg-white shrink-0 box-border w-full max-w-full">
-                        <div className="flex-1 flex gap-2 min-w-0 overflow-hidden">
-                          <div className="flex flex-col gap-1 flex-1 min-w-0 text-left">
-                            <label className="text-[10px] uppercase font-bold text-muted-foreground truncate">Tablero</label>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between overflow-hidden"><span className="truncate">{allBoards.find(b => b.id === editedBoardId)?.name || 'Cargando...'}</span> <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
-                              <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                {allBoards.map(b => <DropdownMenuItem key={b.id} onSelect={() => setEditedBoardId(b.id)} className="text-xs">{b.name}</DropdownMenuItem>)}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                          <div className="flex flex-col gap-1 flex-1 min-w-0 text-left">
-                            <label className="text-[10px] uppercase font-bold text-muted-foreground truncate">Lista</label>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full text-xs justify-between overflow-hidden" disabled={isListsLoading}>{isListsLoading ? '...' : <span className="truncate">{boardLists.find(l => l.id === editedListId)?.name || 'Seleccioná'}</span>} <ChevronDown className="h-3 w-3 shrink-0" /></Button></DropdownMenuTrigger>
-                              <DropdownMenuContent className="max-h-48 overflow-y-auto">
-                                {boardLists.map(l => <DropdownMenuItem key={l.id} onSelect={() => setEditedListId(l.id)} className="text-xs">{l.name}</DropdownMenuItem>)}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                        <div className="flex items-end gap-2 shrink-0">
-                          <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="text-xs">Cancelar</Button>
-                          <Button size="sm" onClick={handleSaveEdit} disabled={isSaving} className="text-xs">{isSaving ? '...' : 'Guardar'}</Button>
-                        </div>
+                {(isEditing || isRawEditing) && (
+                    <DialogFooter className="border-t p-4 gap-2 bg-white shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => { setIsEditing(false); setIsRawEditing(false); }}>Cancelar</Button>
+                        <Button size="sm" onClick={isRawEditing ? handleSaveRawEdit : handleSaveEdit} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar Cambios'}</Button>
                     </DialogFooter>
                 )}
             </DialogContent>
         </DialogUI>
       )}
-      
-      <DialogUI open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="sm:max-w-md shadow-2xl">
-            <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                    <Printer className="h-5 w-5 text-primary" />
-                    Exportar Ficha a PDF
-                </DialogTitle>
-                <DialogDescription>Seleccioná qué información querés incluir en el documento PDF.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-6 py-4">
-                <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                        <Checkbox 
-                            id="inc-attachments" 
-                            checked={exportOptions.includeAttachments}
-                            onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeAttachments: !!checked }))}
-                        />
-                        <Label htmlFor="inc-attachments" className="text-sm font-medium leading-none cursor-pointer">Incluir lista de enlaces adjuntos</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <Checkbox 
-                            id="inc-comments" 
-                            checked={exportOptions.includeComments}
-                            onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, includeComments: !!checked }))}
-                        />
-                        <Label htmlFor="inc-comments" className="text-sm font-medium leading-none cursor-pointer">Incluir historial de comentarios</Label>
-                    </div>
-                </div>
-            </div>
-            <DialogFooter>
-                <Button variant="ghost" size="sm" onClick={() => setIsExportDialogOpen(false)} disabled={isExporting}>Cancelar</Button>
-                <Button size="sm" onClick={handleExport} disabled={isExporting} className="gap-2">
-                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    {isExporting ? 'Generando...' : 'Descargar PDF'}
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-      </DialogUI>
-
-      {selectedCard && (
-          <ReorganizationAssistant 
-            isOpen={isReorgAssistantOpen}
-            onOpenChange={setIsReorgAssistantOpen}
-            looseFiles={looseFiles}
-            projectId={selectedCard.id}
-            projectName={selectedCard.name}
-            onReorganized={(movedIds) => {
-                movedIds.forEach(id => recentlyMovedIds.current.add(id));
-                setLooseFiles(prev => prev.filter(f => !movedIds.includes(f.id)));
-                setIsReorgAssistantOpen(false);
-                setTimeout(() => {
-                    fetchCardData();
-                    setTimeout(() => recentlyMovedIds.current.clear(), 10000);
-                }, 4000);
-            }}
-          />
-      )}
+      {selectedCard && <ReorganizationAssistant isOpen={isReorgAssistantOpen} onOpenChange={setIsReorgAssistantOpen} looseFiles={looseFiles} projectId={selectedCard.id} projectName={selectedCard.name} onReorganized={(moved) => { moved.forEach(id => recentlyMovedIds.current.add(id)); setLooseFiles(p => p.filter(f => !moved.includes(f.id))); setIsReorgAssistantOpen(false); setTimeout(() => fetchCardData(), 4000); }} />}
     </div>
   );
 }

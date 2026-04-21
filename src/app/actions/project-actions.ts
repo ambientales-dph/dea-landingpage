@@ -21,11 +21,24 @@ const ProjectSchema = z.object({
   cuenca: z.string().min(1, { message: 'Debe seleccionar una cuenca.' }),
   estado: z.string().optional(),
   partido: z.string().optional(),
-  proyectista: z.string().optional(),
+  referencia: z.string().optional(),
+  extension: z.string().optional(),
+  poblacion: z.string().optional(),
+  presupuesto: z.string().optional(),
   financiamiento: z.string().optional(),
-  diagnosticoEquipo: z.string().optional(),
-  informacionSig: z.string().optional(),
-  informacionDron: z.string().optional(),
+  diagnostico: z.string().optional(),
+  sig: z.string().optional(),
+  dron: z.string().optional(),
+  seguimiento: z.string().optional(),
+  proyectista: z.string().optional(),
+  expediente: z.string().optional(),
+  providencia: z.string().optional(),
+  resolucion: z.string().optional(),
+  fechaDia: z.string().optional(),
+  contratista: z.string().optional(),
+  respAmbiental: z.string().optional(),
+  otroDrive: z.string().optional(),
+  driveProyectista: z.string().optional(),
   userEmail: z.string().optional(),
   cardId: z.string().optional(),
 });
@@ -60,24 +73,6 @@ function getTrelloColorForStatus(status: string): string | null {
 }
 
 /**
- * Extrae el valor de un campo específico de la descripción de Trello.
- */
-function extractFieldFromDesc(desc: string, field: string): string {
-    if (!desc) return '';
-    const lines = desc.split('\n');
-    const fieldLower = field.toLowerCase().trim();
-    for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.toLowerCase().startsWith(fieldLower + ':')) {
-            let val = trimmedLine.substring(fieldLower.length + 1).trim();
-            val = val.replace(/\*\*/g, '').trim();
-            return val;
-        }
-    }
-    return '';
-}
-
-/**
  * Reconcilia la descripción actual de una tarjeta con la plantilla maestra,
  * asegurando que se respecte el orden de los campos y se preserven los datos existentes.
  */
@@ -89,7 +84,7 @@ function reconcileDescription(currentDesc: string, updates: Record<string, strin
     const fieldValues: Record<string, string> = {};
 
     templateLines.forEach(tLine => {
-        const fieldMatch = tLine.match(/^([- ]?.*?:)/);
+        const fieldMatch = tLine.match(/^([- ]?·?.*?:)/);
         if (fieldMatch) {
             const fieldKey = fieldMatch[1];
             const cleanKey = fieldKey.replace(/:\s*$/, '').trim();
@@ -109,7 +104,7 @@ function reconcileDescription(currentDesc: string, updates: Record<string, strin
 
     const resultLines: string[] = [];
     templateLines.forEach(tLine => {
-        const fieldMatch = tLine.match(/^([- ]?.*?:)/);
+        const fieldMatch = tLine.match(/^([- ]?·?.*?:)/);
         if (fieldMatch) {
             const fieldKey = fieldMatch[1];
             const cleanKey = fieldKey.replace(/:\s*$/, '').trim();
@@ -124,7 +119,7 @@ function reconcileDescription(currentDesc: string, updates: Record<string, strin
         const trimmed = cl.trim();
         if (!trimmed || trimmed === '#' || trimmed.startsWith('Drive ')) return false;
         const isTemplateField = templateLines.some(tl => {
-            const fm = tl.match(/^([- ]?.*?:)/);
+            const fm = tl.match(/^([- ]?·?.*?:)/);
             return fm && trimmed.startsWith(fm[1]);
         });
         return !isTemplateField;
@@ -160,11 +155,24 @@ export async function createProject(
     cuenca: formData.get('cuenca'),
     estado: formData.get('estado') || 'Sin iniciar',
     partido: formData.get('partido'),
-    proyectista: formData.get('proyectista'),
+    referencia: formData.get('referencia'),
+    extension: formData.get('extension'),
+    poblacion: formData.get('poblacion'),
+    presupuesto: formData.get('presupuesto'),
     financiamiento: formData.get('financiamiento'),
-    diagnosticoEquipo: formData.get('diagnosticoEquipo'),
-    informacionSig: formData.get('informacionSig'),
-    informacionDron: formData.get('informacionDron'),
+    diagnostico: formData.get('diagnostico'),
+    sig: formData.get('sig'),
+    dron: formData.get('dron'),
+    seguimiento: formData.get('seguimiento'),
+    proyectista: formData.get('proyectista'),
+    expediente: formData.get('expediente'),
+    providencia: formData.get('providencia'),
+    resolucion: formData.get('resolucion'),
+    fechaDia: formData.get('fechaDia'),
+    contratista: formData.get('contratista'),
+    respAmbiental: formData.get('respAmbiental'),
+    otroDrive: formData.get('otroDrive'),
+    driveProyectista: formData.get('driveProyectista'),
     userEmail: formData.get('userEmail'),
   });
 
@@ -177,7 +185,11 @@ export async function createProject(
     };
   }
 
-  const { nombre, cuenca: cuencaId, estado, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, userEmail } = validatedFields.data;
+  const { 
+    nombre, cuenca: cuencaId, estado, partido, referencia, extension, poblacion, presupuesto, 
+    financiamiento, diagnostico, sig, dron, seguimiento, proyectista, expediente, providencia, 
+    resolucion, fechaDia, contratista, respAmbiental, otroDrive, driveProyectista, userEmail 
+  } = validatedFields.data;
 
   try {
     const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
@@ -187,19 +199,32 @@ export async function createProject(
     const lists = await getListsOnBoard(PROYECTOS_BOARD_ID);
     const targetList = lists.find(list => list.name.toLowerCase().trim() === selectedCuenca.trelloListName.toLowerCase().trim());
 
-    if (!targetList) throw new Error(`No se encontró la lista de Trello "${selectedCuenca.trelloListName}". Asegúrate de que exista en el tablero.`);
+    if (!targetList) throw new Error(`No se encontró la lista de Trello "${selectedCuenca.trelloListName}".`);
 
     const cardName = `${nombre} (${projectCode})`;
     const folderName = `${projectCode} - ${nombre}`;
     
     const updates = {
-        'ESTADO': estado || 'Sin iniciar',
-        'PARTIDO': partido || '',
-        '- Proyectista': proyectista || '',
-        'FINANCIAMIENTO': financiamiento || '',
-        '- Diagnóstico ambiental-socioeconómico': diagnosticoEquipo || '',
-        '- Información SIG-imágenes': informacionSig || '',
-        '- Información LIDAR/vuelos Dron': informacionDron || ''
+        '·ESTADO': estado || 'Sin iniciar',
+        '·PARTIDO': partido || '',
+        '·REFERENCIA GEOGRÁFICA': referencia || '',
+        '·EXTENSIÓN (Ha o Km)': extension || '',
+        '·POBLACIÓN BENEFICIADA': poblacion || '',
+        '·PRESUPUESTO': presupuesto || '',
+        '·FINANCIAMIENTO': financiamiento || '',
+        '·Diagnóstico ambiental-socioeconómico': diagnostico || '',
+        '·Información SIG-imágenes': sig || '',
+        '·Información LIDAR/vuelos Dron': dron || '',
+        '·Seguimiento de obra': seguimiento || '',
+        '·Proyectista': proyectista || '',
+        '·EXPEDIENTE': expediente || '',
+        '·PROVIDENCIA': providencia || '',
+        '·RESOLUCIÓN': resolucion || '',
+        '·FECHA DIA': fechaDia || '',
+        '·CONTRATISRA': contratista || '',
+        '·RESPONSABLE AMBIENTAL': respAmbiental || '',
+        '·Otro Drive de trabajo': otroDrive || '',
+        '·Drive del proyectista': driveProyectista || ''
     };
     const finalDescription = reconcileDescription('', updates);
     
@@ -219,19 +244,15 @@ export async function createProject(
         
         const emailsToShare = new Set<string>();
         if (userEmail && userEmail.includes('@')) emailsToShare.add(userEmail.trim().toLowerCase());
-        getEmailsFromSelection(diagnosticoEquipo || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-        getEmailsFromSelection(informacionSig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
-        getEmailsFromSelection(informacionDron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+        getEmailsFromSelection(diagnostico || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+        getEmailsFromSelection(sig || '').forEach(e => emailsToShare.add(e.toLowerCase()));
+        getEmailsFromSelection(dron || '').forEach(e => emailsToShare.add(e.toLowerCase()));
         
         const emailList = Array.from(emailsToShare);
         if (emailList.length > 0) await shareFolderWithEmails(folderData.id, emailList);
       }
     } catch (e: any) {
       console.error('Error en gestión de Drive:', e);
-      await addCommentToCard({ 
-        cardId: card.id, 
-        text: `ATENCIÓN: No se pudo gestionar Drive automáticamente. Detalle: ${e.message || 'Error desconocido'}` 
-      });
     }
 
     return {
@@ -257,11 +278,24 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         cuenca: formData.get('cuenca'),
         estado: formData.get('estado'),
         partido: formData.get('partido'),
-        proyectista: formData.get('proyectista'),
+        referencia: formData.get('referencia'),
+        extension: formData.get('extension'),
+        poblacion: formData.get('poblacion'),
+        presupuesto: formData.get('presupuesto'),
         financiamiento: formData.get('financiamiento'),
-        diagnosticoEquipo: formData.get('diagnosticoEquipo'),
-        informacionSig: formData.get('informacionSig'),
-        informacionDron: formData.get('informacionDron'),
+        diagnostico: formData.get('diagnostico'),
+        sig: formData.get('sig'),
+        dron: formData.get('dron'),
+        seguimiento: formData.get('seguimiento'),
+        proyectista: formData.get('proyectista'),
+        expediente: formData.get('expediente'),
+        providencia: formData.get('providencia'),
+        resolucion: formData.get('resolucion'),
+        fechaDia: formData.get('fechaDia'),
+        contratista: formData.get('contratista'),
+        respAmbiental: formData.get('respAmbiental'),
+        otroDrive: formData.get('otroDrive'),
+        driveProyectista: formData.get('driveProyectista'),
         cardId: formData.get('cardId'),
     });
 
@@ -274,7 +308,12 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         };
     }
 
-    const { nombre, cuenca: cuencaId, estado, partido, proyectista, financiamiento, diagnosticoEquipo, informacionSig, informacionDron, cardId } = validatedFields.data;
+    const { 
+        nombre, cuenca: cuencaId, estado, partido, referencia, extension, poblacion, presupuesto,
+        financiamiento, diagnostico, sig, dron, seguimiento, proyectista, expediente, providencia,
+        resolucion, fechaDia, contratista, respAmbiental, otroDrive, driveProyectista, cardId 
+    } = validatedFields.data;
+    
     if (!cardId) return { success: false, message: 'ID de tarjeta no encontrado.', timestamp: Date.now() };
 
     try {
@@ -282,39 +321,38 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         const selectedCuenca = CUENCAS.find(c => c.id === cuencaId);
         if (!selectedCuenca) throw new Error('Cuenca no válida.');
 
-        // --- LÓGICA DE DETECCIÓN DE NUEVOS MIEMBROS PARA DRIVE ---
         const oldDesc = currentCard.desc || '';
-        const prevEmails = new Set([
-            ...getEmailsFromSelection(extractFieldFromDesc(oldDesc, '- Diagnóstico ambiental-socioeconómico')),
-            ...getEmailsFromSelection(extractFieldFromDesc(oldDesc, '- Información SIG-imágenes')),
-            ...getEmailsFromSelection(extractFieldFromDesc(oldDesc, '- Información LIDAR/vuelos Dron'))
-        ]);
+        
+        const updates: Record<string, string> = {
+            '·ESTADO': estado || '',
+            '·PARTIDO': partido || '',
+            '·REFERENCIA GEOGRÁFICA': referencia || '',
+            '·EXTENSIÓN (Ha o Km)': extension || '',
+            '·POBLACIÓN BENEFICIADA': poblacion || '',
+            '·PRESUPUESTO': presupuesto || '',
+            '·FINANCIAMIENTO': financiamiento || '',
+            '·Diagnóstico ambiental-socioeconómico': diagnostico || '',
+            '·Información SIG-imágenes': sig || '',
+            '·Información LIDAR/vuelos Dron': dron || '',
+            '·Seguimiento de obra': seguimiento || '',
+            '·Proyectista': proyectista || '',
+            '·EXPEDIENTE': expediente || '',
+            '·PROVIDENCIA': providencia || '',
+            '·RESOLUCIÓN': resolucion || '',
+            '·FECHA DIA': fechaDia || '',
+            '·CONTRATISRA': contratista || '',
+            '·RESPONSABLE AMBIENTAL': respAmbiental || '',
+            '·Otro Drive de trabajo': otroDrive || '',
+            '·Drive del proyectista': driveProyectista || ''
+        };
 
-        const currentSelectionEmails = [
-            ...getEmailsFromSelection(diagnosticoEquipo || ''),
-            ...getEmailsFromSelection(informacionSig || ''),
-            ...getEmailsFromSelection(informacionDron || '')
-        ];
+        const finalDescription = reconcileDescription(oldDesc, updates);
 
-        // Solo compartimos con los que NO estaban antes (evita notificaciones duplicadas y preserva a los removidos)
-        const newEmailsToShare = currentSelectionEmails.filter(email => !prevEmails.has(email));
+        const isStatusChange = estado !== undefined && !oldDesc.includes(`·ESTADO: **${estado}**`);
 
         let cardName = currentCard.name;
         let idList = currentCard.idList;
 
-        const lines = (currentCard.desc || '').split('\n');
-        let oldStatus = null;
-        for (const line of lines) {
-            if (line.trim().startsWith('ESTADO:')) {
-                oldStatus = line.split(':')[1].trim().replace(/\*\*/g, '');
-                if (oldStatus === '') oldStatus = null;
-                break;
-            }
-        }
-        
-        const isStatusChange = estado !== undefined && estado !== oldStatus;
-
-        // Regex mejorada para códigos de 2 a 4 letras
         const codeRegex = /\(([A-Z]{2,4}\d{3})\)$/;
         const codeMatch = currentCard.name.match(codeRegex);
         const currentCode = codeMatch ? codeMatch[1] : null;
@@ -329,17 +367,6 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             cardName = `${nombre} (${currentCode || 'XXX000'})`;
         }
 
-        const updates: Record<string, string> = {};
-        if (estado !== undefined) updates['ESTADO'] = estado;
-        if (partido !== undefined) updates['PARTIDO'] = partido;
-        if (proyectista !== undefined) updates['- Proyectista'] = proyectista;
-        if (financiamiento !== undefined) updates['FINANCIAMIENTO'] = financiamiento;
-        if (diagnosticoEquipo !== undefined) updates['- Diagnóstico ambiental-socioeconómico'] = diagnosticoEquipo;
-        if (informacionSig !== undefined) updates['- Información SIG-imágenes'] = informacionSig;
-        if (informacionDron !== undefined) updates['- Información LIDAR/vuelos Dron'] = informacionDron;
-
-        const finalDescription = reconcileDescription(currentCard.desc || '', updates);
-
         const updatePayload: any = {
             cardId,
             name: cardName,
@@ -352,34 +379,15 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             const timestampStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
             await addCommentToCard({
                 cardId,
-                text: `📍 HITO DE PROYECTO: El estado ha cambiado de "${oldStatus || '---'}" a "${estado}". Fecha: ${timestampStr}.`
+                text: `📍 HITO DE PROYECTO: El estado ha cambiado a "${estado}". Fecha: ${timestampStr}.`
             });
         }
 
         await updateTrelloCard(updatePayload);
 
-        // --- LÓGICA DE COMPARTIR CARPETA DE DRIVE SOLO A NUEVOS ---
-        try {
-            if (newEmailsToShare.length > 0) {
-                const driveFolder = (currentCard.attachments || []).find(a => 
-                    a.url.includes('drive.google.com') && 
-                    (a.url.includes('/folders/') || a.url.includes('id='))
-                );
-                
-                if (driveFolder) {
-                    const folderId = await extractIdFromUrl(driveFolder.url);
-                    if (folderId) {
-                        await shareFolderWithEmails(folderId, newEmailsToShare);
-                    }
-                }
-            }
-        } catch (shareError) {
-            console.error('Error al compartir carpeta con nuevos miembros:', shareError);
-        }
-
         return {
             success: true,
-            message: 'Proyecto actualizado con éxito. Se notificó el acceso a Drive solo a los nuevos integrantes.',
+            message: 'Proyecto actualizado con éxito.',
             cardId: cardId,
             projectName: cardName,
             isStatusChange: isStatusChange,
