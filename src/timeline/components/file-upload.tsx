@@ -195,11 +195,11 @@ export function FileUpload({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newFiles = e.target.files ? Array.from(e.target.files) : [];
-    if (newFiles.length === 0) return;
+    const file = e.target.files ? e.target.files[0] : null;
+    if (!file) return;
     
-    const newConfigs: FileConfig[] = newFiles.map(f => ({ file: f, isFinal: true }));
-    setFileConfigs(prev => [...prev, ...newConfigs]);
+    // Subida individual: se reemplaza el archivo previo
+    setFileConfigs([{ file, isFinal: true }]);
     if (e.target) e.target.value = '';
   };
 
@@ -236,7 +236,7 @@ export function FileUpload({
             <DialogHeader className="p-6 bg-zinc-200 border-b border-zinc-300 shrink-0">
               <DialogTitle className="font-headline text-lg">Cargar un nuevo hito</DialogTitle>
               <DialogDescription className="text-zinc-700 text-xs">
-                Solo el título y la categoría son obligatorios.
+                Subida de archivos individual. El título y la categoría son obligatorios.
               </DialogDescription>
             </DialogHeader>
 
@@ -336,14 +336,14 @@ export function FileUpload({
                       </div>
 
                       <div className="space-y-2 border-t border-zinc-400/30 pt-3">
-                        <Label className="text-xs font-bold uppercase text-zinc-500">Archivos y Clasificación</Label>
+                        <Label className="text-xs font-bold uppercase text-zinc-500">Archivo y Clasificación</Label>
                         <div 
                           className="border-2 border-dashed border-zinc-500/50 rounded-lg p-3 text-center cursor-pointer hover:bg-zinc-400/50 transition-colors"
                           onClick={() => document.getElementById('file-input-new-ms')?.click()}
                         >
                           <UploadCloud className="mx-auto h-6 w-6 text-zinc-600" />
-                          <p className="text-[9px] text-zinc-500 mt-1">Hacé clic aquí para seleccionar archivos</p>
-                          <input id="file-input-new-ms" type="file" className="hidden" multiple onChange={handleFileChange} />
+                          <p className="text-[9px] text-zinc-500 mt-1">Hacé clic aquí para seleccionar un archivo</p>
+                          <input id="file-input-new-ms" type="file" className="hidden" multiple={false} onChange={handleFileChange} />
                         </div>
                         
                         {fileConfigs.length > 0 && (

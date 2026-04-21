@@ -173,11 +173,11 @@ export function AddFilesDialog({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newFiles = e.target.files ? Array.from(e.target.files) : [];
-    if (newFiles.length === 0) return;
+    const file = e.target.files ? e.target.files[0] : null;
+    if (!file) return;
     
-    const newConfigs: FileConfig[] = newFiles.map(f => ({ file: f, isFinal: true }));
-    setFileConfigs(prev => [...prev, ...newConfigs]);
+    // Se sube de a uno: reemplazamos cualquier selección previa
+    setFileConfigs([{ file, isFinal: true }]);
     if (e.target) e.target.value = '';
   };
 
@@ -205,9 +205,9 @@ export function AddFilesDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] bg-zinc-100 text-black p-0 overflow-hidden flex flex-col shadow-2xl">
         <DialogHeader className="p-6 bg-zinc-200 border-b border-zinc-300">
-          <DialogTitle className="font-headline text-lg">Subir archivos al hito</DialogTitle>
+          <DialogTitle className="font-headline text-lg">Subir archivo al hito</DialogTitle>
           <DialogDescription className="text-zinc-600 text-xs">
-            Elegí por cada archivo si es documentación final o de trabajo.
+            Subida individual: elegí si el archivo es documentación final o de trabajo.
           </DialogDescription>
         </DialogHeader>
 
@@ -217,20 +217,20 @@ export function AddFilesDialog({
               <div className="p-6 space-y-5">
                 
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-zinc-500 tracking-wider">1. Seleccionar archivos</Label>
+                  <Label className="text-xs font-bold uppercase text-zinc-500 tracking-wider">1. Seleccionar archivo</Label>
                   <div 
                     className="border-2 border-dashed border-zinc-300 rounded-lg p-6 text-center cursor-pointer hover:bg-white hover:border-primary/50 transition-all group"
                     onClick={() => document.getElementById('add-files-input-detail')?.click()}
                   >
                     <UploadCloud className="mx-auto h-8 w-8 text-zinc-400 group-hover:text-primary transition-colors" />
-                    <p className="text-xs text-zinc-500 mt-2">Arrastrá archivos o hacé clic aquí</p>
-                    <input id="add-files-input-detail" type="file" className="hidden" multiple onChange={handleFileChange} />
+                    <p className="text-xs text-zinc-500 mt-2">Arrastrá un archivo o hacé clic aquí</p>
+                    <input id="add-files-input-detail" type="file" className="hidden" multiple={false} onChange={handleFileChange} />
                   </div>
 
                   {fileConfigs.length > 0 && (
                     <div className="space-y-2 mt-4">
                       <div className="flex items-center justify-between">
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">2. Clasificación de archivos ({fileConfigs.length})</p>
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">2. Clasificación del archivo</p>
                         <div className="flex gap-3 text-[9px] font-bold text-zinc-400 uppercase">
                             <span className="flex items-center gap-1"><ShieldCheck className="h-2.5 w-2.5 text-primary" /> Final</span>
                             <span className="flex items-center gap-1"><Briefcase className="h-2.5 w-2.5 text-amber-600" /> Trabajo</span>
@@ -276,7 +276,7 @@ export function AddFilesDialog({
                 {hasWorkFiles && (
                   <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-2 border-t border-zinc-200 pt-4">
                     <div className="flex items-center justify-between">
-                      <Label className="text-[10px] uppercase font-bold text-zinc-500">3. Destino para archivos de trabajo</Label>
+                      <Label className="text-[10px] uppercase font-bold text-zinc-500">3. Destino para archivo de trabajo</Label>
                       <Button 
                         type="button" 
                         variant="ghost" 
@@ -362,7 +362,7 @@ export function AddFilesDialog({
                 ) : (
                   <>
                     <UploadCloud className="h-4 w-4 mr-2" />
-                    Subir {fileConfigs.length} Archivo(s)
+                    Subir Archivo
                   </>
                 )}
               </Button>
