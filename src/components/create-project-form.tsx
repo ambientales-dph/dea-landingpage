@@ -43,9 +43,10 @@ const ESTADOS_PROYECTO = [
 interface CreateProjectFormProps {
   setOpen: (open: boolean) => void;
   onEditCard?: (card: TrelloCard) => void;
+  initialFormOpen?: boolean;
 }
 
-export default function CreateProjectForm({ setOpen, onEditCard }: CreateProjectFormProps) {
+export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen }: CreateProjectFormProps) {
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
@@ -72,6 +73,13 @@ export default function CreateProjectForm({ setOpen, onEditCard }: CreateProject
   const [selectedEquipo, setSelectedEquipo] = useState<string[]>([]);
   const [selectedSig, setSelectedSig] = useState<string[]>([]);
   const [selectedDron, setSelectedDron] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (initialFormOpen) {
+      resetForm();
+      setIsFormOpen(true);
+    }
+  }, [initialFormOpen]);
 
   const extractFieldFromDesc = (desc: string, field: string): string => {
     if (!desc) return '';

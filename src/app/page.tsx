@@ -97,6 +97,7 @@ function HomeContent() {
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
+  const [startWithForm, setStartWithForm] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -490,6 +491,16 @@ function HomeContent() {
     }, 150);
   };
 
+  const handleCreateNewClick = () => {
+    setStartWithForm(true);
+    setCreateProjectOpen(true);
+  };
+
+  const handleManagementClick = () => {
+    setStartWithForm(false);
+    setCreateProjectOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-primary">
@@ -707,8 +718,8 @@ function HomeContent() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center justify-between gap-4 w-full">
-                    <div className="flex flex-col">
+                  <div className="flex items-center justify-between gap-4 w-full h-full">
+                    <div className="flex flex-col justify-center h-full">
                       <h2 className="text-xl font-bold mb-1 text-[#9FCCE3] shrink-0">Búsqueda de proyectos</h2>
                       <p className="text-sm text-white/90 leading-snug">
                         Encontrá proyectos por nombre o código.<br/>
@@ -716,7 +727,7 @@ function HomeContent() {
                       </p>
                     </div>
                     <Button 
-                      onClick={() => setCreateProjectOpen(true)}
+                      onClick={handleCreateNewClick}
                       className="h-20 w-20 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl flex items-center justify-center shadow-inner group transition-all active:scale-95 shrink-0"
                     >
                       <Plus className="h-12 w-12 group-hover:scale-110 transition-transform" strokeWidth={2.5} />
@@ -753,24 +764,10 @@ function HomeContent() {
                 <Library className="h-8 w-8 text-primary" />
                 <span>Biblioteca de Recursos</span>
               </Button>
-              <Dialog open={isCreateProjectOpen} onOpenChange={setCreateProjectOpen}>
-                <DialogTrigger asChild>
-                    <Button variant="outline" className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary">
-                      <FolderKanban className="h-8 w-8 text-primary" />
-                      <span>Gestión de proyectos</span>
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-0" showCloseButton={false}>
-                  <DialogHeader className="sr-only"><DialogTitle>Gestión de Proyectos</DialogTitle></DialogHeader>
-                  <CreateProjectForm 
-                    setOpen={setCreateProjectOpen} 
-                    onEditCard={(card) => {
-                      handleCardSelect(card);
-                      setTimeout(() => setIsSummaryOpen(true), 150);
-                    }}
-                  />
-                </DialogContent>
-              </Dialog>
+              <Button variant="outline" className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" onClick={handleManagementClick}>
+                <FolderKanban className="h-8 w-8 text-primary" />
+                <span>Gestión de proyectos</span>
+              </Button>
             </div>
           </div>
         </main>
@@ -944,6 +941,19 @@ function HomeContent() {
           onOpenChange={setIsActivityLogOpen} 
           onActivityClick={handleActivityLogClick}
         />
+        <Dialog open={isCreateProjectOpen} onOpenChange={setCreateProjectOpen}>
+          <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-0" showCloseButton={false}>
+            <DialogHeader className="sr-only"><DialogTitle>Gestión de Proyectos</DialogTitle></DialogHeader>
+            <CreateProjectForm 
+              setOpen={setCreateProjectOpen} 
+              onEditCard={(card) => {
+                handleCardSelect(card);
+                setTimeout(() => setIsSummaryOpen(true), 150);
+              }}
+              initialFormOpen={startWithForm}
+            />
+          </DialogContent>
+        </Dialog>
         <FeedbackButton onClick={() => setIsFeedbackOpen(true)} className="bottom-6 right-6" />
         <FeedbackDialog isOpen={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
       </div>
