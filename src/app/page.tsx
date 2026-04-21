@@ -279,14 +279,6 @@ function HomeContent() {
     }
   }, [handleNotificationClick, toast, allCards]);
 
-  const handleCardOrBoardButtonClick = () => {
-    if (selectedCard) {
-      setIsSummaryOpen(true);
-    } else {
-      window.open('https://trello.com/b/CgG4b3B0/proyectos-deas', '_blank');
-    }
-  };
-
   const handleTimelineButtonClick = () => {
     setIsNavigating(true);
     let path = '/timeline';
@@ -733,13 +725,22 @@ function HomeContent() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-               <Button variant="outline" className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" onClick={handleTimelineButtonClick}>
+              <Button 
+                variant="outline" 
+                className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" 
+                onClick={() => setIsSummaryOpen(true)}
+                disabled={!selectedCard}
+              >
+                <FileText className="h-8 w-8 text-primary" />
+                <span>Tarjeta</span>
+              </Button>
+              <Button variant="outline" className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" onClick={handleTimelineButtonClick}>
                 <Clock className="h-8 w-8 text-primary" />
                 <span>Línea de tiempo</span>
               </Button>
-              <Button variant="outline" className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" onClick={handleCardOrBoardButtonClick}>
-                {selectedCard ? <FileText className="h-8 w-8 text-primary" /> : <LayoutGrid className="h-8 w-8 text-primary" />}
-                <span>{selectedCard ? 'Tarjeta' : 'Tablero'}</span>
+              <Button variant="outline" className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" onClick={() => setIsLibraryOpen(true)}>
+                <Library className="h-8 w-8 text-primary" />
+                <span>Biblioteca de Recursos</span>
               </Button>
               <Dialog open={isCreateProjectOpen} onOpenChange={setCreateProjectOpen}>
                 <DialogTrigger asChild>
@@ -759,10 +760,6 @@ function HomeContent() {
                   />
                 </DialogContent>
               </Dialog>
-              <Button variant="outline" className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" onClick={() => setIsLibraryOpen(true)}>
-                <Library className="h-8 w-8 text-primary" />
-                <span>Biblioteca de Recursos</span>
-              </Button>
             </div>
           </div>
         </main>
