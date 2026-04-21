@@ -434,6 +434,34 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return parts;
   };
 
+  useEffect(() => {
+    const loadContent = async () => {
+        if (inspectionPath.length === 0) {
+            setFolderContents([]);
+            setNextPageToken(null);
+            return;
+        }
+        setIsInspecting(true);
+        try {
+            const current = inspectionPath[inspectionPath.length - 1];
+            if (current.id === 'virtual-external') {
+                const ext = (selectedCard?.attachments || []).filter(a => !isDriveFolder(a.url));
+                setFolderContents(ext.map(a => ({ id: a.id, name: a.name, webViewLink: a.url, mimeType: 'external-link' })));
+                setNextPageToken(null);
+            } else {
+                const res = await listFolderContents(current.id);
+                setFolderContents(res.files);
+                setNextPageToken(res.nextPageToken);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsInspecting(false);
+        }
+    };
+    loadContent();
+  }, [inspectionPath, selectedCard]);
+
   return (
     <div className="flex w-full flex-col">
       <div className="relative w-full">
@@ -465,7 +493,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         {!isEditing && !isRawEditing && (
                             <div className="flex gap-2">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handlePrintCard} title="Imprimir"><Printer className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleEditClick} title="Editar"><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleEditClick} title="Editar"><Pencil className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={fetchCardData} disabled={isRefreshing} title="Sincronizar"><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
                             </div>
                         )}
@@ -509,7 +537,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                     <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Expediente</Label><Input value={editExpediente} onChange={(e) => setEditExpediente(e.target.value)} className="h-8 text-xs bg-white" /></div>
                                     <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Providencia</Label><Input value={editProvidencia} onChange={(e) => setEditProvidencia(e.target.value)} className="h-8 text-xs bg-white" /></div>
                                     <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Resolución</Label><Input value={editResolucion} onChange={(e) => setEditResolucion(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Fecha DIA</Label><Input value={editFechaDia} onChange={(e) => setEditFechaDia(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Fecha DIA</Label><Input value={editFechaDia} onChange={(e) => setEditFechaDia(e.target.value)} className="h-8 text-xs bg-white" placeholder="DD/MM/AAAA" /></div>
                                     <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Contratista</Label><Input value={editContratista} onChange={(e) => setEditContratista(e.target.value)} className="h-8 text-xs bg-white" /></div>
                                     <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Resp. Ambiental</Label><Input value={editRespAmbiental} onChange={(e) => setEditRespAmbiental(e.target.value)} className="h-8 text-xs bg-white" /></div>
                                     <div className="col-span-3 space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Otro Drive Trabajo</Label><Input value={editOtroDrive} onChange={(e) => setEditOtroDrive(e.target.value)} className="h-8 text-xs bg-white" /></div>
@@ -530,17 +558,28 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                         </div>
                                         <div className="border rounded-xl p-3 bg-muted/5 min-h-[100px]">
                                             {isInspecting ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div> : (
-                                                <div className="space-y-1.5">
-                                                    {inspectionPath.length === 0 ? sortedAttachments.map(att => (
-                                                        <button key={att.id} onClick={async () => { 
-                                                            const id = await extractIdFromUrl(att.url);
-                                                            if (id || att.id === 'virtual-external') setInspectionPath(prev => [...prev, { id: id || 'virtual-external', name: att.name }]);
-                                                        }} className="flex items-center gap-3 p-3 bg-white border border-zinc-100 rounded-lg shadow-sm hover:border-primary transition-all w-full text-left">
-                                                            {att.name === 'Línea de Tiempo' ? <History className="h-4 w-4 text-primary" /> : att.id === 'virtual-external' ? <LinkIcon className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-amber-600" />}
-                                                            <div className="flex-1"><span className="text-xs font-bold">{att.name}</span></div>
-                                                            <ChevronDown className="h-3.5 w-3.5 text-zinc-300 -rotate-90" />
-                                                        </button>
-                                                    )) : folderContents.length === 0 ? <p className="text-[10px] text-muted-foreground italic p-4 text-center">Carpeta vacía</p> : folderContents.map(f => {
+                                                <div className="space-y-1">
+                                                    {inspectionPath.length === 0 ? sortedAttachments.map(att => {
+                                                        const isTL = att.name === 'Línea de Tiempo';
+                                                        const isExt = att.id === 'virtual-external';
+                                                        const extCount = (selectedCard?.attachments || []).filter(a => !isDriveFolder(a.url)).length;
+                                                        
+                                                        return (
+                                                            <button key={att.id} onClick={async () => { 
+                                                                const id = await extractIdFromUrl(att.url);
+                                                                if (id || isExt) setInspectionPath(prev => [...prev, { id: id || 'virtual-external', name: att.name }]);
+                                                            }} className="flex items-center gap-3 py-1.5 px-3 bg-white border border-zinc-100 rounded-lg shadow-sm hover:border-primary transition-all w-full text-left">
+                                                                {isTL ? <History className="h-4 w-4 text-primary" /> : isExt ? <LinkIcon className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-amber-600" />}
+                                                                <div className="flex-1 flex flex-col gap-0.5 overflow-hidden">
+                                                                    <span className="text-xs font-bold truncate text-black">{att.name}</span>
+                                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+                                                                        {isTL ? 'DOCUMENTACIÓN FINAL • SOLO DESCARGA' : isExt ? `BIBLIOGRAFÍA Y RECURSOS • ${extCount} ENLACES` : ''}
+                                                                    </span>
+                                                                </div>
+                                                                <ChevronDown className="h-3.5 w-3.5 text-zinc-300 -rotate-90" />
+                                                            </button>
+                                                        );
+                                                    }) : folderContents.length === 0 ? <p className="text-[10px] text-muted-foreground italic p-4 text-center">Carpeta vacía</p> : folderContents.map(f => {
                                                         const isTL = inspectionPath[0].name === 'Línea de Tiempo';
                                                         return (
                                                             <div key={f.id} className="flex items-center justify-between p-2 bg-white rounded border border-zinc-50 shadow-sm group">
