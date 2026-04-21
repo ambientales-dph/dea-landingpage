@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
@@ -26,6 +25,7 @@ import {
   Zap,
   MousePointer2,
   X,
+  Plus,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -707,10 +707,21 @@ function HomeContent() {
                     </div>
                   </>
                 ) : (
-                  <>
-                    <h2 className="text-xl font-bold mb-2 text-[#9FCCE3] shrink-0">Búsqueda de proyectos</h2>
-                    <p className="text-sm text-balance truncate">Encontrá proyectos por nombre o código.</p>
-                  </>
+                  <div className="flex items-center justify-between gap-4 w-full">
+                    <div className="flex flex-col">
+                      <h2 className="text-xl font-bold mb-1 text-[#9FCCE3] shrink-0">Búsqueda de proyectos</h2>
+                      <p className="text-sm text-white/90 leading-snug">
+                        Encontrá proyectos por nombre o código.<br/>
+                        O creá un proyecto nuevo.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => setCreateProjectOpen(true)}
+                      className="h-20 w-20 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl flex items-center justify-center shadow-inner group transition-all active:scale-95 shrink-0"
+                    >
+                      <Plus className="h-12 w-12 group-hover:scale-110 transition-transform" strokeWidth={2.5} />
+                    </Button>
+                  </div>
                 )}
               </div>
               <div className="h-32 bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg overflow-hidden">
