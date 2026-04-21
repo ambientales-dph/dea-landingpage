@@ -53,7 +53,7 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
   const { allCards, isLoadingCards: isLoading, refreshCards } = useProject();
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(initialFormOpen || false);
   const [editingCard, setEditingCard] = useState<TrelloCard | null>(null);
 
   const [createState, createAction, isCreating] = useActionState(createProject, initialState);
@@ -264,7 +264,9 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
         <DialogContent className="sm:max-w-lg p-0 border-0 overflow-hidden flex flex-col h-[90vh] max-h-[90vh]">
           <DialogHeader className="p-4 border-b bg-muted/30 shrink-0">
             <DialogTitle className="text-sm font-bold flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsFormOpen(false)}><ArrowLeft className="h-4 w-4" /></Button>
+                {(!initialFormOpen || editingCard) && (
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsFormOpen(false)}><ArrowLeft className="h-4 w-4" /></Button>
+                )}
                 {editingCard ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}
             </DialogTitle>
           </DialogHeader>
@@ -386,7 +388,7 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
               </div>
             </ScrollArea>
             <DialogFooter className="p-4 border-t bg-muted/30 shrink-0">
-              <Button variant="ghost" type="button" onClick={() => setIsFormOpen(false)} disabled={isPending} className="h-9 text-xs">Cancelar</Button>
+              <Button variant="ghost" type="button" onClick={() => { if(initialFormOpen && !editingCard) { setOpen(false); } else { setIsFormOpen(false); } }} disabled={isPending} className="h-9 text-xs">Cancelar</Button>
               <Button type="submit" disabled={isPending} className="min-w-[140px] h-9 text-xs">
                 {isPending ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                 {editingCard ? 'Guardar Cambios' : 'Crear Proyecto'}
