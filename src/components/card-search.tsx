@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Edit, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, History, AlertTriangle, BookText, Settings } from 'lucide-react';
+import { X, FileText, Pencil, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, History, AlertTriangle, BookText, Settings } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -153,8 +153,8 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
                     <DialogDescription className="text-[10px]">Tu mensaje será enviado desde ambientales.dph@gmail.com. Las respuestas llegarán directamente a <strong>{userEmail}</strong>.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Asunto</Label><Input placeholder="Asunto..." value={subject} onChange={(e) => setSubject(e.target.value)} className="text-xs" /></div>
-                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Mensaje</Label><Textarea placeholder="Mensaje..." value={body} onChange={(e) => setBody(e.target.value)} className="min-h-[150px] text-xs" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-zinc-500">Asunto</Label><Input placeholder="Asunto..." value={subject} onChange={(e) => setSubject(e.target.value)} className="text-xs" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-zinc-500">Mensaje</Label><Textarea placeholder="Mensaje..." value={body} onChange={(e) => setBody(e.target.value)} className="min-h-[150px] text-xs" /></div>
                 </div>
                 <DialogFooter><Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={isSending}>Cancelar</Button><Button size="sm" onClick={handleSend} disabled={(!subject.trim() && !body.trim()) || isSending}>{isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enviar Mail'}</Button></DialogFooter>
             </DialogContent>
@@ -478,7 +478,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             </Command>
           </PopoverContent>
         </Popover>
-        {query && <Button variant="ghost" size="icon" onClick={onClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"><X className="h-5 w-5" /></Button>}
+        {query && <Button variant="ghost" size="icon" onClear={onClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"><X className="h-5 w-5" /></Button>}
       </div>
 
       {selectedCard && (
@@ -556,7 +556,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                             <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary">PORTALES DE ARCHIVOS ({sortedAttachments.length})</h3>
                                             {inspectionPath.length > 0 && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setInspectionPath(prev => prev.slice(0, -1))}><ChevronLeft className="h-4 w-4" /></Button>}
                                         </div>
-                                        <div className="border rounded-xl p-3 bg-muted/5 min-h-[100px]">
+                                        <div className="border rounded-xl p-2 bg-muted/5 min-h-[100px]">
                                             {isInspecting ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div> : (
                                                 <div className="space-y-1">
                                                     {inspectionPath.length === 0 ? sortedAttachments.map(att => {
@@ -568,9 +568,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                             <button key={att.id} onClick={async () => { 
                                                                 const id = await extractIdFromUrl(att.url);
                                                                 if (id || isExt) setInspectionPath(prev => [...prev, { id: id || 'virtual-external', name: att.name }]);
-                                                            }} className="flex items-center gap-3 py-1.5 px-3 bg-white border border-zinc-100 rounded-lg shadow-sm hover:border-primary transition-all w-full text-left">
+                                                            }} className="flex items-center gap-2.5 py-1.5 px-3 bg-white border border-zinc-100 rounded-lg shadow-sm hover:border-primary transition-all w-full text-left">
                                                                 {isTL ? <History className="h-4 w-4 text-primary" /> : isExt ? <LinkIcon className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-amber-600" />}
-                                                                <div className="flex-1 flex flex-col gap-0.5 overflow-hidden">
+                                                                <div className="flex-1 flex flex-col gap-0 overflow-hidden">
                                                                     <span className="text-xs font-bold truncate text-black">{att.name}</span>
                                                                     <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
                                                                         {isTL ? 'DOCUMENTACIÓN FINAL • SOLO DESCARGA' : isExt ? `BIBLIOGRAFÍA Y RECURSOS • ${extCount} ENLACES` : ''}
@@ -582,7 +582,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                     }) : folderContents.length === 0 ? <p className="text-[10px] text-muted-foreground italic p-4 text-center">Carpeta vacía</p> : folderContents.map(f => {
                                                         const isTL = inspectionPath[0].name === 'Línea de Tiempo';
                                                         return (
-                                                            <div key={f.id} className="flex items-center justify-between p-2 bg-white rounded border border-zinc-50 shadow-sm group">
+                                                            <div key={f.id} className="flex items-center justify-between p-1.5 bg-white rounded border border-zinc-50 shadow-sm group">
                                                                 <div className="flex items-center gap-2 truncate flex-1 cursor-pointer" onClick={() => { if(f.mimeType === 'application/vnd.google-apps.folder') setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(!isTL) window.open(f.webViewLink, '_blank'); }}>
                                                                     {f.mimeType === 'application/vnd.google-apps.folder' ? <Folder className="h-3.5 w-3.5 text-primary" /> : <FileText className="h-3.5 w-3.5 text-zinc-400" />}
                                                                     <span className="text-[11px] truncate">{f.name}</span>
