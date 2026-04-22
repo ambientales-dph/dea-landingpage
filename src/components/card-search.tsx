@@ -543,13 +543,30 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 {sortedAttachments.length > 0 && (
                                     <div className="mt-8 space-y-4">
                                         <Separator />
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary">PORTALES DE ARCHIVOS ({sortedAttachments.length})</h3>
-                                            {inspectionPath.length > 0 && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setInspectionPath(prev => prev.slice(0, -1))}><ChevronLeft className="h-4 w-4" /></Button>}
+                                        <div className="flex items-center gap-2 h-7">
+                                            {inspectionPath.length > 0 ? (
+                                                <>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-7 w-7 bg-zinc-100 hover:bg-zinc-200 transition-colors" 
+                                                        onClick={() => setInspectionPath(prev => prev.slice(0, -1))}
+                                                    >
+                                                        <ChevronLeft className="h-4 w-4 text-primary" />
+                                                    </Button>
+                                                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary truncate flex-1">
+                                                        {inspectionPath[inspectionPath.length - 1].name}
+                                                    </h3>
+                                                </>
+                                            ) : (
+                                                <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                                                    PORTALES DE ARCHIVOS ({sortedAttachments.length})
+                                                </h3>
+                                            )}
                                         </div>
-                                        <div className="border rounded-xl p-2 bg-muted/5 min-h-[100px]">
+                                        <div className="border-none p-0 bg-transparent min-h-[100px]">
                                             {isInspecting ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div> : (
-                                                <div className="space-y-1">
+                                                <div className="space-y-0.5">
                                                     {inspectionPath.length === 0 ? sortedAttachments.map(att => {
                                                         const isTL = att.name === 'Línea de Tiempo';
                                                         const isExt = att.id === 'virtual-external';
@@ -584,7 +601,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                         return (
                                                             <ContextMenu key={f.id}>
                                                                 <ContextMenuTrigger asChild>
-                                                                    <div className="flex items-center justify-between p-1.5 bg-white rounded border border-zinc-50 shadow-sm group cursor-pointer hover:bg-zinc-50" onClick={() => { if(f.mimeType === 'application/vnd.google-apps.folder') setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(!isTL) window.open(f.webViewLink, '_blank'); }}>
+                                                                    <div className="flex items-center justify-between p-1.5 bg-white rounded border border-transparent transition-all cursor-pointer hover:bg-zinc-100" onClick={() => { if(f.mimeType === 'application/vnd.google-apps.folder') setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(!isTL) window.open(f.webViewLink, '_blank'); }}>
                                                                         <div className="flex items-center gap-2 truncate flex-1">
                                                                             {f.mimeType === 'application/vnd.google-apps.folder' ? <Folder className="h-3.5 w-3.5 text-primary" /> : <FileText className="h-3.5 w-3.5 text-zinc-400" />}
                                                                             <span className="text-[11px] truncate">{f.name}</span>
