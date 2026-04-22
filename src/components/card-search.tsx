@@ -44,20 +44,12 @@ import {
 import {
   Dialog as DialogUI,
 } from "@/components/ui/dialog"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu"
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import React from 'react';
@@ -209,10 +201,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [allBoards, setAllBoards] = useState<TrelloBoard[]>([]);
-  const [boardLists, setBoardLists] = useState<{ id: string, name: string }[]>([]);
-  const [editedBoardId, setEditedBoardId] = useState('');
-  const [editedListId, setEditedListId] = useState('');
   const [driveNames, setDriveNames] = useState<Record<string, { name: string, isFolder: boolean }>>({});
 
   // Estados Edición Estructurada
@@ -272,8 +260,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     if (!selectedCard) return;
     const d = selectedCard.desc || '';
     setEditedName(selectedCard.name.replace(/\s*\([^)]+\)$/, '').trim());
-    setEditedBoardId(selectedCard.boardId || '');
-    setEditedListId(selectedCard.idList || '');
     setEditEstado(extractField(d, '·ESTADO') || 'Sin iniciar');
     setEditPartidos(extractField(d, '·PARTIDO').split(/[,;]/).map(s => s.trim()).filter(Boolean));
     setEditReferencia(extractField(d, '·REFERENCIA GEOGRÁFICA'));
@@ -478,7 +464,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             </Command>
           </PopoverContent>
         </Popover>
-        {query && <Button variant="ghost" size="icon" onClear={onClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"><X className="h-5 w-5" /></Button>}
+        {query && <Button variant="ghost" size="icon" onClick={onClear} className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground h-8 w-8"><X className="h-5 w-5" /></Button>}
       </div>
 
       {selectedCard && (
