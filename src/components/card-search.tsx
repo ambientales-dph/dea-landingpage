@@ -489,11 +489,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                 <a href={selectedCard.url} target="_blank" rel="noopener noreferrer">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" title="Ver en Trello"><ExternalLink className="h-4 w-4" /></Button>
                                 </a>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 rounded-full" onClick={handleRawEditClick} title="Edición RAW"><Settings className="h-4 w-4" /></Button>
                             </div>
                         )}
-                    </div>
-                    <div className="absolute top-[44px] right-4 flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 rounded-full" onClick={handleRawEditClick} title="Edición RAW"><Settings className="h-5 w-5" /></Button>
                     </div>
                 </DialogHeader>
 
@@ -601,29 +599,34 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                         );
                                                     }) : folderContents.length === 0 ? <p className="text-[10px] text-muted-foreground italic p-4 text-center">Carpeta vacía</p> : folderContents.map(f => {
                                                         const isTL = inspectionPath[0].name === 'Línea de Tiempo';
+                                                        const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+                                                        const canOpenInDrive = !isTL;
+                                                        const hasDownload = !isFolder && f.webContentLink;
+                                                        const showMenu = canOpenInDrive || hasDownload;
+
+                                                        const itemContent = (
+                                                            <div className="flex items-center justify-between p-1.5 bg-white rounded border border-transparent transition-all cursor-pointer hover:bg-zinc-100" onClick={() => { if(isFolder) setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(!isTL) window.open(f.webViewLink, '_blank'); }}>
+                                                                <div className="flex items-center gap-2 truncate flex-1">
+                                                                    {isFolder ? <Folder className="h-3.5 w-3.5 text-primary" /> : <FileText className="h-3.5 w-3.5 text-zinc-400" />}
+                                                                    <span className="text-[11px] truncate">{f.name}</span>
+                                                                </div>
+                                                                <div className="flex gap-1">
+                                                                    {f.webContentLink && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webContentLink, '_blank'); }}><Download className="h-3.5 w-3.5" /></Button>}
+                                                                    {!isTL && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webViewLink, '_blank'); }}><ExternalLink className="h-3.5 w-3.5" /></Button>}
+                                                                </div>
+                                                            </div>
+                                                        );
+
+                                                        if (!showMenu) return <div key={f.id}>{itemContent}</div>;
+
                                                         return (
                                                             <ContextMenu key={f.id}>
                                                                 <ContextMenuTrigger asChild>
-                                                                    <div className="flex items-center justify-between p-1.5 bg-white rounded border border-transparent transition-all cursor-pointer hover:bg-zinc-100" onClick={() => { if(f.mimeType === 'application/vnd.google-apps.folder') setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(!isTL) window.open(f.webViewLink, '_blank'); }}>
-                                                                        <div className="flex items-center gap-2 truncate flex-1">
-                                                                            {f.mimeType === 'application/vnd.google-apps.folder' ? <Folder className="h-3.5 w-3.5 text-primary" /> : <FileText className="h-3.5 w-3.5 text-zinc-400" />}
-                                                                            <span className="text-[11px] truncate">{f.name}</span>
-                                                                        </div>
-                                                                        <div className="flex gap-1">
-                                                                            {f.webContentLink && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webContentLink, '_blank'); }}><Download className="h-3.5 w-3.5" /></Button>}
-                                                                            {!isTL && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webViewLink, '_blank'); }}><ExternalLink className="h-3.5 w-3.5" /></Button>}
-                                                                        </div>
-                                                                    </div>
+                                                                    {itemContent}
                                                                 </ContextMenuTrigger>
                                                                 <ContextMenuContent>
-                                                                    {f.mimeType === 'application/vnd.google-apps.folder' ? (
-                                                                        <ContextMenuItem onSelect={() => window.open(f.webViewLink, '_blank')}>Abrir en Drive</ContextMenuItem>
-                                                                    ) : (
-                                                                        <>
-                                                                            {!isTL && <ContextMenuItem onSelect={() => window.open(f.webViewLink, '_blank')}>Abrir en Drive</ContextMenuItem>}
-                                                                            {f.webContentLink && <ContextMenuItem onSelect={() => window.open(f.webContentLink, '_blank')}>Descargar</ContextMenuItem>}
-                                                                        </>
-                                                                    )}
+                                                                    {canOpenInDrive && <ContextMenuItem onSelect={() => window.open(f.webViewLink, '_blank')}>Abrir en Drive</ContextMenuItem>}
+                                                                    {hasDownload && <ContextMenuItem onSelect={() => window.open(f.webContentLink, '_blank')}>Descargar</ContextMenuItem>}
                                                                 </ContextMenuContent>
                                                             </ContextMenu>
                                                         );
