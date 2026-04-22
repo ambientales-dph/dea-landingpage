@@ -479,17 +479,20 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                 
                 <DialogHeader style={{ backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#4d95ca', color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white' }} className="p-5 shrink-0 relative">
                     <div className="flex flex-col gap-3 pr-12">
-                        {isEditing ? <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} className="text-base font-semibold bg-white/10 text-inherit border-white/30 h-auto p-2" /> : <DialogTitle className="text-sm md:text-base font-bold flex items-start gap-2">{selectedCard.name} <a href={selectedCard.url} target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100"><LinkIcon className="h-4 w-4" /></a></DialogTitle>}
+                        {isEditing ? <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} className="text-base font-semibold bg-white/10 text-inherit border-white/30 h-auto p-2" /> : <DialogTitle className="text-sm md:text-base font-bold">{selectedCard.name}</DialogTitle>}
                         <div className="flex flex-wrap gap-1.5">{(selectedCard.labels || []).map(l => <Badge key={l.id} className="text-[9px] h-5" style={{ backgroundColor: l.color ? trelloCoverColors.find(c => c.name === l.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>{l.name}</Badge>)}</div>
                         {!isEditing && !isRawEditing && (
                             <div className="flex gap-2">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handlePrintCard} title="Imprimir"><Printer className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleEditClick} title="Editar"><Pencil className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={fetchCardData} disabled={isRefreshing} title="Sincronizar"><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
+                                <a href={selectedCard.url} target="_blank" rel="noopener noreferrer">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" title="Ver en Trello"><ExternalLink className="h-4 w-4" /></Button>
+                                </a>
                             </div>
                         )}
                     </div>
-                    <div className="absolute top-4 right-4 flex items-center gap-1">
+                    <div className="absolute top-[44px] right-4 flex items-center gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 rounded-full" onClick={handleRawEditClick} title="Edición RAW"><Settings className="h-5 w-5" /></Button>
                     </div>
                 </DialogHeader>
