@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -328,7 +327,7 @@ function HomeContent() {
             });
             
             const commentsCategory = categories.find(c => c.id === 'cat-10') || { id: 'cat-10', name: 'Comentarios', color: '#607D8B' };
-            const statusChangeCategory = categories.find(c => c.name.toLowerCase().includes('cambio de estado')) || { id: 'cat-status', name: 'Cambio de Estado', color: '#f59e0b' };
+            const statusChangeCategory = categories.find(c => c.name.toLowerCase().includes('cambio de estado')) || { id: 'cat-status', name: 'Cambio de Estado', color: '#a3e635' };
             const activityCategory = categories.find(c => c.id === 'cat-11') || { id: 'cat-11', name: 'Actividad de Tarjeta', color: '#9E9E9E' };
 
             const actionMilestones: Milestone[] = actions
