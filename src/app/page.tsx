@@ -195,6 +195,9 @@ function HomeContent() {
   }, [updateRecentProjects, setSelectedCard, setViewState]);
 
   useEffect(() => {
+    // Solo sincronizamos si el ID de la URL es diferente al ID actual.
+    // Eliminamos selectedCard de las dependencias para evitar que el efecto
+    // se dispare cuando el usuario limpia manualmente el proyecto.
     if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
       const cachedCard = allCards.find(c => c.id === cardIdParam);
       if (cachedCard) {
@@ -211,7 +214,7 @@ function HomeContent() {
         syncCardFromUrl();
       }
     }
-  }, [cardIdParam, selectedCard, handleCardSelect, allCards]);
+  }, [cardIdParam, handleCardSelect, allCards]);
 
   const handleLogin = async () => {
     if (isLoggingIn) return;
