@@ -115,7 +115,8 @@ const trelloColorToStyle = (color: string | null | undefined): React.CSSProperti
     };
 };
 
-const isDriveFolder = (url: string) => url.includes('drive.google.com') && (url.includes('/folders/') || (url.includes('id=') && !url.includes('/file/')));
+const isDriveFolder = (url: string) => url && url.includes('drive.google.com') && (url.includes('/folders/') || (url.includes('id=') && !url.includes('/file/')));
+const isAnyDriveResource = (url: string) => url && url.includes('drive.google.com');
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -394,7 +395,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const sortedAttachments = useMemo(() => {
     const res = (selectedCard?.attachments || []).filter(a => isDriveFolder(a.url));
     if (tlFolderId) res.push({ id: 'tl-virtual-folder', name: 'Línea de Tiempo', url: `https://drive.google.com/drive/folders/${tlFolderId}`, previews: [] } as any);
-    const ext = (selectedCard?.attachments || []).filter(a => !isDriveFolder(a.url));
+    const ext = (selectedCard?.attachments || []).filter(a => !isAnyDriveResource(a.url));
     if (ext.length > 0) res.push({ id: 'virtual-external', name: 'Enlaces Externos', url: '#', previews: [] } as any);
     return res.sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedCard, tlFolderId]);
@@ -436,7 +437,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         try {
             const current = inspectionPath[inspectionPath.length - 1];
             if (current.id === 'virtual-external') {
-                const ext = (selectedCard?.attachments || []).filter(a => !isDriveFolder(a.url));
+                const ext = (selectedCard?.attachments || []).filter(a => !isAnyDriveResource(a.url));
                 setFolderContents(ext.map(a => ({ id: a.id, name: a.name, webViewLink: a.url, mimeType: 'external-link' })));
                 setNextPageToken(null);
             } else {
@@ -571,7 +572,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                     {inspectionPath.length === 0 ? sortedAttachments.map(att => {
                                                         const isTL = att.name === 'Línea de Tiempo';
                                                         const isExt = att.id === 'virtual-external';
-                                                        const extCount = (selectedCard?.attachments || []).filter(a => !isDriveFolder(a.url)).length;
+                                                        const extCount = (selectedCard?.attachments || []).filter(a => !isAnyDriveResource(a.url)).length;
                                                         
                                                         return (
                                                             <ContextMenu key={att.id}>
@@ -598,21 +599,21 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                             </ContextMenu>
                                                         );
                                                     }) : folderContents.length === 0 ? <p className="text-[10px] text-muted-foreground italic p-4 text-center">Carpeta vacía</p> : folderContents.map(f => {
-                                                        const isTL = inspectionPath[0].name === 'Línea de Tiempo';
+                                                        const isTL = inspectionPath[0]?.name === 'Línea de Tiempo';
                                                         const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
                                                         const canOpenInDrive = !isTL;
                                                         const hasDownload = !isFolder && f.webContentLink;
                                                         const showMenu = canOpenInDrive || hasDownload;
 
                                                         const itemContent = (
-                                                            <div className="flex items-center justify-between p-1.5 bg-white rounded border border-transparent transition-all cursor-pointer hover:bg-zinc-100" onClick={() => { if(isFolder) setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(!isTL) window.open(f.webViewLink, '_blank'); }}>
+                                                            <div className="flex items-center justify-between p-1.5 bg-white rounded border border-transparent transition-all cursor-pointer hover:bg-zinc-100" onClick={() => { if(isFolder) setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(canOpenInDrive) window.open(f.webViewLink, '_blank'); }}>
                                                                 <div className="flex items-center gap-2 truncate flex-1">
                                                                     {isFolder ? <Folder className="h-3.5 w-3.5 text-primary" /> : <FileText className="h-3.5 w-3.5 text-zinc-400" />}
                                                                     <span className="text-[11px] truncate">{f.name}</span>
                                                                 </div>
                                                                 <div className="flex gap-1">
                                                                     {f.webContentLink && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webContentLink, '_blank'); }}><Download className="h-3.5 w-3.5" /></Button>}
-                                                                    {!isTL && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webViewLink, '_blank'); }}><ExternalLink className="h-3.5 w-3.5" /></Button>}
+                                                                    {canOpenInDrive && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webViewLink, '_blank'); }}><ExternalLink className="h-3.5 w-3.5" /></Button>}
                                                                 </div>
                                                             </div>
                                                         );
