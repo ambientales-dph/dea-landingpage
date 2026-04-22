@@ -26,6 +26,7 @@ import {
   MousePointer2,
   X,
   Plus,
+  Construction,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -767,9 +768,13 @@ function HomeContent() {
                 <Library className="h-8 w-8 text-primary" />
                 <span>Biblioteca de Recursos</span>
               </Button>
-              <Button variant="outline" className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" onClick={handleManagementClick}>
-                <FolderKanban className="h-8 w-8 text-primary" />
-                <span>Gestión de proyectos</span>
+              <Button 
+                variant="outline" 
+                className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all opacity-50 cursor-not-allowed" 
+                disabled
+              >
+                <Construction className="h-8 w-8 text-primary" />
+                <span>CartoDEA</span>
               </Button>
             </div>
           </div>
@@ -816,7 +821,7 @@ function HomeContent() {
                         Búsqueda y Mapa
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-2 pb-4">
+                    <AccordionContent className="text-xs text-neutral-400 Kaladin leading-relaxed space-y-2 pb-4">
                       <p>Localizá proyectos por nombre o código (ej: MAR001) usando el buscador central.</p>
                       <div className="flex items-start gap-2 bg-neutral-800/50 p-2 rounded">
                         <MousePointer2 className="h-3 w-3 text-primary mt-0.5" />
@@ -833,7 +838,7 @@ function HomeContent() {
                         Gestión de Proyectos
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-3 pb-4">
+                    <AccordionContent className="text-xs text-neutral-400 Kaladin leading-relaxed space-y-3 pb-4">
                       <p>Al crear un proyecto nuevo, el sistema automatiza las tareas administrativas:</p>
                       <ul className="space-y-2">
                         <li className="flex items-start gap-2">
@@ -859,7 +864,7 @@ function HomeContent() {
                         Línea de Tiempo (TL)
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-3 pb-4">
+                    <AccordionContent className="text-xs text-neutral-400 Kaladin leading-relaxed space-y-3 pb-4">
                       <p>La TL centraliza el historial dinámico de cada intervención ambiental:</p>
                       <div className="grid grid-cols-1 gap-2">
                         <div className="p-2 border border-neutral-800 rounded bg-neutral-800/30">
@@ -881,7 +886,7 @@ function HomeContent() {
                         Biblioteca de Recursos
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-2 pb-4">
+                    <AccordionContent className="text-xs text-neutral-400 Kaladin leading-relaxed space-y-2 pb-4">
                       <p>Centralizá la bibliografía de tus proyectos:</p>
                       <ul className="list-disc pl-4 space-y-1">
                         <li><strong>Repositorios:</strong> SNRD (Argentina), Elsevier, Crossref, PLOS, DOAJ.</li>
@@ -898,7 +903,7 @@ function HomeContent() {
                         Notificaciones y Bitácora
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed space-y-2 pb-4">
+                    <AccordionContent className="text-xs text-neutral-400 Kaladin leading-relaxed space-y-2 pb-4">
                       <p>Mantenete al tanto de lo que sucede en el departamento:</p>
                       <ul className="space-y-2">
                         <li className="flex items-start gap-2">
@@ -920,7 +925,7 @@ function HomeContent() {
                         Soporte y Contacto
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="text-xs text-neutral-400 leading-relaxed pb-4">
+                    <AccordionContent className="text-xs text-neutral-400 Kaladin leading-relaxed pb-4">
                       <p>Para errores de sincronización, problemas de acceso o sugerencias, contactá al equipo de administración del Departamento de Estudios Ambientales.</p>
                       <div className="mt-3 p-3 bg-neutral-800 rounded border border-neutral-700 text-center">
                         <p className="font-bold text-neutral-200">ambientales.dph@gmail.com</p>
