@@ -34,6 +34,12 @@ import {
   DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -57,7 +63,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { WHITELIST, AuthorizedUser } from '@/lib/auth-data';
 import jsPDF from 'jspdf';
-import { getDriveResourceName, extractIdFromUrl, listFolderContents, getTimelineFolderForProject, getProjectFolderIdInTL } from '@/services/google-drive';
+import { getDriveResourceName, extractIdFromUrl, listFolderContents, getTimelineFolderForProject, getProjectFolderIdInTL, moveFile, createSubfolder, createMilestoneFolder } from '@/services/google-drive';
 import { sendProjectEmail } from '@/app/actions/email-actions';
 import { updateProject } from '@/app/actions/project-actions';
 import { useProject } from '@/providers/project-provider';
@@ -201,8 +207,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [driveNames, setDriveNames] = useState<Record<string, { name: string, isFolder: boolean }>>({});
-
+  
   // Estados Edición Estructurada
   const [editEstado, setEditEstado] = useState('Sin iniciar');
   const [editPartidos, setEditPartidos] = useState<string[]>([]);
@@ -246,7 +251,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return allCards.filter(c => removeAccents(c.name.toLowerCase()).includes(q) || (c.name.match(/\(([^)]+)\)$/)?.[1] || '').toLowerCase().includes(q));
   }, [allCards, query]);
 
-  const handleSelect = (card: TrelloCard) => { onCardSelect(null); setActivity([]); setDriveNames({}); setLooseFiles([]); setFolderContents([]); setInspectionPath([]); setTimeout(() => { setQuery(card.name); onCardSelect(card); setIsOpen(false); }, 50); };
+  const handleSelect = (card: TrelloCard) => { onCardSelect(null); setActivity([]); setLooseFiles([]); setFolderContents([]); setInspectionPath([]); setTimeout(() => { setQuery(card.name); onCardSelect(card); setIsOpen(false); }, 50); };
 
   const extractField = (desc: string, field: string) => {
     if (!desc) return '';
@@ -551,33 +556,56 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                         const extCount = (selectedCard?.attachments || []).filter(a => !isDriveFolder(a.url)).length;
                                                         
                                                         return (
-                                                            <button key={att.id} onClick={async () => { 
-                                                                const id = await extractIdFromUrl(att.url);
-                                                                if (id || isExt) setInspectionPath(prev => [...prev, { id: id || 'virtual-external', name: att.name }]);
-                                                            }} className="flex items-center gap-2.5 py-1.5 px-3 bg-white border border-zinc-100 rounded-lg shadow-sm hover:border-primary transition-all w-full text-left">
-                                                                {isTL ? <History className="h-4 w-4 text-primary" /> : isExt ? <LinkIcon className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-amber-600" />}
-                                                                <div className="flex-1 flex flex-col gap-0 overflow-hidden">
-                                                                    <span className="text-xs font-bold truncate text-black">{att.name}</span>
-                                                                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
-                                                                        {isTL ? 'DOCUMENTACIÓN FINAL • SOLO DESCARGA' : isExt ? `BIBLIOGRAFÍA Y RECURSOS • ${extCount} ENLACES` : ''}
-                                                                    </span>
-                                                                </div>
-                                                                <ChevronDown className="h-3.5 w-3.5 text-zinc-300 -rotate-90" />
-                                                            </button>
+                                                            <ContextMenu key={att.id}>
+                                                                <ContextMenuTrigger asChild>
+                                                                    <button onClick={async () => { 
+                                                                        const id = await extractIdFromUrl(att.url);
+                                                                        if (id || isExt) setInspectionPath(prev => [...prev, { id: id || 'virtual-external', name: att.name }]);
+                                                                    }} className="flex items-center gap-2.5 py-1.5 px-3 bg-white border border-transparent rounded-lg hover:bg-zinc-100 transition-all w-full text-left group">
+                                                                        {isTL ? <History className="h-4 w-4 text-primary" /> : isExt ? <LinkIcon className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-amber-600" />}
+                                                                        <div className="flex-1 flex flex-col gap-0 overflow-hidden">
+                                                                            <span className="text-xs font-bold truncate text-black">{att.name}</span>
+                                                                            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">
+                                                                                {isTL ? 'DOCUMENTACIÓN FINAL • SOLO DESCARGA' : isExt ? `BIBLIOGRAFÍA Y RECURSOS • ${extCount} ENLACES` : ''}
+                                                                            </span>
+                                                                        </div>
+                                                                        <ChevronDown className="h-3.5 w-3.5 text-zinc-300 -rotate-90" />
+                                                                    </button>
+                                                                </ContextMenuTrigger>
+                                                                {!isExt && !isTL && (
+                                                                    <ContextMenuContent>
+                                                                        <ContextMenuItem onSelect={() => window.open(att.url, '_blank')}>Abrir en Drive</ContextMenuItem>
+                                                                    </ContextMenuContent>
+                                                                )}
+                                                            </ContextMenu>
                                                         );
                                                     }) : folderContents.length === 0 ? <p className="text-[10px] text-muted-foreground italic p-4 text-center">Carpeta vacía</p> : folderContents.map(f => {
                                                         const isTL = inspectionPath[0].name === 'Línea de Tiempo';
                                                         return (
-                                                            <div key={f.id} className="flex items-center justify-between p-1.5 bg-white rounded border border-zinc-50 shadow-sm group">
-                                                                <div className="flex items-center gap-2 truncate flex-1 cursor-pointer" onClick={() => { if(f.mimeType === 'application/vnd.google-apps.folder') setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(!isTL) window.open(f.webViewLink, '_blank'); }}>
-                                                                    {f.mimeType === 'application/vnd.google-apps.folder' ? <Folder className="h-3.5 w-3.5 text-primary" /> : <FileText className="h-3.5 w-3.5 text-zinc-400" />}
-                                                                    <span className="text-[11px] truncate">{f.name}</span>
-                                                                </div>
-                                                                <div className="flex gap-1">
-                                                                    {f.webContentLink && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(f.webContentLink, '_blank')}><Download className="h-3.5 w-3.5" /></Button>}
-                                                                    {!isTL && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(f.webViewLink, '_blank')}><ExternalLink className="h-3.5 w-3.5" /></Button>}
-                                                                </div>
-                                                            </div>
+                                                            <ContextMenu key={f.id}>
+                                                                <ContextMenuTrigger asChild>
+                                                                    <div className="flex items-center justify-between p-1.5 bg-white rounded border border-zinc-50 shadow-sm group cursor-pointer hover:bg-zinc-50" onClick={() => { if(f.mimeType === 'application/vnd.google-apps.folder') setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(!isTL) window.open(f.webViewLink, '_blank'); }}>
+                                                                        <div className="flex items-center gap-2 truncate flex-1">
+                                                                            {f.mimeType === 'application/vnd.google-apps.folder' ? <Folder className="h-3.5 w-3.5 text-primary" /> : <FileText className="h-3.5 w-3.5 text-zinc-400" />}
+                                                                            <span className="text-[11px] truncate">{f.name}</span>
+                                                                        </div>
+                                                                        <div className="flex gap-1">
+                                                                            {f.webContentLink && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webContentLink, '_blank'); }}><Download className="h-3.5 w-3.5" /></Button>}
+                                                                            {!isTL && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webViewLink, '_blank'); }}><ExternalLink className="h-3.5 w-3.5" /></Button>}
+                                                                        </div>
+                                                                    </div>
+                                                                </ContextMenuTrigger>
+                                                                <ContextMenuContent>
+                                                                    {f.mimeType === 'application/vnd.google-apps.folder' ? (
+                                                                        <ContextMenuItem onSelect={() => window.open(f.webViewLink, '_blank')}>Abrir en Drive</ContextMenuItem>
+                                                                    ) : (
+                                                                        <>
+                                                                            {!isTL && <ContextMenuItem onSelect={() => window.open(f.webViewLink, '_blank')}>Abrir en Drive</ContextMenuItem>}
+                                                                            {f.webContentLink && <ContextMenuItem onSelect={() => window.open(f.webContentLink, '_blank')}>Descargar</ContextMenuItem>}
+                                                                        </>
+                                                                    )}
+                                                                </ContextMenuContent>
+                                                            </ContextMenu>
                                                         );
                                                     })}
                                                     {nextPageToken && <Button variant="ghost" size="sm" className="w-full text-[9px]" onClick={async () => { setIsLoadingMore(true); try { const r = await listFolderContents(inspectionPath[inspectionPath.length-1].id, nextPageToken); setFolderContents(p => [...p, ...r.files]); setNextPageToken(r.nextPageToken); } finally { setIsLoadingMore(false); } }}>{isLoadingMore ? 'Cargando...' : 'Ver más'}</Button>}
