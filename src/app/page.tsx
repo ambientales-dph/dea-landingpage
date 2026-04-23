@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
@@ -726,9 +727,7 @@ function HomeContent() {
                 ) : (
                   <div className="flex items-center justify-between gap-4 w-full h-full">
                     <div className="flex flex-col justify-center h-full">
-                      <h2 className="text-xl font-bold mb-1 text-[#9FCCE3] shrink-0">Búsqueda de proyectos</h2>
                       <p className="text-sm text-white/90 leading-snug">
-                        Encontrá proyectos por nombre o código.<br/>
                         O creá un proyecto nuevo.
                       </p>
                     </div>
