@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -245,6 +244,31 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const logActivity = useCallback(async (actionType: string, detail: string) => {
+    if (user && db && selectedCard) {
+      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+      const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+      const activityData = {
+        userId: user.uid,
+        userName: realName,
+        userEmail: user.email,
+        userPhoto: user.photoURL || '',
+        actionType: actionType,
+        projectName: selectedCard.name,
+        detail: detail,
+        cardId: selectedCard.id,
+        timestamp: serverTimestamp(),
+      };
+
+      try {
+        await addDoc(collection(db, 'app_activities'), activityData);
+      } catch (error) {
+        console.error("Error logging activity:", error);
+      }
+    }
+  }, [user, db, selectedCard]);
+
   useEffect(() => { if (selectedCard) setQuery(selectedCard.name); else setQuery(''); }, [selectedCard]);
 
   const filteredCards = useMemo(() => {
@@ -297,6 +321,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setIsSaving(true);
     try {
         await updateTrelloCard({ cardId: selectedCard.id, desc: rawDescription });
+        await logActivity('update_project', `Realizó edición RAW de la ficha técnica`);
         const updated = await getCardById(selectedCard.id);
         onCardSelect(updated);
         setIsRawEditing(false);
@@ -341,6 +366,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         if (result.success) {
             const updated = await getCardById(selectedCard.id);
             onCardSelect(updated);
+            
+            // LOGGING
+            if (result.isStatusChange) {
+                await logActivity('status_change', `Cambió el estado a "${result.newStatus}"`);
+            } else {
+                await logActivity('update_project', `Actualizó la ficha técnica`);
+            }
+
             setIsEditing(false);
             refreshCards();
             toast({ title: 'Ficha actualizada' });
@@ -361,7 +394,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const handlePostComment = async () => {
     if (!selectedCard || !newComment.trim()) return;
     setIsCommenting(true);
-    try { await addCommentToCard({ cardId: selectedCard.id, text: newComment }); setNewComment(''); fetchCardData(); toast({ title: 'Comentario enviado' }); }
+    try { 
+        await addCommentToCard({ cardId: selectedCard.id, text: newComment }); 
+        await logActivity('add_comment', `Añadió un comentario en la ficha técnica`);
+        setNewComment(''); fetchCardData(); toast({ title: 'Comentario enviado' }); 
+    }
     catch (e) { toast({ variant: 'destructive', title: 'Error al comentar' }); }
     finally { setIsCommenting(false); }
   };
@@ -484,14 +521,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         {isEditing ? <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} className="text-base font-semibold bg-white/10 text-inherit border-white/30 h-auto p-2" /> : <DialogTitle className="text-sm md:text-base font-bold">{selectedCard.name}</DialogTitle>}
                         <div className="flex flex-wrap gap-1.5">{(selectedCard.labels || []).map(l => <Badge key={l.id} className="text-[9px] h-5" style={{ backgroundColor: l.color ? trelloCoverColors.find(c => c.name === l.color)?.hex || '#ccc' : '#ccc', color: 'white' }}>{l.name}</Badge>)}</div>
                         {!isEditing && !isRawEditing && (
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-2">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handlePrintCard} title="Imprimir"><Printer className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleEditClick} title="Editar"><Pencil className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={fetchCardData} disabled={isRefreshing} title="Sincronizar"><RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} /></Button>
                                 <a href={selectedCard.url} target="_blank" rel="noopener noreferrer">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" title="Ver en Trello"><ExternalLink className="h-4 w-4" /></Button>
                                 </a>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20 rounded-full" onClick={handleRawEditClick} title="Edición RAW"><Settings className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/20" onClick={handleRawEditClick} title="Edición RAW"><Settings className="h-4 w-4" /></Button>
                             </div>
                         )}
                     </div>
@@ -592,11 +629,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                                         <ChevronDown className="h-3.5 w-3.5 text-zinc-300 -rotate-90" />
                                                                     </button>
                                                                 </ContextMenuTrigger>
-                                                                {!isExt && !isTL && (
-                                                                    <ContextMenuContent>
-                                                                        <ContextMenuItem onSelect={() => window.open(att.url, '_blank')}>Abrir en Drive</ContextMenuItem>
-                                                                    </ContextMenuContent>
-                                                                )}
+                                                                <ContextMenuContent>
+                                                                    {!isTL && <ContextMenuItem onSelect={() => window.open(att.url, '_blank')}>Abrir en Drive</ContextMenuItem>}
+                                                                </ContextMenuContent>
                                                             </ContextMenu>
                                                         );
                                                     }) : folderContents.length === 0 ? <p className="text-[10px] text-muted-foreground italic p-4 text-center">Carpeta vacía</p> : folderContents.map(f => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState, useMemo, useRef } from 'react';
+import { useActionState, useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -85,6 +85,31 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
   const [otroDrive, setOtroDrive] = useState('');
   const [driveProyectista, setDriveProyectista] = useState('');
 
+  const logActivity = useCallback(async (actionType: string, detail: string, pName: string, cId: string) => {
+    if (user && db) {
+      const authorizedUser = WHITELIST.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+      const realName = authorizedUser?.name || user.displayName || 'Usuario';
+
+      const activityData = {
+        userId: user.uid,
+        userName: realName,
+        userEmail: user.email,
+        userPhoto: user.photoURL || '',
+        actionType: actionType,
+        projectName: pName,
+        detail: detail,
+        cardId: cId,
+        timestamp: serverTimestamp(),
+      };
+
+      try {
+        await addDoc(collection(db, 'app_activities'), activityData);
+      } catch (error) {
+        console.error("Error logging activity:", error);
+      }
+    }
+  }, [user, db]);
+
   const extractFieldFromDesc = (desc: string, field: string): string => {
     if (!desc) return '';
     const lines = desc.split('\n');
@@ -144,6 +169,20 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
       lastProcessedActionRef.current = currentStatus.timestamp;
       if (currentStatus.success) {
         toast({ title: '¡Éxito!', description: currentStatus.message });
+        
+        // Registro de actividad en Portal
+        if (currentStatus.projectName && currentStatus.cardId) {
+            if (editingCard) {
+                if (currentStatus.isStatusChange) {
+                    logActivity('status_change', `Cambió el estado a "${currentStatus.newStatus}"`, currentStatus.projectName, currentStatus.cardId);
+                } else {
+                    logActivity('update_project', `Actualizó la ficha técnica`, currentStatus.projectName, currentStatus.cardId);
+                }
+            } else {
+                logActivity('create_project', `Creó el proyecto en el sistema`, currentStatus.projectName, currentStatus.cardId);
+            }
+        }
+
         setIsFormView(false);
         setOpen(false);
         resetForm();
@@ -152,7 +191,7 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
         toast({ variant: 'destructive', title: 'Error', description: currentStatus.message });
       }
     }
-  }, [currentStatus, toast, refreshCards, setOpen]);
+  }, [currentStatus, toast, refreshCards, setOpen, editingCard, logActivity]);
 
   if (isFormView) {
     return (
