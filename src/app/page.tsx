@@ -197,8 +197,6 @@ function HomeContent() {
 
   useEffect(() => {
     // Solo sincronizamos si el ID de la URL es diferente al ID actual.
-    // Eliminamos selectedCard de las dependencias para evitar que el efecto
-    // se dispare cuando el usuario limpia manualmente el proyecto.
     if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
       const cachedCard = allCards.find(c => c.id === cardIdParam);
       if (cachedCard) {
@@ -500,11 +498,6 @@ function HomeContent() {
     setCreateProjectOpen(true);
   };
 
-  const handleManagementClick = () => {
-    setStartWithForm(false);
-    setCreateProjectOpen(true);
-  };
-
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-primary">
@@ -692,6 +685,15 @@ function HomeContent() {
         <main className="flex-1 flex flex-col p-4 md:p-16 overflow-y-auto min-h-0">
           <div className="w-full md:w-4/5 mx-auto flex flex-col gap-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg overflow-hidden">
+                <CardSearch
+                  onCardSelect={handleCardSelect}
+                  selectedCard={selectedCard}
+                  onClear={handleClearSelection}
+                  isSummaryOpen={isSummaryOpen}
+                  onSummaryOpenChange={setIsSummaryOpen}
+                />
+              </div>
               <div className="relative h-32 bg-neutral-700/60 p-6 rounded-lg text-primary-foreground flex flex-col justify-center shadow-lg overflow-hidden transition-all duration-500">
                 {selectedCard ? (
                   <>
@@ -738,15 +740,6 @@ function HomeContent() {
                     </Button>
                   </div>
                 )}
-              </div>
-              <div className="h-32 bg-neutral-700/60 p-6 rounded-lg flex flex-col justify-center shadow-lg overflow-hidden">
-                <CardSearch
-                  onCardSelect={handleCardSelect}
-                  selectedCard={selectedCard}
-                  onClear={handleClearSelection}
-                  isSummaryOpen={isSummaryOpen}
-                  onSummaryOpenChange={setIsSummaryOpen}
-                />
               </div>
             </div>
 
