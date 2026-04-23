@@ -269,7 +269,11 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     }
   }, [user, db, selectedCard]);
 
-  useEffect(() => { if (selectedCard) setQuery(selectedCard.name); else setQuery(''); }, [selectedCard]);
+  useEffect(() => { 
+    // Solo limpiamos la búsqueda si NO hay un proyecto seleccionado (al limpiar el sistema)
+    // No ponemos el nombre del proyecto en la caja para evitar redundancia
+    if (!selectedCard) setQuery(''); 
+  }, [selectedCard]);
 
   const filteredCards = useMemo(() => {
     const q = removeAccents(query.toLowerCase().trim());
@@ -277,7 +281,18 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return allCards.filter(c => removeAccents(c.name.toLowerCase()).includes(q) || (c.name.match(/\(([^)]+)\)$/)?.[1] || '').toLowerCase().includes(q));
   }, [allCards, query]);
 
-  const handleSelect = (card: TrelloCard) => { onCardSelect(null); setActivity([]); setLooseFiles([]); setFolderContents([]); setInspectionPath([]); setTimeout(() => { setQuery(card.name); onCardSelect(card); setIsOpen(false); }, 50); };
+  const handleSelect = (card: TrelloCard) => { 
+    onCardSelect(null); 
+    setActivity([]); 
+    setLooseFiles([]); 
+    setFolderContents([]); 
+    setInspectionPath([]); 
+    setTimeout(() => { 
+      setQuery(''); // Limpiamos la búsqueda al seleccionar para que no quede el nombre escrito
+      onCardSelect(card); 
+      setIsOpen(false); 
+    }, 50); 
+  };
 
   const extractField = (desc: string, field: string) => {
     if (!desc) return '';

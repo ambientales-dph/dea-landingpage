@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
@@ -725,9 +724,9 @@ function HomeContent() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center justify-between gap-4 w-full h-full">
-                    <div className="flex flex-col justify-center h-full">
-                      <p className="text-sm text-white/90 leading-snug">
+                  <div className="flex items-start justify-between gap-4 w-full h-full">
+                    <div className="flex flex-col justify-start h-full">
+                      <p className="text-sm text-white/90 leading-snug pt-1">
                         O creá un proyecto nuevo.
                       </p>
                     </div>
