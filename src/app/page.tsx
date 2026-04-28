@@ -104,6 +104,7 @@ function HomeContent() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [isRedirectingToCartoDEA, setIsRedirectingToCartoDEA] = useState(false);
   const [userProjects, setUserProjects] = useState<TrelloCard[]>([]);
   const [recentProjects, setRecentProjects] = useState<TrelloCard[]>([]);
   const [isUserProjectsLoading, setIsUserProjectsLoading] = useState(false);
@@ -289,6 +290,61 @@ function HomeContent() {
       path += `?cardId=${selectedCard.id}`;
     }
     router.push(path);
+  };
+
+  const handleCartoDEAClick = async () => {
+    if (isRedirectingToCartoDEA) return;
+    setIsRedirectingToCartoDEA(true);
+
+    try {
+      if (!user) {
+        throw new Error("No hay un usuario activo para realizar el salto.");
+      }
+
+      // 1. Obtención del Token (Forzando refresco)
+      const token = await user.getIdToken(true);
+      const uid = user.uid;
+
+      // 2. El Salto (Formulario Dinámico POST)
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/';
+      form.style.display = 'none';
+
+      // Input Token
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'firebase_token';
+      tokenInput.value = token;
+      form.appendChild(tokenInput);
+
+      // Input UID
+      const uidInput = document.createElement('input');
+      uidInput.type = 'hidden';
+      uidInput.name = 'uid';
+      uidInput.value = uid;
+      form.appendChild(uidInput);
+
+      document.body.appendChild(form);
+      form.submit();
+      
+      // Limpieza preventiva
+      setTimeout(() => {
+        if (document.body.contains(form)) {
+          document.body.removeChild(form);
+        }
+      }, 500);
+
+    } catch (error: any) {
+      console.error("Error al saltar a CartoDEA:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error de salto',
+        description: 'No se pudo generar el acceso seguro. Serás redirigido al inicio.',
+      });
+      setIsRedirectingToCartoDEA(false);
+      // Si el error es crítico de sesión, el usuario ya estará deslogueado y verá la pantalla de ingreso.
+    }
   };
   
   const handleClearSelection = useCallback(() => {
@@ -760,11 +816,17 @@ function HomeContent() {
                 <span>Biblioteca de Recursos</span>
               </Button>
               <Button 
+                id="CartoDEA"
                 variant="outline" 
-                className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all opacity-50 cursor-not-allowed" 
-                disabled
+                className="h-32 flex-col gap-2 rounded-lg border-transparent bg-neutral-700/60 p-4 text-xl font-semibold text-primary-foreground shadow-lg transition-all hover:bg-neutral-700/80 hover:text-primary" 
+                onClick={handleCartoDEAClick}
+                disabled={isRedirectingToCartoDEA}
               >
-                <Construction className="h-8 w-8 text-primary" />
+                {isRedirectingToCartoDEA ? (
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                ) : (
+                  <MapIcon className="h-8 w-8 text-primary" />
+                )}
                 <span>CartoDEA</span>
               </Button>
             </div>
