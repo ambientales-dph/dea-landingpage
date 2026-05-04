@@ -38,7 +38,6 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
@@ -301,7 +300,7 @@ function HomeContent() {
         throw new Error("No hay un usuario activo para realizar el salto.");
       }
 
-      // 1. Obtención del Token (Forzando refresco)
+      // 1. Obtención del Token (Forzando refresco para evitar expiración en el salto)
       const token = await user.getIdToken(true);
       const uid = user.uid;
 
@@ -309,35 +308,32 @@ function HomeContent() {
       console.log("🚀 [SALTO SEGURO] Iniciando transferencia de sesión a CartoDEA...");
       console.log("   - UID del Usuario:", uid);
       console.log("   - Firebase ID Token (Fresco):", token.substring(0, 30) + "...");
-      console.log("   - URL de Destino:", 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/');
+      console.log("   - URL de Destino:", 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/api/auth/portal-sync');
 
-      // 2. El Salto (Formulario Dinámico POST)
+      // 2. El Salto (Formulario Dinámico POST para sincronización segura)
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/';
+      form.action = 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/api/auth/portal-sync';
       form.style.display = 'none';
 
-      // Input Token
+      // Input Token (Obligatorio para que el backend valide la sesión)
       const tokenInput = document.createElement('input');
       tokenInput.type = 'hidden';
       tokenInput.name = 'firebase_token';
       tokenInput.value = token;
       form.appendChild(tokenInput);
 
-      // Input UID
+      // Input UID (Para personalización del mapa en destino)
       const uidInput = document.createElement('input');
       uidInput.type = 'hidden';
       uidInput.name = 'uid';
       uidInput.value = uid;
       form.appendChild(uidInput);
 
-      // Inspección visual del formulario antes de enviar (en consola)
-      console.dir(form);
-
       document.body.appendChild(form);
       form.submit();
       
-      // Limpieza preventiva
+      // Limpieza preventiva (aunque el submit navega fuera de la página)
       setTimeout(() => {
         if (document.body.contains(form)) {
           document.body.removeChild(form);
@@ -349,10 +345,14 @@ function HomeContent() {
       toast({
         variant: 'destructive',
         title: 'Error de salto',
-        description: 'No se pudo generar el acceso seguro. Serás redirigido al inicio.',
+        description: error.message || 'No se pudo generar el acceso seguro.',
       });
       setIsRedirectingToCartoDEA(false);
-      // Si el error es crítico de sesión, el usuario ya estará deslogueado y verá la pantalla de ingreso.
+      
+      // Si el error es crítico de sesión, redirigir al login
+      if (!user) {
+        router.push('/');
+      }
     }
   };
   
