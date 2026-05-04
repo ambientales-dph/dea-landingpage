@@ -305,6 +305,12 @@ function HomeContent() {
       const token = await user.getIdToken(true);
       const uid = user.uid;
 
+      // DEBUG LOGS - Esto aparecerá en tu consola del navegador (F12)
+      console.log("🚀 [SALTO SEGURO] Iniciando transferencia de sesión a CartoDEA...");
+      console.log("   - UID del Usuario:", uid);
+      console.log("   - Firebase ID Token (Fresco):", token.substring(0, 30) + "...");
+      console.log("   - URL de Destino:", 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/');
+
       // 2. El Salto (Formulario Dinámico POST)
       const form = document.createElement('form');
       form.method = 'POST';
@@ -324,6 +330,9 @@ function HomeContent() {
       uidInput.name = 'uid';
       uidInput.value = uid;
       form.appendChild(uidInput);
+
+      // Inspección visual del formulario antes de enviar (en consola)
+      console.dir(form);
 
       document.body.appendChild(form);
       form.submit();
