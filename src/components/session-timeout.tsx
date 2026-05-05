@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
  * - 30 segundos de inactividad -> Muestra advertencia.
  * - 1 minuto de cuenta regresiva en advertencia.
  */
-const INACTIVITY_LIMIT_MS = 30 * 1000; // 30 segundos para pruebas (antes 14 min)
+const INACTIVITY_LIMIT_MS = 30 * 1000; // 30 segundos para pruebas
 const WARNING_DURATION_S = 60; // 60 segundos de cuenta regresiva
 
 export function SessionTimeout() {
@@ -35,10 +35,16 @@ export function SessionTimeout() {
   
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Usamos una ref para el estado de advertencia para evitar que el efecto de listeners
+  // se reinicie y limpie los intervalos al abrir el diálogo.
+  const showWarningRef = useRef(false);
+
+  useEffect(() => {
+    showWarningRef.current = showWarning;
+  }, [showWarning]);
 
   const handleLogout = useCallback(async () => {
-    if (!user) return;
-    
     // Limpiar todo antes de salir
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -54,18 +60,22 @@ export function SessionTimeout() {
     } catch (error) {
       console.error('Error al cerrar sesión por inactividad:', error);
     }
-  }, [auth, user, toast]);
+  }, [auth, toast]);
 
   const startWarningCountdown = useCallback(() => {
     setShowWarning(true);
     setTimeLeft(WARNING_DURATION_S);
     
+    // Asegurarnos de limpiar cualquier intervalo previo
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     
     countdownIntervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
           handleLogout();
           return 0;
         }
@@ -74,9 +84,10 @@ export function SessionTimeout() {
     }, 1000);
   }, [handleLogout]);
 
-  const resetTimer = useCallback(() => {
-    // Si la advertencia ya está visible, no reiniciamos por movimiento de mouse/teclas
-    if (showWarning) return;
+  const resetInactivityTimer = useCallback(() => {
+    // Si la advertencia ya está visible, no reiniciamos el timer de inactividad
+    // por movimiento de mouse/teclas; el usuario debe interactuar con el diálogo.
+    if (showWarningRef.current) return;
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -85,16 +96,18 @@ export function SessionTimeout() {
     if (user) {
       timeoutRef.current = setTimeout(startWarningCountdown, INACTIVITY_LIMIT_MS);
     }
-  }, [user, startWarningCountdown, showWarning]);
+  }, [user, startWarningCountdown]);
 
   const handleKeepAlive = () => {
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+    }
     setShowWarning(false);
     setTimeLeft(WARNING_DURATION_S);
     
     // Forzamos un reinicio manual del timer principal
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(startWarningCountdown, INACTIVITY_LIMIT_MS);
+    resetInactivityTimer();
     
     toast({
       title: 'Sesión renovada',
@@ -112,9 +125,9 @@ export function SessionTimeout() {
 
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
     
-    resetTimer();
+    resetInactivityTimer();
 
-    const handleUserActivity = () => resetTimer();
+    const handleUserActivity = () => resetInactivityTimer();
 
     events.forEach((event) => {
       window.addEventListener(event, handleUserActivity);
@@ -122,12 +135,17 @@ export function SessionTimeout() {
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      events.forEach((event) => {
-        window.removeEventListener(event, handleUserActivity);
-      });
+      // NO limpiamos el countdownInterval aquí para evitar que se detenga al mutar el estado
     };
-  }, [user, resetTimer]);
+  }, [user, resetInactivityTimer]);
+
+  // Limpieza absoluta al desmontar el componente
+  useEffect(() => {
+      return () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      };
+  }, []);
 
   return (
     <AlertDialog open={showWarning} onOpenChange={setShowWarning}>
