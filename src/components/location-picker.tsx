@@ -39,7 +39,7 @@ export default function LocationPicker({
   React.useEffect(() => {
     if (!isOpen || !mapRef.current) return;
 
-    // Initialize map
+    // Inicializar el mapa
     const view = new View({
       center: fromLonLat([initialLon, initialLat]),
       zoom: initialZoom,
@@ -49,7 +49,9 @@ export default function LocationPicker({
       target: mapRef.current,
       layers: [
         new TileLayer({
-          source: new OSM(),
+          source: new OSM({
+            crossOrigin: 'anonymous'
+          }),
         }),
       ],
       view: view,
@@ -58,7 +60,16 @@ export default function LocationPicker({
 
     mapInstance.current = map;
 
+    // Importante: Forzar actualización de tamaño después de que el diálogo se abra
+    // Esto evita el problema de los cuadros grises por falta de dimensiones iniciales
+    const timeoutId = setTimeout(() => {
+      if (mapInstance.current) {
+        mapInstance.current.updateSize();
+      }
+    }, 200);
+
     return () => {
+      clearTimeout(timeoutId);
       map.setTarget(undefined);
       mapInstance.current = null;
     };
@@ -79,7 +90,7 @@ export default function LocationPicker({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[500px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl">
+      <DialogContent className="max-w-2xl h-[500px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl bg-zinc-100">
         <DialogHeader className="p-4 bg-primary text-primary-foreground shrink-0">
           <DialogTitle className="flex items-center gap-2 text-sm font-bold">
             <MapPin className="h-4 w-4" />
@@ -90,9 +101,9 @@ export default function LocationPicker({
         <div className="relative flex-1 bg-zinc-200">
           <div ref={mapRef} className="w-full h-full" />
           
-          {/* Crosshair overlay */}
+          {/* Mira central fija */}
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <Crosshair className="h-8 w-8 text-primary opacity-50 stroke-[1px]" />
+            <Crosshair className="h-10 w-10 text-primary opacity-60 stroke-[1.5px]" />
           </div>
           
           <div className="absolute bottom-4 left-4 bg-white/90 p-2 rounded-md border shadow-sm pointer-events-none">
@@ -103,10 +114,10 @@ export default function LocationPicker({
         </div>
 
         <DialogFooter className="p-3 bg-zinc-100 border-t shrink-0 flex flex-row justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="text-zinc-600">
             Cancelar
           </Button>
-          <Button size="sm" onClick={handleConfirm} className="px-6">
+          <Button size="sm" onClick={handleConfirm} className="px-6 shadow-md">
             Aceptar Vista
           </Button>
         </DialogFooter>
