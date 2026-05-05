@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
@@ -18,11 +17,11 @@ import { Loader2, Timer } from 'lucide-react';
 
 /**
  * Componente que monitorea la actividad del usuario.
- * - 14 minutos de inactividad -> Muestra advertencia.
+ * CONFIGURACIÓN DE PRUEBA:
+ * - 30 segundos de inactividad -> Muestra advertencia.
  * - 1 minuto de cuenta regresiva en advertencia.
- * - Total: 15 minutos -> Cierre de sesión.
  */
-const INACTIVITY_LIMIT_MS = 14 * 60 * 1000; // 14 minutos para mostrar la alerta
+const INACTIVITY_LIMIT_MS = 30 * 1000; // 30 segundos para pruebas (antes 14 min)
 const WARNING_DURATION_S = 60; // 60 segundos de cuenta regresiva
 
 export function SessionTimeout() {
@@ -76,7 +75,6 @@ export function SessionTimeout() {
 
   const resetTimer = useCallback(() => {
     // Si la advertencia ya está visible, no reiniciamos por movimiento de mouse/teclas
-    // El usuario debe hacer clic explícitamente en el botón de la alerta.
     if (showWarning) return;
 
     if (timeoutRef.current) {
@@ -92,6 +90,7 @@ export function SessionTimeout() {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     setShowWarning(false);
     setTimeLeft(WARNING_DURATION_S);
+    
     // Forzamos un reinicio manual del timer principal
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(startWarningCountdown, INACTIVITY_LIMIT_MS);
