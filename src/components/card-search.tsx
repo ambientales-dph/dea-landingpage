@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Pencil, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, History, AlertTriangle, BookText, Settings } from 'lucide-react';
+import { X, FileText, Pencil, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, History, AlertTriangle, BookText, Settings, Crosshair } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -73,6 +73,7 @@ import { MUNICIPIOS } from '@/lib/municipios';
 import { PROYECTISTAS } from '@/lib/proyectistas';
 import { FINANCIAMIENTO } from '@/lib/financiamiento';
 import { CUENCAS } from '@/lib/cuencas';
+import LocationPicker from './location-picker';
 
 const ESTADOS_PROYECTO = [
     "Sin iniciar",
@@ -146,14 +147,14 @@ const QuickEmailDialog = ({ isOpen, onOpenChange, recipient, userEmail }: { isOp
 
     return (
         <DialogUI open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md shadow-2xl">
+            <DialogContent className="max-w-md shadow-2xl bg-white text-black">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-sm font-bold"><Mail className="h-5 w-5 text-primary" />Enviar consulta a {recipient.name}</DialogTitle>
                     <DialogDescription className="text-[10px]">Tu mensaje será enviado desde ambientales.dph@gmail.com. Las respuestas llegarán directamente a <strong>{userEmail}</strong>.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-zinc-500">Asunto</Label><Input placeholder="Asunto..." value={subject} onChange={(e) => setSubject(e.target.value)} className="text-xs" /></div>
-                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-zinc-500">Mensaje</Label><Textarea placeholder="Mensaje..." value={body} onChange={(e) => setBody(e.target.value)} className="min-h-[150px] text-xs" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-zinc-500">Asunto</Label><Input placeholder="Asunto..." value={subject} onChange={(e) => setSubject(e.target.value)} className="text-xs bg-white text-black" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-bold text-zinc-500">Mensaje</Label><Textarea placeholder="Mensaje..." value={body} onChange={(e) => setBody(e.target.value)} className="min-h-[150px] text-xs bg-white text-black" /></div>
                 </div>
                 <DialogFooter><Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={isSending}>Cancelar</Button><Button size="sm" onClick={handleSend} disabled={(!subject.trim() && !body.trim()) || isSending}>{isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enviar Mail'}</Button></DialogFooter>
             </DialogContent>
@@ -230,6 +231,9 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [editRespAmbiental, setEditRespAmbiental] = useState('');
   const [editOtroDrive, setEditOtroDrive] = useState('');
   const [editDriveProyectista, setEditDriveProyectista] = useState('');
+  const [editCoordinadas, setEditCoordinadas] = useState('');
+  
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
 
   const [tlFolderId, setTlFolderId] = useState<string | null>(null);
   const [inspectionPath, setInspectionPath] = useState<{ id: string, name: string }[]>([]);
@@ -270,8 +274,6 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   }, [user, db, selectedCard]);
 
   useEffect(() => { 
-    // Solo limpiamos la búsqueda si NO hay un proyecto seleccionado (al limpiar el sistema)
-    // No ponemos el nombre del proyecto en la caja para evitar redundancia
     if (!selectedCard) setQuery(''); 
   }, [selectedCard]);
 
@@ -288,7 +290,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setFolderContents([]); 
     setInspectionPath([]); 
     setTimeout(() => { 
-      setQuery(''); // Limpiamos la búsqueda al seleccionar para que no quede el nombre escrito
+      setQuery(''); 
       onCardSelect(card); 
       setIsOpen(false); 
     }, 50); 
@@ -326,6 +328,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     setEditRespAmbiental(extractField(d, '·RESPONSABLE AMBIENTAL'));
     setEditOtroDrive(extractField(d, '·Otro Drive de trabajo'));
     setEditDriveProyectista(extractField(d, '·Drive del proyectista'));
+    setEditCoordinadas(extractField(d, '·COORDINADAS'));
     setIsEditing(true);
   };
 
@@ -376,13 +379,13 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         formData.append('respAmbiental', editRespAmbiental);
         formData.append('otroDrive', editOtroDrive);
         formData.append('driveProyectista', editDriveProyectista);
+        formData.append('coordinadas', editCoordinadas);
 
         const result = await updateProject({ success: false }, formData);
         if (result.success) {
             const updated = await getCardById(selectedCard.id);
             onCardSelect(updated);
             
-            // LOGGING
             if (result.isStatusChange) {
                 await logActivity('status_change', `Cambió el estado a "${result.newStatus}"`);
             } else {
@@ -507,6 +510,24 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     loadContent();
   }, [inspectionPath, selectedCard]);
 
+  const handleLocationSelect = (lon: number, lat: number, zoom: number) => {
+    setEditCoordinadas(`[${lon.toFixed(6)}, ${lat.toFixed(6)}, ${zoom}]`);
+  };
+
+  const initialLocation = useMemo(() => {
+    if (editCoordinadas) {
+      const match = editCoordinadas.match(/\[(.*?),(.*?),(.*?)\]/);
+      if (match) {
+        return {
+          lon: parseFloat(match[1]),
+          lat: parseFloat(match[2]),
+          zoom: parseFloat(match[3]),
+        };
+      }
+    }
+    return undefined;
+  }, [editCoordinadas]);
+
   return (
     <div className="flex w-full flex-col">
       <div className="relative w-full">
@@ -528,7 +549,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
 
       {selectedCard && (
         <DialogUI open={isSummaryOpen} onOpenChange={(open) => { if (!open) { setIsEditing(false); setIsRawEditing(false); } onSummaryOpenChange(open); }}>
-            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full border-0 bg-white h-[85vh] flex flex-col gap-0 shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:rounded-xl overflow-hidden">
+            <DialogContent className="p-0 max-w-2xl w-[95vw] md:w-full border-0 bg-white h-[85vh] flex flex-col gap-0 shadow-2xl fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:rounded-xl overflow-hidden text-black">
                 {(isRefreshing || isActivityLoading) && <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/20 backdrop-blur-sm"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}
                 
                 <DialogHeader style={{ backgroundColor: trelloCoverColors.find(c => c.name === selectedCard.cover?.color)?.hex || '#4d95ca', color: ['yellow', 'lime', 'sky'].includes(selectedCard.cover?.color || '') ? '#172b4d' : 'white' }} className="p-5 shrink-0 relative">
@@ -556,38 +577,53 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         {isRawEditing ? (
                             <div className="space-y-4">
                                 <Label className="text-[10px] font-black uppercase text-zinc-500">Edición de Texto Puro</Label>
-                                <Textarea value={rawDescription} onChange={(e) => setRawDescription(e.target.value)} className="min-h-[400px] text-xs font-mono bg-zinc-50" />
+                                <Textarea value={rawDescription} onChange={(e) => setRawDescription(e.target.value)} className="min-h-[400px] text-xs font-mono bg-zinc-50 text-black" />
                                 <p className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded">Cuidado: el borrado de prefijos (·) puede afectar el motor de campos estructurados.</p>
                             </div>
                         ) : isEditing ? (
                             <div className="space-y-6">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Estado</Label><Select value={editEstado} onValueChange={setEditEstado}><SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger><SelectContent>{ESTADOS_PROYECTO.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent></Select></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Partido/s</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editPartidos.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{MUNICIPIOS.map(m => <DropdownMenuCheckboxItem key={m} checked={editPartidos.includes(m)} onCheckedChange={c => setEditPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
-                                    <div className="col-span-2 space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Referencia Geográfica</Label><Input value={editReferencia} onChange={(e) => setEditReferencia(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Extensión (Ha o Km)</Label><Input value={editExtension} onChange={(e) => setEditExtension(e.target.value)} className="h-8 text-xs bg-white" placeholder="Ha o Km" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Población</Label><Input value={editPoblacion} onChange={(e) => setEditPoblacion(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Presupuesto</Label><Input value={editPresupuesto} onChange={(e) => setEditPresupuesto(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Financiamiento</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editFinanciamiento.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{FINANCIAMIENTO.map(f => <DropdownMenuCheckboxItem key={f} checked={editFinanciamiento.includes(f)} onCheckedChange={c => setEditFinanciamiento(curr => c ? [...curr, f] : curr.filter(x => x !== f))} onSelect={e => e.preventDefault()}>{f}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Estado</Label><Select value={editEstado} onValueChange={setEditEstado}><SelectTrigger className="h-8 text-xs bg-white text-black"><SelectValue /></SelectTrigger><SelectContent>{ESTADOS_PROYECTO.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent></Select></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Partido/s</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{editPartidos.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{MUNICIPIOS.map(m => <DropdownMenuCheckboxItem key={m} checked={editPartidos.includes(m)} onCheckedChange={c => setEditPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="col-span-2 space-y-1">
+                                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Referencia Geográfica</Label>
+                                      <div className="flex gap-2">
+                                        <Input value={editReferencia} onChange={(e) => setEditReferencia(e.target.value)} className="h-8 text-xs bg-white text-black" />
+                                        <Button 
+                                          type="button" 
+                                          variant="outline" 
+                                          size="icon" 
+                                          className={cn("h-8 w-8 shrink-0", editCoordinadas && "bg-primary/10 border-primary text-primary")}
+                                          onClick={() => setIsLocationPickerOpen(true)}
+                                        >
+                                          <Crosshair className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                      {editCoordinadas && <p className="text-[9px] text-primary font-bold italic">Vista guardada: {editCoordinadas}</p>}
+                                    </div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Extensión (Ha o Km)</Label><Input value={editExtension} onChange={(e) => setEditExtension(e.target.value)} className="h-8 text-xs bg-white text-black" placeholder="Ha o Km" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Población</Label><Input value={editPoblacion} onChange={(e) => setEditPoblacion(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Presupuesto</Label><Input value={editPresupuesto} onChange={(e) => setEditPresupuesto(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Financiamiento</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{editFinanciamiento.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{FINANCIAMIENTO.map(f => <DropdownMenuCheckboxItem key={f} checked={editFinanciamiento.includes(f)} onCheckedChange={c => setEditFinanciamiento(curr => c ? [...curr, f] : curr.filter(x => x !== f))} onSelect={e => e.preventDefault()}>{f}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
                                 </div>
                                 <Separator />
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">DEA</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editEquipo.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{EQUIPO_DEA.map(p => <DropdownMenuCheckboxItem key={p} checked={editEquipo.includes(p)} onCheckedChange={c => setEditEquipo(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
-                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">SIG</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editSig.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{EQUIPO_SIG.map(p => <DropdownMenuCheckboxItem key={p} checked={editSig.includes(p)} onCheckedChange={c => setEditSig(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
-                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">Dron</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editDron.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{EQUIPO_DRON.map(p => <DropdownMenuCheckboxItem key={p} checked={editDron.includes(p)} onCheckedChange={c => setEditDron(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
-                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">Seguimiento</Label><Input value={editSeguimiento} onChange={(e) => setEditSeguimiento(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="col-span-2 space-y-1"><Label className="text-[10px] font-bold text-primary">Proyectista/s</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{editProyectistas.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{PROYECTISTAS.map(p => <DropdownMenuCheckboxItem key={p} checked={editProyectistas.includes(p)} onCheckedChange={c => setEditProyectistas(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">DEA</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{editEquipo.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{EQUIPO_DEA.map(p => <DropdownMenuCheckboxItem key={p} checked={editEquipo.includes(p)} onCheckedChange={c => setEditEquipo(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">SIG</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{editSig.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{EQUIPO_SIG.map(p => <DropdownMenuCheckboxItem key={p} checked={editSig.includes(p)} onCheckedChange={c => setEditSig(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">Dron</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{editDron.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{EQUIPO_DRON.map(p => <DropdownMenuCheckboxItem key={p} checked={editDron.includes(p)} onCheckedChange={c => setEditDron(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
+                                    <div className="space-y-1"><Label className="text-[10px] font-bold text-primary">Seguimiento</Label><Input value={editSeguimiento} onChange={(e) => setEditSeguimiento(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
+                                    <div className="col-span-2 space-y-1"><Label className="text-[10px] font-bold text-primary">Proyectista/s</Label><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{editProyectistas.length} sel. <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger><DropdownMenuContent className="max-h-48 overflow-y-auto">{PROYECTISTAS.map(p => <DropdownMenuCheckboxItem key={p} checked={editProyectistas.includes(p)} onCheckedChange={c => setEditProyectistas(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent></DropdownMenu></div>
                                 </div>
                                 <Separator />
                                 <div className="grid grid-cols-3 gap-3">
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Expediente</Label><Input value={editExpediente} onChange={(e) => setEditExpediente(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Providencia</Label><Input value={editProvidencia} onChange={(e) => setEditProvidencia(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Resolución</Label><Input value={editResolucion} onChange={(e) => setEditResolucion(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Fecha DIA</Label><Input value={editFechaDia} onChange={(e) => setEditFechaDia(e.target.value)} className="h-8 text-xs bg-white" placeholder="DD/MM/AAAA" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Contratista</Label><Input value={editContratista} onChange={(e) => setEditContratista(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Resp. Ambiental</Label><Input value={editRespAmbiental} onChange={(e) => setEditRespAmbiental(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="col-span-3 space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Otro Drive Trabajo</Label><Input value={editOtroDrive} onChange={(e) => setEditOtroDrive(e.target.value)} className="h-8 text-xs bg-white" /></div>
-                                    <div className="col-span-3 space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Drive Proyectista</Label><Input value={editDriveProyectista} onChange={(e) => setEditDriveProyectista(e.target.value)} className="h-8 text-xs bg-white" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Expediente</Label><Input value={editExpediente} onChange={(e) => setEditExpediente(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Providencia</Label><Input value={editProvidencia} onChange={(e) => setEditProvidencia(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Resolución</Label><Input value={editResolucion} onChange={(e) => setEditResolucion(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Fecha DIA</Label><Input value={editFechaDia} onChange={(e) => setEditFechaDia(e.target.value)} className="h-8 text-xs bg-white text-black" placeholder="DD/MM/AAAA" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Contratista</Label><Input value={editContratista} onChange={(e) => setEditContratista(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
+                                    <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Resp. Ambiental</Label><Input value={editRespAmbiental} onChange={(e) => setEditRespAmbiental(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
+                                    <div className="col-span-3 space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Otro Drive Trabajo</Label><Input value={editOtroDrive} onChange={(e) => setEditOtroDrive(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
+                                    <div className="col-span-3 space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Drive Proyectista</Label><Input value={editDriveProyectista} onChange={(e) => setEditDriveProyectista(e.target.value)} className="h-8 text-xs bg-white text-black" /></div>
                                 </div>
                             </div>
                         ) : (
@@ -695,7 +731,7 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                     {!isEditing && !isRawEditing && (
                         <div className="px-6 pb-6 space-y-4">
                             <Separator />
-                            <div className="flex gap-2"><Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs h-16 flex-1" /><Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="h-16 w-12"><Send className="h-4 w-4" /></Button></div>
+                            <div className="flex gap-2"><Textarea placeholder="Comentar..." value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isCommenting} className="text-xs h-16 flex-1 text-black" /><Button onClick={handlePostComment} disabled={!newComment.trim() || isCommenting} size="icon" className="h-16 w-12"><Send className="h-4 w-4" /></Button></div>
                             <div className="space-y-4">{activity.filter(a => a.type === 'commentCard').map(a => (<div key={a.id} className="flex gap-3 text-xs"><Avatar className="h-6 w-6 border"><AvatarFallback className="text-[10px]">{a.memberCreator?.fullName?.charAt(0)}</AvatarFallback></Avatar><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1"><span className="font-semibold">{a.memberCreator?.fullName}</span><span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(a.date), { locale: es, addSuffix: true })}</span></div><div className="bg-muted p-2 rounded-md whitespace-pre-wrap">{a.data.text}</div></div></div>))}</div>
                         </div>
                     )}
@@ -707,6 +743,15 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <Button size="sm" onClick={isRawEditing ? handleSaveRawEdit : handleSaveEdit} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar Cambios'}</Button>
                     </DialogFooter>
                 )}
+
+                <LocationPicker 
+                  isOpen={isLocationPickerOpen}
+                  onOpenChange={setIsLocationPickerOpen}
+                  onSelect={handleLocationSelect}
+                  initialLon={initialLocation?.lon}
+                  initialLat={initialLocation?.lat}
+                  initialZoom={initialLocation?.zoom}
+                />
             </DialogContent>
         </DialogUI>
       )}

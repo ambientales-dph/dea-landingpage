@@ -39,6 +39,7 @@ const ProjectSchema = z.object({
   respAmbiental: z.string().optional(),
   otroDrive: z.string().optional(),
   driveProyectista: z.string().optional(),
+  coordinadas: z.string().optional(),
   userEmail: z.string().optional(),
   cardId: z.string().optional(),
 });
@@ -173,6 +174,7 @@ export async function createProject(
     respAmbiental: formData.get('respAmbiental'),
     otroDrive: formData.get('otroDrive'),
     driveProyectista: formData.get('driveProyectista'),
+    coordinadas: formData.get('coordinadas'),
     userEmail: formData.get('userEmail'),
   });
 
@@ -188,7 +190,7 @@ export async function createProject(
   const { 
     nombre, cuenca: cuencaId, estado, partido, referencia, extension, poblacion, presupuesto, 
     financiamiento, diagnostico, sig, dron, seguimiento, proyectista, expediente, providencia, 
-    resolucion, fechaDia, contratista, respAmbiental, otroDrive, driveProyectista, userEmail 
+    resolucion, fechaDia, contratista, respAmbiental, otroDrive, driveProyectista, coordinadas, userEmail 
   } = validatedFields.data;
 
   try {
@@ -224,7 +226,8 @@ export async function createProject(
         '·CONTRATISRA': contratista || '',
         '·RESPONSABLE AMBIENTAL': respAmbiental || '',
         '·Otro Drive de trabajo': otroDrive || '',
-        '·Drive del proyectista': driveProyectista || ''
+        '·Drive del proyectista': driveProyectista || '',
+        '·COORDINADAS': coordinadas || ''
     };
     const finalDescription = reconcileDescription('', updates);
     
@@ -296,6 +299,7 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         respAmbiental: formData.get('respAmbiental'),
         otroDrive: formData.get('otroDrive'),
         driveProyectista: formData.get('driveProyectista'),
+        coordinadas: formData.get('coordinadas'),
         cardId: formData.get('cardId'),
     });
 
@@ -311,7 +315,7 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
     const { 
         nombre, cuenca: cuencaId, estado, partido, referencia, extension, poblacion, presupuesto,
         financiamiento, diagnostico, sig, dron, seguimiento, proyectista, expediente, providencia,
-        resolucion, fechaDia, contratista, respAmbiental, otroDrive, driveProyectista, cardId 
+        resolucion, fechaDia, contratista, respAmbiental, otroDrive, driveProyectista, coordinadas, cardId 
     } = validatedFields.data;
     
     if (!cardId) return { success: false, message: 'ID de tarjeta no encontrado.', timestamp: Date.now() };
@@ -343,7 +347,8 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             '·CONTRATISRA': contratista || '',
             '·RESPONSABLE AMBIENTAL': respAmbiental || '',
             '·Otro Drive de trabajo': otroDrive || '',
-            '·Drive del proyectista': driveProyectista || ''
+            '·Drive del proyectista': driveProyectista || '',
+            '·COORDINADAS': coordinadas || ''
         };
 
         const finalDescription = reconcileDescription(oldDesc, updates);

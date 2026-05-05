@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { TrelloCard } from '@/services/trello';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Pencil, Search, Plus, ChevronDown, Loader2, ArrowLeft, X } from 'lucide-react';
+import { Pencil, Search, Plus, ChevronDown, Loader2, ArrowLeft, X, Crosshair } from 'lucide-react';
 import { EQUIPO_DEA, EQUIPO_SIG, EQUIPO_DRON } from '@/lib/equipo';
 import { MUNICIPIOS } from '@/lib/municipios';
 import { PROYECTISTAS } from '@/lib/proyectistas';
@@ -25,6 +25,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { WHITELIST } from '@/lib/auth-data';
 import { cn } from '@/lib/utils';
 import { useProject } from '@/providers/project-provider';
+import LocationPicker from './location-picker';
 
 const initialState: ProjectState = { message: undefined, success: false };
 
@@ -84,6 +85,10 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
   const [respAmbiental, setRespAmbiental] = useState('');
   const [otroDrive, setOtroDrive] = useState('');
   const [driveProyectista, setDriveProyectista] = useState('');
+  const [coordinadas, setCoordinadas] = useState('');
+  
+  // Estado para el selector de ubicación
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
 
   const logActivity = useCallback(async (actionType: string, detail: string, pName: string, cId: string) => {
     if (user && db) {
@@ -151,6 +156,7 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
     setRespAmbiental(extractFieldFromDesc(d, '·RESPONSABLE AMBIENTAL'));
     setOtroDrive(extractFieldFromDesc(d, '·Otro Drive de trabajo'));
     setDriveProyectista(extractFieldFromDesc(d, '·Drive del proyectista'));
+    setCoordinadas(extractFieldFromDesc(d, '·COORDINADAS'));
 
     setIsFormView(true);
   };
@@ -162,6 +168,7 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
     setSelectedEquipo([]); setSelectedSig([]); setSelectedDron([]); setSeguimiento('');
     setSelectedProyectistas([]); setExpediente(''); setProvidencia(''); setResolucion('');
     setFechaDia(''); setContratista(''); setRespAmbiental(''); setOtroDrive(''); setDriveProyectista('');
+    setCoordinadas('');
   };
 
   useEffect(() => {
@@ -193,9 +200,29 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
     }
   }, [currentStatus, toast, refreshCards, setOpen, editingCard, logActivity]);
 
+  const handleLocationSelect = (lon: number, lat: number, zoom: number) => {
+    const coordsStr = `[${lon.toFixed(6)}, ${lat.toFixed(6)}, ${zoom}]`;
+    setCoordinadas(coordsStr);
+    toast({ title: 'Ubicación seleccionada', description: `Se ha definido la vista del proyecto.` });
+  };
+
+  const initialLocation = useMemo(() => {
+    if (coordinadas) {
+      const match = coordinadas.match(/\[(.*?),(.*?),(.*?)\]/);
+      if (match) {
+        return {
+          lon: parseFloat(match[1]),
+          lat: parseFloat(match[2]),
+          zoom: parseFloat(match[3]),
+        };
+      }
+    }
+    return undefined;
+  }, [coordinadas]);
+
   if (isFormView) {
     return (
-      <div className="flex flex-col h-full bg-zinc-100 overflow-hidden">
+      <div className="flex flex-col h-full bg-zinc-100 overflow-hidden text-black">
         <DialogHeader className="p-4 border-b bg-muted/30 shrink-0 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             {!initialFormOpen && (
@@ -215,6 +242,7 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
           <input type="hidden" name="sig" value={selectedSig.join('; ')} />
           <input type="hidden" name="dron" value={selectedDron.join('; ')} />
           <input type="hidden" name="proyectista" value={selectedProyectistas.join('; ')} />
+          <input type="hidden" name="coordinadas" value={coordinadas} />
           
           <ScrollArea className="flex-grow px-6">
             <div className="space-y-6 py-6 max-w-3xl mx-auto">
@@ -222,19 +250,19 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5 md:col-span-2">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Nombre del Proyecto *</Label>
-                  <Input name="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="h-9 text-xs bg-white" />
+                  <Input name="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="h-9 text-xs bg-white text-black" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Cuenca *</Label>
                   <Select name="cuenca" value={selectedCuenca} onValueChange={setSelectedCuenca} required>
-                    <SelectTrigger className="h-9 text-xs bg-white"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs bg-white text-black"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
                     <SelectContent>{CUENCAS.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Estado Actual</Label>
                   <Select name="estado" value={estado} onValueChange={setEstado}>
-                    <SelectTrigger className="h-9 text-xs bg-white"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs bg-white text-black"><SelectValue placeholder="Seleccioná" /></SelectTrigger>
                     <SelectContent>{ESTADOS_PROYECTO.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
@@ -247,30 +275,43 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
                  <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Partido(s)</Label>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-9 text-xs justify-between font-normal bg-white">{selectedPartidos.length > 0 ? `${selectedPartidos.length} sel.` : 'Seleccioná'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-9 text-xs justify-between font-normal bg-white text-black">{selectedPartidos.length > 0 ? `${selectedPartidos.length} sel.` : 'Seleccioná'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-64 overflow-y-auto">{MUNICIPIOS.map(m => <DropdownMenuCheckboxItem key={m} checked={selectedPartidos.includes(m)} onCheckedChange={c => setSelectedPartidos(curr => c ? [...curr, m] : curr.filter(x => x !== m))} onSelect={e => e.preventDefault()}>{m}</DropdownMenuCheckboxItem>)}</DropdownMenuContent>
                   </DropdownMenu>
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Referencia Geográfica</Label>
-                  <Input name="referencia" value={referencia} onChange={(e) => setReferencia(e.target.value)} className="h-9 text-xs bg-white" />
+                  <div className="flex gap-2">
+                    <Input name="referencia" value={referencia} onChange={(e) => setReferencia(e.target.value)} className="h-9 text-xs bg-white text-black" />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="icon" 
+                      className={cn("h-9 w-9 shrink-0", coordinadas && "bg-primary/10 border-primary text-primary")}
+                      onClick={() => setIsLocationPickerOpen(true)}
+                      title="Seleccionar ubicación en el mapa"
+                    >
+                      <Crosshair className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {coordinadas && <p className="text-[9px] text-primary font-bold italic">Vista guardada: {coordinadas}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Extensión</Label>
-                  <Input name="extension" value={extension} onChange={(e) => setExtension(e.target.value)} className="h-9 text-xs bg-white" placeholder="Ha o Km" />
+                  <Input name="extension" value={extension} onChange={(e) => setExtension(e.target.value)} className="h-9 text-xs bg-white text-black" placeholder="Ha o Km" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Población Beneficiada</Label>
-                  <Input name="poblacion" value={poblacion} onChange={(e) => setPoblacion(e.target.value)} className="h-9 text-xs bg-white" />
+                  <Input name="poblacion" value={poblacion} onChange={(e) => setPoblacion(e.target.value)} className="h-9 text-xs bg-white text-black" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Presupuesto</Label>
-                  <Input name="presupuesto" value={presupuesto} onChange={(e) => setPresupuesto(e.target.value)} className="h-9 text-xs bg-white" />
+                  <Input name="presupuesto" value={presupuesto} onChange={(e) => setPresupuesto(e.target.value)} className="h-9 text-xs bg-white text-black" />
                 </div>
                 <div className="space-y-1.5 md:col-span-3">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Financiamiento</Label>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-9 text-xs justify-between font-normal bg-white">{selectedFinanciamiento.length > 0 ? `${selectedFinanciamiento.length} sel.` : 'Seleccioná'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-9 text-xs justify-between font-normal bg-white text-black">{selectedFinanciamiento.length > 0 ? `${selectedFinanciamiento.length} sel.` : 'Seleccioná'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-64 overflow-y-auto">{FINANCIAMIENTO.map(f => <DropdownMenuCheckboxItem key={f} checked={selectedFinanciamiento.includes(f)} onCheckedChange={c => setSelectedFinanciamiento(curr => c ? [...curr, f] : curr.filter(x => x !== f))} onSelect={e => e.preventDefault()}>{f}</DropdownMenuCheckboxItem>)}</DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -285,32 +326,32 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold">Diagnóstico (DEA)</Label>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedEquipo.length > 0 ? `${selectedEquipo.length} sel.` : 'DEA'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{selectedEquipo.length > 0 ? `${selectedEquipo.length} sel.` : 'DEA'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent className="max-h-64 overflow-y-auto">{EQUIPO_DEA.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedEquipo.includes(p)} onCheckedChange={c => setSelectedEquipo(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold">Información SIG</Label>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedSig.length > 0 ? `${selectedSig.length} sel.` : 'SIG'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{selectedSig.length > 0 ? `${selectedSig.length} sel.` : 'SIG'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent className="max-h-64 overflow-y-auto">{EQUIPO_SIG.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedSig.includes(p)} onCheckedChange={c => setSelectedSig(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold">Información Dron</Label>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedDron.length > 0 ? `${selectedDron.length} sel.` : 'Dron'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{selectedDron.length > 0 ? `${selectedDron.length} sel.` : 'Dron'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent className="max-h-64 overflow-y-auto">{EQUIPO_DRON.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedDron.includes(p)} onCheckedChange={c => setSelectedDron(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold">Seguimiento de Obra</Label>
-                    <Input name="seguimiento" value={seguimiento} onChange={(e) => setSeguimiento(e.target.value)} className="h-8 text-xs bg-white" />
+                    <Input name="seguimiento" value={seguimiento} onChange={(e) => setSeguimiento(e.target.value)} className="h-8 text-xs bg-white text-black" />
                   </div>
                    <div className="space-y-1.5 md:col-span-2">
                     <Label className="text-xs font-bold">Proyectista/s</Label>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white">{selectedProyectistas.length > 0 ? `${selectedProyectistas.length} sel.` : 'Proyectista'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="w-full h-8 text-xs justify-between font-normal bg-white text-black">{selectedProyectistas.length > 0 ? `${selectedProyectistas.length} sel.` : 'Proyectista'}<ChevronDown className="h-3 w-3 opacity-50" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent className="max-h-64 overflow-y-auto">{PROYECTISTAS.map(p => <DropdownMenuCheckboxItem key={p} checked={selectedProyectistas.includes(p)} onCheckedChange={c => setSelectedProyectistas(curr => c ? [...curr, p] : curr.filter(x => x !== p))} onSelect={e => e.preventDefault()}>{p}</DropdownMenuCheckboxItem>)}</DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -323,35 +364,35 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Expediente</Label>
-                  <Input name="expediente" value={expediente} onChange={(e) => setExpediente(e.target.value)} className="h-9 text-xs bg-white" />
+                  <Input name="expediente" value={expediente} onChange={(e) => setExpediente(e.target.value)} className="h-9 text-xs bg-white text-black" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Providencia</Label>
-                  <Input name="providencia" value={providencia} onChange={(e) => setProvidencia(e.target.value)} className="h-9 text-xs bg-white" />
+                  <Input name="providencia" value={providencia} onChange={(e) => setProvidencia(e.target.value)} className="h-9 text-xs bg-white text-black" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Resolución</Label>
-                  <Input name="resolucion" value={resolucion} onChange={(e) => setResolucion(e.target.value)} className="h-9 text-xs bg-white" />
+                  <Input name="resolucion" value={resolucion} onChange={(e) => setResolucion(e.target.value)} className="h-9 text-xs bg-white text-black" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Fecha DIA</Label>
-                  <Input name="fechaDia" value={fechaDia} onChange={(e) => setFechaDia(e.target.value)} className="h-9 text-xs bg-white" placeholder="DD/MM/AAAA" />
+                  <Input name="fechaDia" value={fechaDia} onChange={(e) => setFechaDia(e.target.value)} className="h-9 text-xs bg-white text-black" placeholder="DD/MM/AAAA" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Contratista</Label>
-                  <Input name="contratista" value={contratista} onChange={(e) => setContratista(e.target.value)} className="h-9 text-xs bg-white" />
+                  <Input name="contratista" value={contratista} onChange={(e) => setContratista(e.target.value)} className="h-9 text-xs bg-white text-black" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Resp. Ambiental</Label>
-                  <Input name="respAmbiental" value={respAmbiental} onChange={(e) => setRespAmbiental(e.target.value)} className="h-9 text-xs bg-white" />
+                  <Input name="respAmbiental" value={respAmbiental} onChange={(e) => setRespAmbiental(e.target.value)} className="h-9 text-xs bg-white text-black" />
                 </div>
                 <div className="space-y-1.5 md:col-span-3">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Otro Drive de Trabajo</Label>
-                  <Input name="otroDrive" value={otroDrive} onChange={(e) => setOtroDrive(e.target.value)} className="h-9 text-xs bg-white" />
+                  <Input name="otroDrive" value={otroDrive} onChange={(e) => setOtroDrive(e.target.value)} className="h-9 text-xs bg-white text-black" />
                 </div>
                 <div className="space-y-1.5 md:col-span-3">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Drive del Proyectista</Label>
-                  <Input name="driveProyectista" value={driveProyectista} onChange={(e) => setDriveProyectista(e.target.value)} className="h-9 text-xs bg-white" />
+                  <Input name="driveProyectista" value={driveProyectista} onChange={(e) => setDriveProyectista(e.target.value)} className="h-9 text-xs bg-white text-black" />
                 </div>
               </div>
             </div>
@@ -365,12 +406,21 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
             </Button>
           </DialogFooter>
         </form>
+
+        <LocationPicker 
+          isOpen={isLocationPickerOpen}
+          onOpenChange={setIsLocationPickerOpen}
+          onSelect={handleLocationSelect}
+          initialLon={initialLocation?.lon}
+          initialLat={initialLocation?.lat}
+          initialZoom={initialLocation?.zoom}
+        />
       </div>
     );
   }
 
   return (
-    <Card className="w-full h-full flex flex-col border-0 shadow-none overflow-hidden bg-white">
+    <Card className="w-full h-full flex flex-col border-0 shadow-none overflow-hidden bg-white text-black">
       <CardHeader className="p-4 border-b bg-muted/10">
         <div className="flex justify-between items-center">
             <div><CardTitle className="text-base font-bold">Gestión de Proyectos</CardTitle></div>
@@ -382,7 +432,7 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
         <div className="pt-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar por nombre o código..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 text-xs bg-white" />
+            <Input placeholder="Buscar por nombre o código..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 text-xs bg-white text-black" />
           </div>
         </div>
       </CardHeader>

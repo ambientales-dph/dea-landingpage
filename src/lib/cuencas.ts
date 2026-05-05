@@ -44,5 +44,6 @@ export const DESCRIPCION_PLANTILLA = `·ESTADO:
 
 ·Otro Drive de trabajo:
 ·Drive del proyectista:
+·COORDINADAS:
 
 #`;

@@ -169,6 +169,21 @@ function HomeContent() {
       updateRecentProjects(card);
 
       if (card.desc) {
+        // 1. Intento por Coordenadas Guardadas: ·COORDINADAS: **[lon, lat, zoom]**
+        const coordsMatch = card.desc.match(/·COORDINADAS:\s*\*\*\[(.*?)\]\*\*/);
+        if (coordsMatch && coordsMatch[1]) {
+          const parts = coordsMatch[1].split(',').map(p => parseFloat(p.trim()));
+          if (parts.length === 3 && !parts.some(isNaN)) {
+            const [lon, lat, zoom] = parts;
+            setViewState({
+              center: fromLonLat([lon, lat]),
+              zoom: zoom,
+            });
+            return; // Éxito, salir
+          }
+        }
+
+        // 2. Fallback por Hashtag: #Lugar
         const match = card.desc.match(/^\s*\\?#\s*(.*)$/m);
         const query = match && match[1] ? match[1].trim() : null;
         
