@@ -47,7 +47,7 @@ export default function LocationPicker({
   const mapInstance = React.useRef<Map | null>(null);
   const [baseLayerType, setBaseLayerType] = React.useState<BaseLayerType>('osm');
 
-  // Coordenadas del centro de la Prov. de Buenos Aires (Saladillo aprox)
+  // Centro de la Provincia de Buenos Aires (Saladillo aprox)
   const BA_CENTER = [-60.018, -36.037];
   const DEFAULT_ZOOM = 6;
 
@@ -72,16 +72,17 @@ export default function LocationPicker({
     }
   };
 
+  // Inicialización del Mapa
   React.useEffect(() => {
-    if (!isOpen || !mapRef.current) return;
+    if (!isOpen) return;
 
-    // Retardo para asegurar que la animación del Dialog de ShadCN haya terminado
-    const timer = setTimeout(() => {
+    // Pequeño retardo para que el Dialog empiece a existir en el DOM
+    const initTimer = setTimeout(() => {
       if (!mapRef.current || mapInstance.current) return;
 
-      const lon = initialLon !== undefined ? initialLon : BA_CENTER[0];
-      const lat = initialLat !== undefined ? initialLat : BA_CENTER[1];
-      const zoom = initialZoom !== undefined ? initialZoom : DEFAULT_ZOOM;
+      const lon = initialLon ?? BA_CENTER[0];
+      const lat = initialLat ?? BA_CENTER[1];
+      const zoom = initialZoom ?? DEFAULT_ZOOM;
 
       const baseLayer = new TileLayer({
         source: getLayerSource(baseLayerType),
@@ -96,7 +97,6 @@ export default function LocationPicker({
           zoom: zoom,
           minZoom: 4,
           maxZoom: 19,
-          // Forzamos la proyección estándar
           projection: 'EPSG:3857'
         }),
         interactions: defaultInteractions({
@@ -109,21 +109,19 @@ export default function LocationPicker({
       });
 
       mapInstance.current = map;
-      
-      // Múltiples intentos de redimensionado para evitar la pantalla gris
-      const refreshSize = () => {
-        if (mapInstance.current) {
-          mapInstance.current.updateSize();
-        }
-      };
 
-      refreshSize();
-      setTimeout(refreshSize, 100);
-      setTimeout(refreshSize, 500);
-    }, 200);
+      // Forzar redimensionamiento múltiple para contrarrestar la animación del Dialog
+      const r1 = setTimeout(() => map.updateSize(), 100);
+      const r2 = setTimeout(() => map.updateSize(), 400);
+      const r3 = setTimeout(() => map.updateSize(), 800);
+
+      return () => {
+        [r1, r2, r3].forEach(clearTimeout);
+      };
+    }, 150);
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(initTimer);
       if (mapInstance.current) {
         mapInstance.current.setTarget(undefined);
         mapInstance.current = null;
@@ -131,7 +129,7 @@ export default function LocationPicker({
     };
   }, [isOpen]);
 
-  // Actualización reactiva de la capa base
+  // Cambio reactivo de capa base
   React.useEffect(() => {
     if (mapInstance.current) {
       const layers = mapInstance.current.getLayers();
@@ -148,7 +146,7 @@ export default function LocationPicker({
       const center = view.getCenter();
       const zoom = view.getZoom();
       if (center && zoom !== undefined) {
-        // Convertimos de Web Mercator (metros) a Grados (WGS84) para guardar
+        // Convertimos de Web Mercator a Coordenadas Geográficas para guardar
         const [lon, lat] = toLonLat(center);
         onSelect(lon, lat, Math.round(zoom));
         onOpenChange(false);
@@ -158,7 +156,7 @@ export default function LocationPicker({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md h-[420px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl bg-zinc-200">
+      <DialogContent className="max-w-md h-[400px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl bg-zinc-200">
         <DialogHeader className="p-3 bg-primary text-primary-foreground shrink-0 flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="flex items-center gap-2 text-xs font-bold font-headline">
             <MapPin className="h-4 w-4" />
@@ -169,10 +167,10 @@ export default function LocationPicker({
         <div className="relative flex-1 bg-zinc-300 overflow-hidden min-h-0 border-y border-zinc-400/20">
           <div 
             ref={mapRef} 
-            className="w-full h-full cursor-crosshair outline-none bg-zinc-300" 
+            className="w-full h-full bg-zinc-300 outline-none" 
           />
           
-          {/* Mira central fija para precisión */}
+          {/* Mira central fija */}
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
             <div className="relative flex items-center justify-center">
               <Crosshair className="h-10 w-10 text-primary opacity-60 stroke-[1.5px]" />
@@ -180,7 +178,7 @@ export default function LocationPicker({
             </div>
           </div>
 
-          {/* Selector de Capas Flotante - Forzando alta prioridad */}
+          {/* Selector de Capas */}
           <div className="absolute top-3 right-3 z-50">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -204,12 +202,6 @@ export default function LocationPicker({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-          
-          <div className="absolute bottom-3 left-3 bg-white/90 px-2 py-1 rounded border border-zinc-300 shadow-sm pointer-events-none z-20">
-            <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest leading-tight">
-              Centrar zona en la mira
-            </p>
           </div>
         </div>
 
