@@ -73,11 +73,11 @@ export default function LocationPicker({
     }
   };
 
-  // Inicialización del mapa
+  // Inicialización del mapa optimizada para evitar el bloqueo de carga
   React.useEffect(() => {
     if (!isOpen || !mapRef.current) return;
 
-    // Pequeño timeout para esperar a que el Dialog termine su animación de entrada
+    // Timeout un poco mayor para asegurar que la transición del Dialog haya terminado
     const timer = setTimeout(() => {
       if (!mapRef.current) return;
 
@@ -99,16 +99,21 @@ export default function LocationPicker({
           minZoom: 4,
           maxZoom: 19
         }),
-        interactions: defaultInteractions(),
+        interactions: defaultInteractions({
+          doubleClickZoom: true,
+          dragPan: true,
+          mouseWheelZoom: true,
+          pinchRotate: false,
+        }),
         controls: [],
       });
 
       mapInstance.current = map;
       setIsMapReady(true);
       
-      // Forzar actualización de tamaño tras renderizado inicial
+      // Aseguramos que el mapa tome todo el tamaño disponible
       map.updateSize();
-    }, 300);
+    }, 450);
 
     return () => {
       clearTimeout(timer);
@@ -146,8 +151,8 @@ export default function LocationPicker({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[650px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl bg-zinc-100">
-        <DialogHeader className="p-4 bg-primary text-primary-foreground shrink-0">
+      <DialogContent className="max-w-2xl h-[500px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl bg-zinc-100">
+        <DialogHeader className="p-3 bg-primary text-primary-foreground shrink-0">
           <DialogTitle className="flex items-center gap-2 text-sm font-bold font-headline">
             <MapPin className="h-4 w-4" />
             Definir Vista del Proyecto
