@@ -48,7 +48,7 @@ export default function LocationPicker({
   const [baseLayerType, setBaseLayerType] = React.useState<BaseLayerType>('osm');
 
   // Coordenadas del centro de la Prov. de Buenos Aires (Saladillo aprox)
-  const BA_CENTER = [-60.0, -36.0];
+  const BA_CENTER = [-60.018, -36.037];
   const DEFAULT_ZOOM = 6;
 
   const getLayerSource = (type: BaseLayerType) => {
@@ -75,7 +75,7 @@ export default function LocationPicker({
   React.useEffect(() => {
     if (!isOpen || !mapRef.current) return;
 
-    // Pequeño retardo para asegurar que el DOM del Dialog esté listo
+    // Retardo para asegurar que la animación del Dialog de ShadCN haya terminado
     const timer = setTimeout(() => {
       if (!mapRef.current || mapInstance.current) return;
 
@@ -95,7 +95,9 @@ export default function LocationPicker({
           center: fromLonLat([lon, lat]),
           zoom: zoom,
           minZoom: 4,
-          maxZoom: 19
+          maxZoom: 19,
+          // Forzamos la proyección estándar
+          projection: 'EPSG:3857'
         }),
         interactions: defaultInteractions({
           doubleClickZoom: true,
@@ -108,11 +110,17 @@ export default function LocationPicker({
 
       mapInstance.current = map;
       
-      // Forzar renderizado y tamaño
-      map.updateSize();
-      // Un segundo intento tras la animación del Dialog
-      setTimeout(() => map.updateSize(), 300);
-    }, 150);
+      // Múltiples intentos de redimensionado para evitar la pantalla gris
+      const refreshSize = () => {
+        if (mapInstance.current) {
+          mapInstance.current.updateSize();
+        }
+      };
+
+      refreshSize();
+      setTimeout(refreshSize, 100);
+      setTimeout(refreshSize, 500);
+    }, 200);
 
     return () => {
       clearTimeout(timer);
@@ -123,7 +131,7 @@ export default function LocationPicker({
     };
   }, [isOpen]);
 
-  // Cambio reactivo de capa base
+  // Actualización reactiva de la capa base
   React.useEffect(() => {
     if (mapInstance.current) {
       const layers = mapInstance.current.getLayers();
@@ -140,6 +148,7 @@ export default function LocationPicker({
       const center = view.getCenter();
       const zoom = view.getZoom();
       if (center && zoom !== undefined) {
+        // Convertimos de Web Mercator (metros) a Grados (WGS84) para guardar
         const [lon, lat] = toLonLat(center);
         onSelect(lon, lat, Math.round(zoom));
         onOpenChange(false);
@@ -149,7 +158,7 @@ export default function LocationPicker({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg h-[450px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl bg-zinc-100">
+      <DialogContent className="max-w-md h-[420px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl bg-zinc-200">
         <DialogHeader className="p-3 bg-primary text-primary-foreground shrink-0 flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="flex items-center gap-2 text-xs font-bold font-headline">
             <MapPin className="h-4 w-4" />
@@ -157,25 +166,25 @@ export default function LocationPicker({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="relative flex-1 bg-zinc-200 overflow-hidden min-h-0">
+        <div className="relative flex-1 bg-zinc-300 overflow-hidden min-h-0 border-y border-zinc-400/20">
           <div 
             ref={mapRef} 
-            className="w-full h-full cursor-crosshair outline-none bg-zinc-200" 
+            className="w-full h-full cursor-crosshair outline-none bg-zinc-300" 
           />
           
-          {/* Mira central fija */}
+          {/* Mira central fija para precisión */}
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
             <div className="relative flex items-center justify-center">
-              <Crosshair className="h-8 w-8 text-primary opacity-60 stroke-[1.5px]" />
-              <div className="absolute h-1 w-1 bg-primary rounded-full" />
+              <Crosshair className="h-10 w-10 text-primary opacity-60 stroke-[1.5px]" />
+              <div className="absolute h-1.5 w-1.5 bg-primary rounded-full shadow-sm" />
             </div>
           </div>
 
-          {/* Selector de Capas Flotante */}
-          <div className="absolute top-3 right-3 z-30">
+          {/* Selector de Capas Flotante - Forzando alta prioridad */}
+          <div className="absolute top-3 right-3 z-50">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="sm" className="shadow-lg bg-white/95 hover:bg-white text-zinc-700 gap-1.5 border border-zinc-200 h-7 text-[9px] font-bold uppercase">
+                <Button variant="secondary" size="sm" className="shadow-lg bg-white/95 hover:bg-white text-zinc-700 gap-1.5 border border-zinc-300 h-7 text-[9px] font-bold uppercase">
                   <Layers className="h-3 w-3" />
                   <span>Capas</span>
                 </Button>
@@ -197,19 +206,19 @@ export default function LocationPicker({
             </DropdownMenu>
           </div>
           
-          <div className="absolute bottom-3 left-3 bg-white/90 p-1.5 rounded-md border border-zinc-300 shadow-sm pointer-events-none z-20">
+          <div className="absolute bottom-3 left-3 bg-white/90 px-2 py-1 rounded border border-zinc-300 shadow-sm pointer-events-none z-20">
             <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest leading-tight">
-              Encuadre la zona en la mira
+              Centrar zona en la mira
             </p>
           </div>
         </div>
 
-        <DialogFooter className="p-2 bg-zinc-200 border-t shrink-0 flex flex-row justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="text-zinc-600 hover:bg-zinc-300 h-8 text-[11px]">
+        <DialogFooter className="p-3 bg-zinc-200 border-t shrink-0 flex flex-row justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="text-zinc-600 hover:bg-zinc-300 h-8 text-[11px] font-bold uppercase tracking-wide">
             Cancelar
           </Button>
           <Button size="sm" onClick={handleConfirm} className="px-6 shadow-md h-8 text-[11px] font-bold uppercase tracking-wide">
-            Confirmar
+            Confirmar Vista
           </Button>
         </DialogFooter>
       </DialogContent>
