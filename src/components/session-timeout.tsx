@@ -52,7 +52,7 @@ export function SessionTimeout() {
       setShowWarning(false);
       toast({
         title: 'Sesión expirada',
-        description: 'Se ha cerrado la sesión por inactividad para proteger tu cuenta.',
+        description: 'Se cerró la sesión por inactividad para proteger tu cuenta.',
         variant: 'destructive',
       });
     } catch (error) {
@@ -104,7 +104,7 @@ export function SessionTimeout() {
     
     toast({
       title: 'Sesión renovada',
-      description: 'Tu actividad ha sido confirmada.',
+      description: 'Tu actividad fue confirmada.',
     });
   };
 
@@ -146,7 +146,7 @@ export function SessionTimeout() {
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2 text-xl font-bold font-headline text-primary">
             <Timer className="h-6 w-6 animate-pulse" />
-            ¿Sigues ahí?
+            ¿Seguís ahí?
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="text-zinc-600 py-2">

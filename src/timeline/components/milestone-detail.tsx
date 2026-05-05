@@ -113,7 +113,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
       try {
         await addDoc(collection(db, 'app_activities'), activityData);
       } catch (error) {
-        console.error("Error logging activity:", error);
+        console.error("Error al registrar actividad:", error);
       }
     }
   }, [user, db, cardId, projectName]);
@@ -382,7 +382,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
         onMilestoneUpdate({
           ...milestone,
           associatedFiles: [...(milestone.associatedFiles || []), ...newAssociatedFiles],
-          history: [...milestone.history, createLogEntry(`Añadidos ${newAssociatedFiles.length} archivo(s) con destinos mixtos.`)],
+          history: [...milestone.history, createLogEntry(`Agregados ${newAssociatedFiles.length} archivo(s) con destinos mixtos.`)],
         });
         logActivity('milestone_files_added', `Subió ${newAssociatedFiles.length} archivo(s) mixtos al hito: "${milestone.name}"`);
       }
@@ -391,7 +391,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
       toast({ title: "Carga completada" });
       setIsAddFilesDialogOpen(false);
     } catch (error: any) {
-      console.error("Error adding files:", error);
+      console.error("Error al agregar archivos:", error);
       dismiss(toastId);
       toast({ variant: "destructive", title: "Error al añadir archivos", description: error.message });
     } finally {
@@ -708,7 +708,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                         )}
                         onClick={() => setIsEditingDescription(true)}
                     >
-                        <p className="whitespace-pre-wrap">{milestone.description || 'Añade una descripción...'}</p>
+                        <p className="whitespace-pre-wrap">{milestone.description || 'Agregá una descripción...'}</p>
                         <Pencil className="h-3 w-3 absolute top-1 right-1 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                     )}
@@ -734,7 +734,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                             value={newTag}
                             onChange={(e) => setNewTag(e.target.value)}
                             onKeyDown={handleTagAdd}
-                            placeholder={"Añadir etiqueta y presionar Enter..."}
+                            placeholder={"Agregar etiqueta y presionar Enter..."}
                             className="h-8 bg-zinc-100 text-xs border border-zinc-400 text-black placeholder:text-zinc-500"
                         />
                     </div>
@@ -876,7 +876,7 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                         <Input 
-                            placeholder="Buscar proyecto de destino..." 
+                            placeholder="Buscá un proyecto de destino..." 
                             className="pl-9 bg-white border-zinc-300 h-9 text-xs"
                             value={exportSearchQuery}
                             onChange={(e) => setExportSearchQuery(e.target.value)}

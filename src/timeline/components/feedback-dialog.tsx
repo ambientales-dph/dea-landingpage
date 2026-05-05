@@ -21,7 +21,7 @@ import { Loader2 } from 'lucide-react';
 import { sendFeedback } from '@/timeline/actions/send-feedback';
 
 const feedbackSchema = z.object({
-  userEmail: z.string().email({ message: 'Por favor, introduce un correo válido.' }),
+  userEmail: z.string().email({ message: 'Por favor, ingresá un correo válido.' }),
   title: z.string().min(5, { message: 'El título debe tener al menos 5 caracteres.' }),
   content: z.string().min(10, { message: 'El comentario debe tener al menos 10 caracteres.' }),
 });
@@ -75,7 +75,7 @@ export function FeedbackDialog({ isOpen, onOpenChange }: FeedbackDialogProps) {
         <DialogHeader>
           <DialogTitle className="font-headline">Enviar Comentarios</DialogTitle>
           <DialogDescription className="text-zinc-700">
-            Tus sugerencias nos ayudan a mejorar. Completa el formulario y lo enviaremos directamente.
+            Tus sugerencias nos ayudan a mejorar. Completá el formulario y lo enviaremos directamente.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -114,7 +114,7 @@ export function FeedbackDialog({ isOpen, onOpenChange }: FeedbackDialogProps) {
                   <FormLabel>Comentario</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Describe tu sugerencia o el problema que encontraste."
+                      placeholder="Describí tu sugerencia o el problema que encontraste."
                       className="resize-none bg-zinc-100 text-black border-zinc-400 placeholder:text-zinc-500"
                       rows={5}
                       {...field}

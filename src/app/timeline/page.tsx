@@ -154,7 +154,7 @@ function HomeContent() {
                         setSelectedCard(card as any);
                     }
                 } catch (error) {
-                    console.error("Error fetching card from URL param:", error);
+                    console.error("Error al cargar la tarjeta desde el parámetro de URL:", error);
                 }
             };
             fetchCard();
@@ -218,7 +218,7 @@ function HomeContent() {
       try {
         await addDoc(collection(firestore, 'app_activities'), activityData);
       } catch (error) {
-        console.error("Error logging activity:", error);
+        console.error("Error al registrar actividad:", error);
       }
     }
   }, [user, firestore, selectedCard]);
@@ -360,10 +360,10 @@ function HomeContent() {
                     const milestoneRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestone.id);
                     batch.set(milestoneRef, milestone, { merge: true });
                 });
-                batch.commit().catch(err => console.error("Error committing sync batch:", err));
+                batch.commit().catch(err => console.error("Error al confirmar lote de sincronización:", err));
             }
         } catch (error: any) {
-            console.error("Error synchronizing Trello:", error);
+            console.error("Error al sincronizar con Trello:", error);
             syncPerformedForCard.current = null;
         }
     };
@@ -506,7 +506,7 @@ function HomeContent() {
       localDismiss();
       toast({ title: `Hito "${name}" creado exitosamente.` });
     } catch (error: any) {
-        console.error("Upload error:", error);
+        console.error("Error en la subida:", error);
         localDismiss();
         toast({ variant: "destructive", title: "Error en la carga", description: error.message });
     } finally {
@@ -596,7 +596,7 @@ function HomeContent() {
         setSelectedMilestone(null);
         toast({ 
             title: "Hito movido a la papelera", 
-            description: "Puedes restaurarlo en cualquier momento desde el menú de papelera." 
+            description: "Podés restaurarlo en cualquier momento desde el menú de papelera." 
         });
         
         logTimelineActivity('timeline_milestone_deleted', `Movió hito a papelera: ${milestoneId}`);
