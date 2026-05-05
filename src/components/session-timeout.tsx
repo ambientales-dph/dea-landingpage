@@ -13,7 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Timer } from 'lucide-react';
+import { Timer } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 /**
  * Componente que monitorea la actividad del usuario.
@@ -136,16 +137,18 @@ export function SessionTimeout() {
             <Timer className="h-6 w-6 animate-pulse" />
             ¿Sigues ahí?
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-zinc-600 py-2">
-            Tu sesión está a punto de expirar por inactividad. 
-            Por razones de seguridad, te desconectaremos automáticamente en:
-            <div className="mt-4 flex items-center justify-center">
-              <span className={cn(
-                "text-5xl font-black font-mono transition-colors duration-300",
-                timeLeft <= 10 ? "text-red-500 scale-110" : "text-zinc-800"
-              )}>
-                0:{timeLeft.toString().padStart(2, '0')}
-              </span>
+          <AlertDialogDescription asChild>
+            <div className="text-zinc-600 py-2">
+              Tu sesión está a punto de expirar por inactividad. 
+              Por razones de seguridad, te desconectaremos automáticamente en:
+              <div className="mt-4 flex items-center justify-center">
+                <span className={cn(
+                  "text-5xl font-black font-mono transition-colors duration-300",
+                  timeLeft <= 10 ? "text-red-500 scale-110" : "text-zinc-800"
+                )}>
+                  0:{timeLeft.toString().padStart(2, '0')}
+                </span>
+              </div>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -160,8 +163,4 @@ export function SessionTimeout() {
       </AlertDialogContent>
     </AlertDialog>
   );
-}
-
-function cn(...inputs: any[]) {
-    return inputs.filter(Boolean).join(' ');
 }
