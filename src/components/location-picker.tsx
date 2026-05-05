@@ -73,13 +73,12 @@ export default function LocationPicker({
     }
   };
 
-  // Inicialización del mapa optimizada para evitar el bloqueo de carga
   React.useEffect(() => {
     if (!isOpen || !mapRef.current) return;
 
-    // Timeout un poco mayor para asegurar que la transición del Dialog haya terminado
+    // Iniciamos la creación del mapa con un pequeño delay para el Dialog
     const timer = setTimeout(() => {
-      if (!mapRef.current) return;
+      if (!mapRef.current || mapInstance.current) return;
 
       const lon = initialLon !== undefined ? initialLon : BA_CENTER[0];
       const lat = initialLat !== undefined ? initialLat : BA_CENTER[1];
@@ -109,11 +108,15 @@ export default function LocationPicker({
       });
 
       mapInstance.current = map;
-      setIsMapReady(true);
       
-      // Aseguramos que el mapa tome todo el tamaño disponible
-      map.updateSize();
-    }, 450);
+      // Forzar renderizado inicial
+      map.once('postrender', () => {
+        setIsMapReady(true);
+      });
+
+      // Asegurar que el mapa ocupe todo el espacio
+      setTimeout(() => map.updateSize(), 100);
+    }, 100);
 
     return () => {
       clearTimeout(timer);
@@ -125,16 +128,16 @@ export default function LocationPicker({
     };
   }, [isOpen]);
 
-  // Cambio reactivo de capa base
+  // Cambio reactivo de capa base sin reconstruir el mapa
   React.useEffect(() => {
-    if (mapInstance.current && isMapReady) {
+    if (mapInstance.current) {
       const layers = mapInstance.current.getLayers();
       const baseLayer = layers.getArray().find(l => l.get('id') === 'base-layer') as TileLayer<any>;
       if (baseLayer) {
         baseLayer.setSource(getLayerSource(baseLayerType));
       }
     }
-  }, [baseLayerType, isMapReady]);
+  }, [baseLayerType]);
 
   const handleConfirm = () => {
     if (mapInstance.current) {
@@ -151,17 +154,18 @@ export default function LocationPicker({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[500px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl bg-zinc-100">
-        <DialogHeader className="p-3 bg-primary text-primary-foreground shrink-0">
+      <DialogContent className="max-w-2xl h-[550px] flex flex-col p-0 overflow-hidden border-0 shadow-2xl bg-zinc-100">
+        <DialogHeader className="p-3 bg-primary text-primary-foreground shrink-0 flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="flex items-center gap-2 text-sm font-bold font-headline">
             <MapPin className="h-4 w-4" />
             Definir Vista del Proyecto
           </DialogTitle>
         </DialogHeader>
 
-        <div className="relative flex-1 bg-zinc-200 overflow-hidden">
+        <div className="relative flex-1 bg-zinc-200 overflow-hidden min-h-0">
+          {/* El spinner ahora no bloquea al mapa, es una capa decorativa de carga */}
           {!isMapReady && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-100 z-50">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-100 z-10 transition-opacity duration-300">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
               <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Cargando cartografía...</p>
             </div>
@@ -169,46 +173,46 @@ export default function LocationPicker({
           
           <div 
             ref={mapRef} 
-            className="w-full h-full cursor-crosshair outline-none" 
-            style={{ height: '100%', width: '100%' }}
+            className="w-full h-full cursor-crosshair outline-none bg-zinc-200" 
+            style={{ position: 'absolute', top: 0, left: 0 }}
           />
           
           {/* Mira central fija */}
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
             <div className="relative flex items-center justify-center">
               <Crosshair className="h-10 w-10 text-primary opacity-60 stroke-[1.5px]" />
               <div className="absolute h-1 w-1 bg-primary rounded-full" />
             </div>
           </div>
 
-          {/* Selector de Capas Flotante */}
-          <div className="absolute top-4 right-4 z-20">
+          {/* Selector de Capas Flotante - Elevado para que sea siempre visible */}
+          <div className="absolute top-4 right-4 z-[60]">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="secondary" size="sm" className="shadow-lg bg-white/90 hover:bg-white text-zinc-700 gap-2 border border-zinc-200 h-8 text-[10px] font-bold uppercase">
+                <Button variant="secondary" size="sm" className="shadow-lg bg-white/95 hover:bg-white text-zinc-700 gap-2 border border-zinc-200 h-8 text-[10px] font-bold uppercase">
                   <Layers className="h-3.5 w-3.5" />
                   <span>Mapa Base</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 bg-white border-zinc-200">
-                <DropdownMenuItem onClick={() => setBaseLayerType('osm')} className="gap-2 text-xs">
+              <DropdownMenuContent align="end" className="w-48 bg-white border-zinc-200 z-[70]">
+                <DropdownMenuItem onClick={() => setBaseLayerType('osm')} className="gap-2 text-xs cursor-pointer">
                   <div className="flex-1">OpenStreetMap</div>
-                  {baseLayerType === 'osm' && <Check className="h-3 w-3 text-primary" />}
+                  {baseLayerType === 'osm' && <Check className="h-3.5 w-3.5 text-primary" />}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setBaseLayerType('gray')} className="gap-2 text-xs">
+                <DropdownMenuItem onClick={() => setBaseLayerType('gray')} className="gap-2 text-xs cursor-pointer">
                   <div className="flex-1">OSM Gris (Técnico)</div>
-                  {baseLayerType === 'gray' && <Check className="h-3 w-3 text-primary" />}
+                  {baseLayerType === 'gray' && <Check className="h-3.5 w-3.5 text-primary" />}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setBaseLayerType('satellite')} className="gap-2 text-xs">
+                <DropdownMenuItem onClick={() => setBaseLayerType('satellite')} className="gap-2 text-xs cursor-pointer">
                   <div className="flex-1">ESRI Satélite</div>
-                  {baseLayerType === 'satellite' && <Check className="h-3 w-3 text-primary" />}
+                  {baseLayerType === 'satellite' && <Check className="h-3.5 w-3.5 text-primary" />}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
           
-          <div className="absolute bottom-4 left-4 bg-white/90 p-2 rounded-md border border-zinc-300 shadow-sm pointer-events-none">
-            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest leading-tight">
+          <div className="absolute bottom-4 left-4 bg-white/90 p-2 rounded-md border border-zinc-300 shadow-sm pointer-events-none z-20">
+            <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest leading-tight">
               Navegue y encuadre la zona<br/>del proyecto en la mira central
             </p>
           </div>
