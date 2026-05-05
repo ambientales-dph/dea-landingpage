@@ -3,6 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { ProjectProvider } from "@/providers/project-provider";
+import { SessionTimeout } from "@/components/session-timeout";
 
 export const metadata: Metadata = {
   title: "Portal DEA",
@@ -26,6 +27,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <FirebaseClientProvider>
           <ProjectProvider>
+            <SessionTimeout />
             {children}
             <Toaster />
           </ProjectProvider>
