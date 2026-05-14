@@ -27,6 +27,7 @@ import {
   X,
   Plus,
   Construction,
+  FileJson,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -162,6 +163,18 @@ function HomeContent() {
     }
   }, [user, authorized, fetchUserProjects]);
 
+  const getProjectInfo = useCallback((name: string): { code: string | null; nameWithoutCode: string } => {
+    const projectRegex = /\(([A-Z]{2,4}\d{3})\)$/;
+    const match = name.match(projectRegex);
+    if (match && match[1]) {
+        return {
+            code: match[1],
+            nameWithoutCode: name.replace(projectRegex, '').trim()
+        };
+    }
+    return { code: null, nameWithoutCode: name };
+  }, []);
+
   const handleCardSelect = useCallback(async (card: TrelloCard | null) => {
     setSelectedCard(card);
 
@@ -236,7 +249,7 @@ function HomeContent() {
     setIsLoggingIn(true);
     try {
       await loginConGoogle(auth);
-      toast({ title: '¡Bienvenido!', description: 'Has iniciado sesión correctamente.' });
+      toast({ title: '¡Bienvenido!', description: 'Iniciaste sesión correctamente.' });
     } catch (error: any) {
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({
@@ -255,22 +268,10 @@ function HomeContent() {
       await cerrarSesion(auth);
       setSelectedCard(null);
       setViewState(INITIAL_MAP_VIEW);
-      toast({ title: 'Sesión cerrada', description: 'Has salido de la aplicación.' });
+      toast({ title: 'Sesión cerrada', description: 'Saliste de la aplicación.' });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cerrar la sesión.' });
     }
-  };
-
-  const getProjectInfo = (name: string): { code: string | null; nameWithoutCode: string } => {
-    const projectRegex = /\(([A-Z]{2,4}\d{3})\)$/;
-    const match = name.match(projectRegex);
-    if (match && match[1]) {
-        return {
-            code: match[1],
-            nameWithoutCode: name.replace(projectRegex, '').trim()
-        };
-    }
-    return { code: null, nameWithoutCode: name };
   };
 
   const handleNotificationClick = useCallback((card: TrelloCard) => {
@@ -320,26 +321,21 @@ function HomeContent() {
       const token = await user.getIdToken(true);
       const uid = user.uid;
 
-      // DEBUG LOGS - Esto aparecerá en tu consola del navegador (F12)
+      // DEBUG LOGS
       console.log("🚀 [SALTO SEGURO] Iniciando transferencia de sesión a CartoDEA...");
-      console.log("   - UID del Usuario:", uid);
-      console.log("   - Firebase ID Token (Fresco):", token.substring(0, 30) + "...");
-      console.log("   - URL de Destino:", 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/api/auth/portal-sync');
-
+      
       // 2. El Salto (Formulario Dinámico POST para sincronización segura)
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/api/auth/portal-sync';
       form.style.display = 'none';
 
-      // Input Token (Obligatorio para que el backend valide la sesión)
       const tokenInput = document.createElement('input');
       tokenInput.type = 'hidden';
       tokenInput.name = 'firebase_token';
       tokenInput.value = token;
       form.appendChild(tokenInput);
 
-      // Input UID (Para personalización del mapa en destino)
       const uidInput = document.createElement('input');
       uidInput.type = 'hidden';
       uidInput.name = 'uid';
@@ -349,7 +345,6 @@ function HomeContent() {
       document.body.appendChild(form);
       form.submit();
       
-      // Limpieza preventiva (aunque el submit navega fuera de la página)
       setTimeout(() => {
         if (document.body.contains(form)) {
           document.body.removeChild(form);
@@ -365,7 +360,6 @@ function HomeContent() {
       });
       setIsRedirectingToCartoDEA(false);
       
-      // Si el error es crítico de sesión, redirigir al login
       if (!user) {
         router.push('/');
       }
@@ -567,6 +561,73 @@ function HomeContent() {
     }
   };
 
+  const handleExportJson = useCallback(() => {
+    if (allCards.length === 0) return;
+    
+    toast({ title: 'Generando archivo JSON...', description: 'Procesando la base de proyectos.' });
+
+    try {
+        const extractDriveId = (attachments: any[]) => {
+            if (!attachments) return null;
+            const driveUrl = attachments.find(a => a.url && a.url.includes('drive.google.com'))?.url;
+            if (!driveUrl) return null;
+            const match = driveUrl.match(/folders\/([a-zA-Z0-9_-]+)/) || driveUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            return match ? match[1] : null;
+        };
+
+        const parseDescription = (desc: string) => {
+            const fields: Record<string, string> = {};
+            if (!desc) return fields;
+            
+            const lines = desc.split('\n');
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                const match = trimmed.match(/^[·]?\s*(.*?):\s*(.*)$/);
+                if (match) {
+                    const key = match[1].trim().replace(/\*\*/g, '');
+                    const val = match[2].trim().replace(/\*\*/g, '');
+                    if (key && key !== '#' && !key.startsWith('http') && key.length < 50) {
+                        fields[key] = val;
+                    }
+                }
+            });
+            return fields;
+        };
+
+        const exportData = allCards.map(card => {
+            const { code, nameWithoutCode } = getProjectInfo(card.name);
+            return {
+                id_trello: card.id,
+                codigo_proyecto: code || 'S/C',
+                nombre_trello: card.name,
+                nombre_obra: nameWithoutCode,
+                url_trello: card.url,
+                id_drive_carpeta: extractDriveId(card.attachments),
+                tablero: card.boardName,
+                id_lista: card.idList,
+                estado_actual: parseDescription(card.desc)['ESTADO'] || 'Desconocido',
+                campos_tecnicos: parseDescription(card.desc),
+                etiquetas: (card.labels || []).map(l => l.name),
+                descripcion_raw: card.desc
+            };
+        });
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `DEA-Base-Proyectos-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({ title: '¡Hecho!', description: 'La base de proyectos se descargó en formato JSON.' });
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error al exportar', description: 'No se pudo generar el archivo JSON.' });
+    }
+  }, [allCards, toast, getProjectInfo]);
+
   const handleMyProjectClick = (card: TrelloCard) => {
     handleCardSelect(card);
     setTimeout(() => {
@@ -649,10 +710,11 @@ function HomeContent() {
               <NotificationsBell onNotificationClick={handleNotificationClick} />
               <DropdownMenu>
                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/80"><Settings className="h-6 w-6" /></Button></DropdownMenuTrigger>
-                  <DropdownMenuContent>
+                  <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuLabel>Herramientas</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={handleDownloadPdf} disabled={isDownloading}><Download className="mr-2 h-4 w-4" /><span>Descargar listado</span></DropdownMenuItem>
+                      <DropdownMenuItem onSelect={handleDownloadPdf} disabled={isDownloading}><Download className="mr-2 h-4 w-4" /><span>Descargar listado (PDF)</span></DropdownMenuItem>
+                      <DropdownMenuItem onSelect={handleExportJson} disabled={allCards.length === 0}><FileJson className="mr-2 h-4 w-4" /><span>Exportar base (JSON)</span></DropdownMenuItem>
                       <DropdownMenuItem onSelect={handleDownloadDuplicatesPdf} disabled={isDownloading}><AlertTriangle className="mr-2 h-4 w-4" /><span>Detectar duplicados</span></DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={(e) => {
