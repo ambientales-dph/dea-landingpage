@@ -53,19 +53,12 @@ export default function ActivityLogDialog({ isOpen, onOpenChange, onActivityClic
   const db = useFirestore();
 
   useEffect(() => {
+    // Aseguramos que el body recupere la interacción al desmontar o cerrar
     if (!isOpen) {
-      const cleanup = () => {
-        document.body.style.pointerEvents = '';
-        document.body.style.overflow = '';
-      };
-      cleanup();
-      const timer = setTimeout(cleanup, 300);
-      return () => clearTimeout(timer);
+      document.body.style.pointerEvents = 'auto';
+      document.body.style.overflow = 'auto';
+      return;
     }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
 
     setIsLoading(true);
     const q = query(
@@ -134,12 +127,19 @@ export default function ActivityLogDialog({ isOpen, onOpenChange, onActivityClic
     }
   };
 
+  const handleRowClick = (cardId?: string) => {
+    if (cardId && onActivityClick) {
+      // Forzamos la limpieza del body antes de ejecutar la acción
+      document.body.style.pointerEvents = 'auto';
+      onActivityClick(cardId);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent 
         className="max-w-4xl h-[70vh] flex flex-col p-0 overflow-hidden border-0"
         showCloseButton={false}
-        onPointerDownOutside={() => onOpenChange(false)}
       >
         <DialogHeader className="p-4 bg-muted/30 border-b flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-sm font-bold flex items-center gap-2">
@@ -206,12 +206,7 @@ export default function ActivityLogDialog({ isOpen, onOpenChange, onActivityClic
                       "hover:bg-muted/40 transition-colors border-b border-muted/20 cursor-pointer group",
                       index % 2 === 0 ? "bg-[#cceeff]/40" : "bg-muted/10"
                     )}
-                    onClick={() => {
-                      if (activity.cardId) {
-                        onActivityClick?.(activity.cardId);
-                        onOpenChange(false);
-                      }
-                    }}
+                    onClick={() => handleRowClick(activity.cardId)}
                   >
                     <TableCell className="text-[10px] font-mono whitespace-nowrap px-3 py-1.5 text-muted-foreground">
                       {activity.timestamp ? format(activity.timestamp.toDate(), 'dd/MM/yy HH:mm', { locale: es }) : '---'}
