@@ -1,6 +1,7 @@
 'use server';
 
 import { google } from 'googleapis';
+import { Readable } from 'stream';
 import { CUENCAS } from '@/lib/cuencas';
 
 const oauth2Client = new google.auth.OAuth2(
@@ -287,3 +288,122 @@ export async function moveFile(fileId: string, currentParentId: string, newParen
         throw new Error(`Error al mover archivo en Drive: ${error.message}`);
     }
 }
+
+export interface WorkingFileUploadResult {
+    id: string;
+    name: string;
+    webViewLink: string;
+    webContentLink?: string;
+    size?: number;
+    mimeType?: string;
+    relativePath?: string;
+}
+
+/**
+ * Sube un archivo de trabajo a Google Drive manteniendo su ruta relativa de subcarpetas si aplica.
+ */
+export async function uploadWorkingFileWithStructure({
+    fileName,
+    mimeType,
+    base64Data,
+    targetFolderId,
+    relativePath
+}: {
+    fileName: string;
+    mimeType: string;
+    base64Data: string;
+    targetFolderId: string;
+    relativePath?: string;
+}): Promise<WorkingFileUploadResult> {
+    try {
+        let destFolderId = targetFolderId;
+
+        // Si viene con ruta relativa (ej. "CarpetaA/SubcarpetaB/archivo.pdf"), creamos o resolvemos la jerarquía
+        if (relativePath && relativePath.includes('/')) {
+            const normalized = relativePath.replace(/\\/g, '/');
+            const segments = normalized.split('/').filter(Boolean);
+            const folderSegments = segments.slice(0, -1);
+            
+            let currentParentId = targetFolderId;
+            for (const seg of folderSegments) {
+                const escaped = seg.replace(/'/g, "\\'");
+                const q = `'${currentParentId}' in parents and name = '${escaped}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+                const res = await drive.files.list({ q, fields: 'files(id, name)' });
+                if (res.data.files && res.data.files.length > 0) {
+                    currentParentId = res.data.files[0].id!;
+                } else {
+                    const created = await drive.files.create({
+                        requestBody: {
+                            name: seg,
+                            mimeType: 'application/vnd.google-apps.folder',
+                            parents: [currentParentId],
+                        },
+                        fields: 'id',
+                    });
+                    currentParentId = created.data.id!;
+                }
+            }
+            destFolderId = currentParentId;
+        }
+
+        const buffer = Buffer.from(base64Data, 'base64');
+        const bufferStream = new Readable();
+        bufferStream.push(buffer);
+        bufferStream.push(null);
+
+        const media = {
+            mimeType: mimeType || 'application/octet-stream',
+            body: bufferStream,
+        };
+
+        const file = await drive.files.create({
+            requestBody: {
+                name: fileName,
+                parents: [destFolderId],
+            },
+            media: media,
+            fields: 'id, webViewLink, webContentLink, name, size, mimeType',
+        });
+
+        if (!file.data.id || !file.data.webViewLink) {
+            throw new Error('La subida del archivo a Google Drive no devolvió datos válidos.');
+        }
+
+        try {
+            await drive.permissions.create({
+                fileId: file.data.id,
+                requestBody: { role: 'reader', type: 'anyone' },
+            });
+        } catch (permErr: any) {
+            console.warn(`No se pudieron setear permisos públicos en ${file.data.id}:`, permErr.message);
+        }
+
+        return {
+            id: file.data.id,
+            name: file.data.name || fileName,
+            webViewLink: file.data.webViewLink,
+            webContentLink: (file.data as any).webContentLink || undefined,
+            size: buffer.length,
+            mimeType: file.data.mimeType || mimeType,
+            relativePath: relativePath || fileName,
+        };
+    } catch (error: any) {
+        console.error(`Error al subir archivo de trabajo (${fileName}) a Drive:`, error);
+        throw new Error(`Error al subir "${fileName}": ${error.message}`);
+    }
+}
+
+/**
+ * Obtiene la fecha y hora exacta actual del servidor en formato ISO y legible.
+ */
+export async function getServerCurrentTime(): Promise<{ iso: string; dateFormatted: string; timeFormatted: string }> {
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return {
+        iso: now.toISOString(),
+        dateFormatted: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+        timeFormatted: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+    };
+}
+
+

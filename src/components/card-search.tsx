@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Pencil, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, History, AlertTriangle, BookText, Settings, Crosshair } from 'lucide-react';
+import { X, FileText, Pencil, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, History, AlertTriangle, BookText, Settings, Crosshair, UploadCloud, FolderPlus } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -74,6 +74,7 @@ import { PROYECTISTAS } from '@/lib/proyectistas';
 import { FINANCIAMIENTO } from '@/lib/financiamiento';
 import { CUENCAS } from '@/lib/cuencas';
 import LocationPicker from './location-picker';
+import UploadWorkingFilesDialog, { type PreparedUploadFile } from './upload-working-files-dialog';
 
 const ESTADOS_PROYECTO = [
     "Sin iniciar",
@@ -244,6 +245,168 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [looseFiles, setLooseFiles] = useState<any[]>([]);
   const [isReorgAssistantOpen, setIsReorgAssistantOpen] = useState(false);
   const recentlyMovedIds = useRef<Set<string>>(new Set());
+
+  // Estados para subida de archivos y carpetas de trabajo
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<PreparedUploadFile[]>([]);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Recorre recursivamente entradas de archivos y carpetas soltadas
+  const extractFilesFromDataTransfer = async (dataTransfer: DataTransfer): Promise<PreparedUploadFile[]> => {
+    const items = dataTransfer.items;
+    const result: PreparedUploadFile[] = [];
+
+    async function traverseEntry(entry: any, path: string = ''): Promise<void> {
+      if (entry.isFile) {
+        return new Promise<void>((resolve) => {
+          entry.file((file: File) => {
+            result.push({ file, relativePath: path ? `${path}/${file.name}` : file.name });
+            resolve();
+          }, () => resolve());
+        });
+      } else if (entry.isDirectory) {
+        const dirReader = entry.createReader();
+        const readEntriesChunk = async (): Promise<any[]> => {
+          const all: any[] = [];
+          let finished = false;
+          while (!finished) {
+            const chunk: any[] = await new Promise((res) => {
+              dirReader.readEntries(res, () => res([]));
+            });
+            if (chunk.length === 0) finished = true;
+            else all.push(...chunk);
+          }
+          return all;
+        };
+        const entries = await readEntriesChunk();
+        const nextPath = path ? `${path}/${entry.name}` : entry.name;
+        for (const child of entries) {
+          await traverseEntry(child, nextPath);
+        }
+      }
+    }
+
+    if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
+      const entries: any[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry();
+        if (entry) entries.push(entry);
+      }
+      for (const entry of entries) {
+        await traverseEntry(entry);
+      }
+    } else {
+      for (let i = 0; i < dataTransfer.files.length; i++) {
+        const file = dataTransfer.files[i];
+        const rel = (file as any).webkitRelativePath || file.name;
+        result.push({ file, relativePath: rel });
+      }
+    }
+
+    return result;
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isTL = inspectionPath[0]?.name === 'Línea de Tiempo';
+    if (!isTL && inspectionPath.length > 0) {
+      setIsDraggingFiles(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+
+    const isTL = inspectionPath[0]?.name === 'Línea de Tiempo';
+    if (isTL) {
+      toast({
+        variant: 'destructive',
+        title: 'Acción no permitida en Línea de Tiempo',
+        description: 'La carpeta de Línea de Tiempo es de solo descarga institucional. Para incorporar documentación final a un hito, acceda al módulo Línea de Tiempo.',
+      });
+      return;
+    }
+
+    if (inspectionPath.length === 0) return;
+
+    try {
+      const extracted = await extractFilesFromDataTransfer(e.dataTransfer);
+      if (extracted.length > 0) {
+        setPendingUploadFiles(extracted);
+        setIsUploadDialogOpen(true);
+      }
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al procesar archivos', description: err.message });
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const list: PreparedUploadFile[] = [];
+      for (let i = 0; i < e.target.files.length; i++) {
+        const file = e.target.files[i];
+        list.push({ file, relativePath: file.name });
+      }
+      setPendingUploadFiles(list);
+      setIsUploadDialogOpen(true);
+      e.target.value = '';
+    }
+  };
+
+  const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const list: PreparedUploadFile[] = [];
+      for (let i = 0; i < e.target.files.length; i++) {
+        const file = e.target.files[i];
+        const rel = file.webkitRelativePath || file.name;
+        list.push({ file, relativePath: rel });
+      }
+      setPendingUploadFiles(list);
+      setIsUploadDialogOpen(true);
+      e.target.value = '';
+    }
+  };
+
+  // Estados para creación de nueva carpeta dentro de la inspección
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const [newSubfolderName, setNewSubfolderName] = useState('');
+  const [isCreatingSubfolder, setIsCreatingSubfolder] = useState(false);
+
+  const handleCreateSubfolder = async () => {
+    if (!newSubfolderName.trim()) {
+      toast({ variant: 'destructive', title: 'Ingrese un nombre para la carpeta' });
+      return;
+    }
+    const current = inspectionPath[inspectionPath.length - 1];
+    if (!current) return;
+
+    setIsCreatingSubfolder(true);
+    try {
+      await createSubfolder(current.id, newSubfolderName.trim());
+      toast({ title: `Carpeta "${newSubfolderName.trim()}" creada con éxito` });
+      setNewSubfolderName('');
+      setIsCreateFolderOpen(false);
+      // Recargar lista de archivos de la carpeta actual
+      const res = await listFolderContents(current.id);
+      setFolderContents(res.files);
+      setNextPageToken(res.nextPageToken);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error al crear carpeta', description: err.message });
+    } finally {
+      setIsCreatingSubfolder(false);
+    }
+  };
 
   const { toast } = useToast();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -459,23 +622,86 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const renderDescription = (desc: string) => {
     const parts: (string | JSX.Element)[] = [];
     if (!desc) return parts;
-    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*(.*?)\*\*|(https?:\/\/drive\.google\.com\/\S+)/gi;
+    const regex = /\[([^\][]*?)\]\((.*?)\)|\*\*([^*]+)\*\*|(https?:\/\/[^\s*]+)/gi;
     let lastIndex = 0; let match;
     while ((match = regex.exec(desc)) !== null) {
         if (match.index > lastIndex) parts.push(desc.substring(lastIndex, match.index));
-        const [full, linkT, linkU, boldT, driveU] = match;
+        const [full, linkT, linkU, boldT, rawUrl] = match;
         if (linkT && linkU) {
             const isD = isDriveFolder(linkU);
-            parts.push(<a href={linkU} key={match.index} target="_blank" rel="noopener noreferrer" className={cn("inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium mb-1", isD ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>{isD ? <Folder className="h-3 w-3" /> : <LinkIcon className="h-3 w-3" />} {linkT}</a>);
+            parts.push(
+              <a 
+                href={linkU} 
+                key={match.index} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium my-0.5 transition-colors", isD ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:text-foreground")}
+              >
+                {isD ? <Folder className="h-3.5 w-3.5 text-amber-500" /> : <LinkIcon className="h-3 w-3" />} {linkT}
+              </a>
+            );
         } else if (boldT) {
-            const names = boldT.split(';').map(n => n.trim());
-            names.forEach((name, idx) => {
-                const part = WHITELIST.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
-                if (part) parts.push(<ParticipantBadge key={`${match.index}-${idx}`} participant={part} userEmail={user?.email || null} />);
-                else parts.push(<strong key={`${match.index}-${idx}`}>{name}</strong>);
-                if (idx < names.length - 1) parts.push("; ");
-            });
-        } else if (driveU) parts.push(<a href={driveU} key={match.index} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary mb-1"><Folder className="h-3 w-3" /> Drive</a>);
+            const trimmedBold = boldT.trim();
+            if (/^https?:\/\//i.test(trimmedBold)) {
+                const isD = isDriveFolder(trimmedBold);
+                parts.push(
+                  <a
+                    href={trimmedBold}
+                    key={match.index}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:text-primary/80 break-all transition-colors cursor-pointer"
+                    title={`Abrir ${trimmedBold}`}
+                  >
+                    {isD ? <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500 inline" /> : <ExternalLink className="h-3 w-3 shrink-0 inline" />}
+                    <span>{trimmedBold}</span>
+                  </a>
+                );
+            } else {
+                const names = boldT.split(';').map(n => n.trim());
+                names.forEach((name, idx) => {
+                    if (/^https?:\/\//i.test(name)) {
+                        const isD = isDriveFolder(name);
+                        parts.push(
+                          <a
+                            href={name}
+                            key={`${match.index}-${idx}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:text-primary/80 break-all transition-colors cursor-pointer"
+                            title={`Abrir ${name}`}
+                          >
+                            {isD ? <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500 inline" /> : <ExternalLink className="h-3 w-3 shrink-0 inline" />}
+                            <span>{name}</span>
+                          </a>
+                        );
+                    } else {
+                        const part = WHITELIST.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
+                        if (part) parts.push(<ParticipantBadge key={`${match.index}-${idx}`} participant={part} userEmail={user?.email || null} />);
+                        else parts.push(<strong key={`${match.index}-${idx}`}>{name}</strong>);
+                    }
+                    if (idx < names.length - 1) parts.push("; ");
+                });
+            }
+        } else if (rawUrl) {
+            let cleanUrl = rawUrl.replace(/[.,);]+$/, '');
+            let trailing = rawUrl.slice(cleanUrl.length);
+            const isD = isDriveFolder(cleanUrl);
+            parts.push(
+              <a
+                href={cleanUrl}
+                key={match.index}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:text-primary/80 break-all transition-colors cursor-pointer"
+                title={`Abrir ${cleanUrl}`}
+              >
+                {isD ? <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500 inline" /> : <ExternalLink className="h-3 w-3 shrink-0 inline" />}
+                <span>{cleanUrl}</span>
+              </a>
+            );
+            if (trailing) parts.push(trailing);
+        }
         lastIndex = regex.lastIndex;
     }
     if (lastIndex < desc.length) parts.push(desc.substring(lastIndex));
@@ -648,6 +874,46 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                     <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary truncate flex-1">
                                                         {inspectionPath[inspectionPath.length - 1].name}
                                                     </h3>
+                                                    {inspectionPath[0]?.name !== 'Línea de Tiempo' && inspectionPath[inspectionPath.length - 1].id !== 'virtual-external' && (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Button 
+                                                                size="icon" 
+                                                                variant="outline" 
+                                                                className="h-7 w-7 border-zinc-200 text-zinc-700 hover:bg-zinc-100 hover:text-black shrink-0"
+                                                                onClick={() => { setNewSubfolderName(''); setIsCreateFolderOpen(true); }}
+                                                                title="Crear nueva carpeta"
+                                                            >
+                                                                <FolderPlus className="h-3.5 w-3.5 text-amber-600" />
+                                                            </Button>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button 
+                                                                        size="icon" 
+                                                                        variant="outline" 
+                                                                        className="h-7 w-7 border-primary/30 text-primary hover:bg-primary/5 shrink-0"
+                                                                        title="Subir archivos o carpetas"
+                                                                    >
+                                                                        <Plus className="h-3.5 w-3.5" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="text-xs cursor-pointer">
+                                                                        <FileText className="h-4 w-4 mr-2 text-zinc-500" />
+                                                                        Subir archivo(s)...
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => folderInputRef.current?.click()} className="text-xs cursor-pointer">
+                                                                        <Folder className="h-4 w-4 mr-2 text-amber-500" />
+                                                                        Subir carpeta...
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem onClick={() => { setNewSubfolderName(''); setIsCreateFolderOpen(true); }} className="text-xs cursor-pointer">
+                                                                        <FolderPlus className="h-4 w-4 mr-2 text-amber-600" />
+                                                                        Crear nueva carpeta...
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
+                                                    )}
                                                 </>
                                             ) : (
                                                 <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary">
@@ -655,7 +921,64 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                 </h3>
                                             )}
                                         </div>
-                                        <div className="border-none p-0 bg-transparent min-h-[100px]">
+
+                                        {/* Aclaración institucional según el portal de archivos inspeccionado */}
+                                        {inspectionPath.length > 0 && inspectionPath[0]?.name === 'Línea de Tiempo' ? (
+                                            <div className="flex items-start gap-2 p-2 bg-blue-50/80 border border-blue-200/90 rounded-md text-[11px] text-blue-900 leading-tight">
+                                                <History className="h-3.5 w-3.5 shrink-0 text-primary mt-0.5" />
+                                                <span>
+                                                    <strong>Línea de Tiempo (Solo Descarga):</strong> Repositorio institucional de documentación final. Para incorporar entregables finales a un hito, acceda al módulo <strong>Línea de Tiempo</strong>.
+                                                </span>
+                                            </div>
+                                        ) : inspectionPath.length > 0 && inspectionPath[inspectionPath.length - 1].id !== 'virtual-external' ? (
+                                            <div className="flex items-start gap-2 p-2 bg-amber-50/80 border border-amber-200/90 rounded-md text-[11px] text-amber-900 leading-tight">
+                                                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 mt-0.5" />
+                                                <span>
+                                                    <strong>Solo archivos de trabajo:</strong> Arrastre archivos o carpetas aquí para subirlos a esta carpeta. Para documentación final entregable, utilice la <strong>Línea de Tiempo</strong>.
+                                                </span>
+                                            </div>
+                                        ) : null}
+
+                                        <div 
+                                            className={cn(
+                                                "relative transition-all duration-200 rounded-lg min-h-[100px]",
+                                                inspectionPath.length > 0 && inspectionPath[0]?.name !== 'Línea de Tiempo' && inspectionPath[inspectionPath.length - 1].id !== 'virtual-external' && "border-2 border-dashed",
+                                                inspectionPath.length > 0 && inspectionPath[0]?.name !== 'Línea de Tiempo' && (isDraggingFiles ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-transparent hover:border-zinc-200"),
+                                                isInspecting && "pointer-events-none"
+                                            )}
+                                            onDragOver={handleDragOver}
+                                            onDragLeave={handleDragLeave}
+                                            onDrop={handleDrop}
+                                        >
+                                            {/* Overlay visual al arrastrar archivos */}
+                                            {isDraggingFiles && inspectionPath.length > 0 && inspectionPath[0]?.name !== 'Línea de Tiempo' && (
+                                                <div className="absolute inset-0 z-30 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex flex-col items-center justify-center gap-2 backdrop-blur-[1px] p-4 text-center pointer-events-none">
+                                                    <UploadCloud className="h-8 w-8 text-primary animate-bounce" />
+                                                    <p className="text-xs font-semibold text-primary">Soltá los archivos o carpetas de trabajo aquí</p>
+                                                    <p className="text-[10px] text-muted-foreground">Destino: {inspectionPath[inspectionPath.length - 1].name}</p>
+                                                </div>
+                                            )}
+
+                                            {/* Inputs ocultos para subida por clic */}
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                multiple 
+                                                className="hidden" 
+                                                onChange={handleFileInputChange} 
+                                            />
+                                            <input 
+                                                type="file" 
+                                                ref={folderInputRef} 
+                                                // @ts-ignore
+                                                webkitdirectory="" 
+                                                // @ts-ignore
+                                                directory="" 
+                                                multiple 
+                                                className="hidden" 
+                                                onChange={handleFolderInputChange} 
+                                            />
+
                                             {isInspecting ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div> : (
                                                 <div className="space-y-0.5">
                                                     {inspectionPath.length === 0 ? sortedAttachments.map(att => {
@@ -685,7 +1008,21 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                                 </ContextMenuContent>
                                                             </ContextMenu>
                                                         );
-                                                    }) : folderContents.length === 0 ? <p className="text-[10px] text-muted-foreground italic p-4 text-center">Carpeta vacía</p> : folderContents.map(f => {
+                                                    }) : folderContents.length === 0 ? (
+                                                        <div className="flex flex-col items-center justify-center p-6 text-center gap-2 border border-dashed rounded-lg bg-zinc-50/50">
+                                                            <Folder className="h-8 w-8 text-zinc-300" />
+                                                            <p className="text-xs font-medium text-zinc-600">Carpeta vacía</p>
+                                                            {inspectionPath[0]?.name !== 'Línea de Tiempo' && inspectionPath[inspectionPath.length - 1].id !== 'virtual-external' ? (
+                                                                <p className="text-[11px] text-muted-foreground max-w-xs">
+                                                                    Arrastrá archivos o carpetas aquí, o utilizá el botón <strong>Subir</strong>. Solo archivos de trabajo.
+                                                                </p>
+                                                            ) : (
+                                                                <p className="text-[11px] text-muted-foreground max-w-xs">
+                                                                    No hay archivos registrados en esta carpeta.
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ) : folderContents.map(f => {
                                                         const isTL = inspectionPath[0]?.name === 'Línea de Tiempo';
                                                         const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
                                                         const canOpenInDrive = !isTL;
@@ -743,6 +1080,79 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                         <Button size="sm" onClick={isRawEditing ? handleSaveRawEdit : handleSaveEdit} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar Cambios'}</Button>
                     </DialogFooter>
                 )}
+
+                {selectedCard && inspectionPath.length > 0 && (
+                  <UploadWorkingFilesDialog
+                    isOpen={isUploadDialogOpen}
+                    onOpenChange={setIsUploadDialogOpen}
+                    selectedCard={selectedCard}
+                    currentFolder={inspectionPath[inspectionPath.length - 1]}
+                    files={pendingUploadFiles}
+                    onUploadSuccess={() => {
+                      const current = inspectionPath[inspectionPath.length - 1];
+                      if (current && current.id !== 'virtual-external') {
+                        listFolderContents(current.id)
+                          .then((res) => {
+                            setFolderContents(res.files);
+                            setNextPageToken(res.nextPageToken);
+                          })
+                          .catch(console.error);
+                      }
+                      fetchCardData();
+                    }}
+                  />
+                )}
+
+                <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
+                    <DialogContent className="max-w-sm p-5">
+                        <DialogHeader>
+                            <div className="flex items-center gap-2 text-amber-600">
+                                <FolderPlus className="h-5 w-5" />
+                                <DialogTitle className="text-sm font-bold">Crear Nueva Carpeta</DialogTitle>
+                            </div>
+                            <DialogDescription className="text-xs text-muted-foreground">
+                                Se creará dentro de: <strong className="text-foreground">{inspectionPath[inspectionPath.length - 1]?.name}</strong>
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-2 space-y-2">
+                            <Label className="text-xs font-semibold">Nombre de la carpeta</Label>
+                            <Input 
+                                value={newSubfolderName} 
+                                onChange={(e) => setNewSubfolderName(e.target.value)} 
+                                placeholder="Ej: Planos 2026" 
+                                className="h-9 text-xs" 
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleCreateSubfolder();
+                                    }
+                                }}
+                                disabled={isCreatingSubfolder}
+                                autoFocus
+                            />
+                        </div>
+                        <DialogFooter className="pt-2 gap-2 flex items-center justify-end">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-xs h-8" 
+                                onClick={() => setIsCreateFolderOpen(false)}
+                                disabled={isCreatingSubfolder}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button 
+                                size="sm" 
+                                className="text-xs h-8 gap-1.5" 
+                                onClick={handleCreateSubfolder}
+                                disabled={isCreatingSubfolder || !newSubfolderName.trim()}
+                            >
+                                {isCreatingSubfolder ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderPlus className="h-3.5 w-3.5" />}
+                                Crear Carpeta
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 <LocationPicker 
                   isOpen={isLocationPickerOpen}

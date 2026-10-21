@@ -17,6 +17,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { uploadFileToDrive, getOrCreateProjectFolder, findFileInFolder, deleteFileFromDrive, listFolderContents, createMilestoneFolder } from '@/timeline/services/google-drive';
+import { getServerCurrentTime } from '@/services/google-drive';
 import { attachUrlToCard, deleteAttachmentFromCard, getCardAttachments } from '@/timeline/services/trello';
 import { Buffer } from 'buffer';
 import { Calendar } from './ui/calendar';
@@ -214,6 +215,29 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
           });
         }
       }
+    }
+  };
+
+  const handleSetCurrentServerTime = async () => {
+    try {
+      const serverTime = await getServerCurrentTime();
+      onMilestoneUpdate({
+        ...milestone,
+        occurredAt: serverTime.iso,
+        history: [...milestone.history, createLogEntry(`Fecha y hora sincronizada con servidor (${format(parseISO(serverTime.iso), 'dd/MM/yyyy HH:mm:ss')})`)],
+      });
+      setManualDateText(format(parseISO(serverTime.iso), "dd/MM/yyyy"));
+      setManualTimeText(format(parseISO(serverTime.iso), "HH:mm:ss"));
+      toast({
+        title: "Fecha y hora sincronizada",
+        description: `Hora del servidor: ${format(parseISO(serverTime.iso), 'dd/MM/yyyy HH:mm:ss')}`,
+      });
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Error al sincronizar fecha",
+        description: err.message || "No se pudo obtener la hora del servidor",
+      });
     }
   };
 
@@ -628,35 +652,46 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                         </Select>
                     </div>
                     <div className="flex flex-col text-xs text-zinc-700 mt-1.5 space-y-2">
-                        <div className="flex items-center gap-2">
-                            <Clock className="h-3 w-3 mr-1" />
-                            <div className="flex gap-1">
-                            <Input 
-                                placeholder="DD/MM/YYYY" 
-                                className="h-7 text-[10px] w-24 bg-zinc-100 text-black border-zinc-400"
-                                value={manualDateText}
-                                onChange={(e) => handleManualDateChange(e.target.value)}
-                            />
-                            <Input 
-                                placeholder="HH:mm:ss" 
-                                className="h-7 text-[10px] w-24 bg-zinc-100 text-black border-zinc-400"
-                                value={manualTimeText}
-                                onChange={(e) => handleManualTimeChange(e.target.value)}
-                            />
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                className={cn(
-                                    "h-7 w-7 p-0 border border-zinc-400 rounded bg-zinc-100 transition-all",
-                                    showCalendar && "border-primary ring-1 ring-primary"
-                                )}
-                                onClick={() => setShowCalendar(!showCalendar)}
-                            >
-                                <CalendarIcon className="h-3.5 w-3.5" />
-                            </Button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <Clock className="h-3 w-3 mr-1 text-zinc-500" />
+                            <div className="flex items-center gap-1">
+                                <Input 
+                                    placeholder="DD/MM/YYYY" 
+                                    className="h-7 text-[10px] w-24 bg-white text-black border-zinc-300 focus:border-primary"
+                                    value={manualDateText}
+                                    onChange={(e) => handleManualDateChange(e.target.value)}
+                                />
+                                <Input 
+                                    placeholder="HH:mm:ss" 
+                                    className="h-7 text-[10px] w-24 bg-white text-black border-zinc-300 focus:border-primary font-mono"
+                                    value={manualTimeText}
+                                    onChange={(e) => handleManualTimeChange(e.target.value)}
+                                />
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className={cn(
+                                        "h-7 w-7 p-0 border border-zinc-300 rounded bg-white hover:bg-zinc-50 transition-all",
+                                        showCalendar && "border-primary ring-1 ring-primary"
+                                    )}
+                                    onClick={() => setShowCalendar(!showCalendar)}
+                                    title="Abrir calendario"
+                                >
+                                    <CalendarIcon className="h-3.5 w-3.5 text-zinc-600" />
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-[10px] px-2 border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 font-medium"
+                                    onClick={handleSetCurrentServerTime}
+                                    title="Sincronizar con la fecha y hora real del servidor"
+                                >
+                                    Ahora
+                                </Button>
                             </div>
                             <span className="text-[10px] text-zinc-500 italic truncate">
-                            {format(parseISO(milestone.occurredAt), "PPP ppp", { locale: es })}
+                                {format(parseISO(milestone.occurredAt), "PPP ppp", { locale: es })}
                             </span>
                         </div>
                     </div>
@@ -742,65 +777,94 @@ export function MilestoneDetail({ milestone, categories, onMilestoneUpdate, onMi
                     <Separator className="bg-zinc-400/50" />
 
                     <div className="space-y-2">
-                        <h3 className="font-semibold flex items-center justify-between gap-2 text-sm text-black">
-                            <div className="flex items-center gap-2">
-                                <Paperclip className="h-4 w-4" /> Archivos del Hito
+                        <h3 className="font-semibold flex items-center justify-between gap-2 text-xs text-zinc-900">
+                            <div className="flex items-center gap-1.5">
+                                <Paperclip className="h-3.5 w-3.5 text-zinc-600" />
+                                <span>Archivos del Hito</span>
+                                {uniqueFiles.length > 0 && (
+                                    <span className="text-[10px] font-normal text-zinc-500 font-mono">
+                                        ({uniqueFiles.length})
+                                    </span>
+                                )}
                             </div>
                             <div className="flex gap-1">
                                 {milestone.driveFolderId && (
                                     <Button 
                                         variant="outline" 
                                         size="sm" 
-                                        className="h-7 text-primary border-primary/30 hover:bg-primary/10" 
+                                        className="h-6 text-[11px] px-2 text-primary border-primary/30 hover:bg-primary/10" 
                                         onClick={handleSyncFolder}
                                         disabled={isSyncing}
                                         title="Sincronizar con carpeta de Drive"
                                     >
-                                        {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                        {isSyncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                                     </Button>
                                 )}
-                                <Button variant="outline" size="sm" className="h-7 text-black border-zinc-400 hover:bg-zinc-200" onClick={() => setIsAddFilesDialogOpen(true)}>
-                                    <UploadCloud className="mr-2 h-3 w-3"/>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-6 text-[11px] px-2 text-zinc-800 border-zinc-300 hover:bg-zinc-100" 
+                                    onClick={() => setIsAddFilesDialogOpen(true)}
+                                >
+                                    <UploadCloud className="mr-1.5 h-3 w-3 text-zinc-500"/>
                                     Subir
                                 </Button>
                             </div>
                         </h3>
                         {uniqueFiles.length > 0 ? (
-                            <ul className="space-y-1.5 border border-zinc-400 rounded-md p-2 bg-zinc-200">
-                            {uniqueFiles.map(file => {
+                            <div className="border border-zinc-200 rounded-md overflow-hidden bg-white shadow-2xs">
+                                <ul className="divide-y divide-zinc-100">
+                                {uniqueFiles.map(file => {
                                     const isTL = file.isTimelineFile || milestone.tags?.includes('intocable');
                                     const finalDownloadUrl = file.downloadUrl || (file.driveId || file.id ? `https://drive.google.com/uc?export=download&id=${file.driveId || file.id}` : null);
                                     
                                     return (
-                                    <li key={file.id} className="group/file flex items-center justify-between p-1.5 bg-zinc-100 rounded-md hover:bg-zinc-50 transition-colors">
+                                    <li key={file.id} className="group/file flex items-center justify-between py-1 px-2.5 hover:bg-zinc-50/80 transition-colors">
                                         <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            <FileIcon type={file.type} />
-                                            <span className="text-xs font-medium truncate text-black" title={file.name}>{file.name}</span>
+                                            <FileIcon type={file.type} className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+                                            <span className="text-[11px] font-normal truncate text-zinc-800" title={file.name}>
+                                                {file.name}
+                                            </span>
                                         </div>
                                         <div className="flex items-center shrink-0 ml-2 gap-2">
-                                            <span className="text-[10px] text-zinc-500">{file.size}</span>
-                                            <div className="flex items-center gap-1">
+                                            <span className="text-[10px] text-zinc-400 font-mono">{file.size}</span>
+                                            <div className="flex items-center gap-0.5 opacity-80 group-hover/file:opacity-100 transition-opacity">
                                                 {finalDownloadUrl && (
-                                                    <a href={finalDownloadUrl} className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Descargar archivo">
-                                                        <Download className="h-3.5 w-3.5" />
+                                                    <a 
+                                                        href={finalDownloadUrl} 
+                                                        className="p-1 rounded hover:bg-primary/10 text-zinc-400 hover:text-primary transition-colors" 
+                                                        title="Descargar archivo"
+                                                    >
+                                                        <Download className="h-3 w-3" />
                                                     </a>
                                                 )}
                                                 {file.url && !isTL && (
-                                                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-1 rounded-md hover:bg-primary/10 text-zinc-500 hover:text-primary transition-colors" title="Abrir en Drive">
-                                                        <ExternalLink className="h-3.5 w-3.5" />
+                                                    <a 
+                                                        href={file.url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="p-1 rounded hover:bg-primary/10 text-zinc-400 hover:text-primary transition-colors" 
+                                                        title="Abrir en Drive"
+                                                    >
+                                                        <ExternalLink className="h-3 w-3" />
                                                     </a>
                                                 )}
-                                                <button onClick={() => setFileToDelete(file)} className="p-1 rounded-md hover:bg-destructive/10 text-zinc-500 hover:text-destructive transition-colors" title="Eliminar">
-                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                <button 
+                                                    onClick={() => setFileToDelete(file)} 
+                                                    className="p-1 rounded hover:bg-destructive/10 text-zinc-400 hover:text-destructive transition-colors" 
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 className="h-3 w-3" />
                                                 </button>
                                             </div>
                                         </div>
                                     </li>
-                                    )
+                                    );
                                 })}
-                            </ul>
+                                </ul>
+                            </div>
                         ) : (
-                            <p className="text-xs text-zinc-700 italic">No hay archivos guardados para este hito.</p>
+                            <p className="text-xs text-zinc-500 italic py-2">No hay archivos guardados para este hito.</p>
                         )}
                     </div>
                     
