@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+ngrok
+ngrok.exe
 
 # debug
 npm-debug.log*
