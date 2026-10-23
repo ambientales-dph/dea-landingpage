@@ -119,10 +119,20 @@ export default function CreateProjectForm({ setOpen, onEditCard, initialFormOpen
     if (!desc) return '';
     const lines = desc.split('\n');
     const fieldLower = field.toLowerCase().trim();
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const trimmed = line.trim();
         if (trimmed.toLowerCase().startsWith(fieldLower + ':')) {
-            return trimmed.substring(fieldLower.length + 1).trim().replace(/^\*\*|\*\*$/g, '').trim();
+            let val = trimmed.substring(fieldLower.length + 1).trim().replace(/^\*\*|\*\*$/g, '').trim();
+            if (!val && i + 1 < lines.length) {
+                const nextLine = lines[i + 1].trim();
+                if (nextLine && !nextLine.startsWith('·') && !nextLine.startsWith('-')) {
+                    val = nextLine.replace(/^\*\*|\*\*$/g, '').trim();
+                }
+            }
+            const mdMatch = val.match(/\[.*?\]\((https?:\/\/[^\s)]+)\)/);
+            if (mdMatch) return mdMatch[1];
+            return val;
         }
     }
     return '';

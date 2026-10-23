@@ -89,10 +89,18 @@ function reconcileDescription(currentDesc: string, updates: Record<string, strin
         if (fieldMatch) {
             const fieldKey = fieldMatch[1];
             const cleanKey = fieldKey.replace(/:\s*$/, '').trim();
-            const existingLine = currentLines.find(cl => cl.trim().startsWith(fieldKey));
-            if (existingLine) {
-                const val = existingLine.substring(existingLine.indexOf(':') + 1).trim().replace(/\*\*/g, '');
-                fieldValues[cleanKey] = val;
+            const existingIndex = currentLines.findIndex(cl => cl.trim().startsWith(fieldKey));
+            if (existingIndex !== -1) {
+                const existingLine = currentLines[existingIndex];
+                let val = existingLine.substring(existingLine.indexOf(':') + 1).trim().replace(/\*\*/g, '');
+                if (!val && existingIndex + 1 < currentLines.length) {
+                    const nextLine = currentLines[existingIndex + 1].trim();
+                    if (nextLine && !nextLine.startsWith('·') && !nextLine.startsWith('-') && nextLine !== '#') {
+                        val = nextLine.replace(/\*\*/g, '').trim();
+                    }
+                }
+                const mdMatch = val.match(/\[.*?\]\((https?:\/\/[^\s)]+)\)/);
+                fieldValues[cleanKey] = mdMatch ? mdMatch[1] : val;
             }
         }
     });

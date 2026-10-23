@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { X, FileText, Pencil, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, History, AlertTriangle, BookText, Settings, Crosshair, UploadCloud, FolderPlus } from 'lucide-react';
+import { X, FileText, Pencil, ChevronDown, Send, Link as LinkIcon, Plus, RefreshCw, ArrowDownUp, Folder, Printer, Mail, Loader2, CheckCircle2, ChevronLeft, Download, ExternalLink, History, AlertTriangle, BookText, Settings, Crosshair, UploadCloud, FolderPlus, Copy, Check } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -233,6 +233,14 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
   const [editOtroDrive, setEditOtroDrive] = useState('');
   const [editDriveProyectista, setEditDriveProyectista] = useState('');
   const [editCoordinadas, setEditCoordinadas] = useState('');
+  const [wordDocToDownload, setWordDocToDownload] = useState<{ id: string; name: string; webContentLink?: string; webViewLink?: string } | null>(null);
+
+  const isWordDocument = (fileName: string, mimeType?: string) => {
+    const isDocExt = /\.(docx?)$/i.test(fileName || '');
+    const isDocMime = mimeType === 'application/msword' || 
+                      mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    return isDocExt || isDocMime;
+  };
   
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
 
@@ -463,7 +471,21 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     if (!desc) return '';
     const lines = desc.split('\n');
     const fL = field.toLowerCase().trim();
-    for (const line of lines) { if (line.trim().toLowerCase().startsWith(fL + ':')) return line.trim().substring(field.length + 1).trim().replace(/^\*\*|\*\*$/g, '').trim(); }
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trim().toLowerCase().startsWith(fL + ':')) {
+        let val = line.trim().substring(field.length + 1).trim().replace(/^\*\*|\*\*$/g, '').trim();
+        if (!val && i + 1 < lines.length) {
+          const nextLine = lines[i + 1].trim();
+          if (nextLine && !nextLine.startsWith('·') && !nextLine.startsWith('-')) {
+            val = nextLine.replace(/^\*\*|\*\*$/g, '').trim();
+          }
+        }
+        const mdMatch = val.match(/\[.*?\]\((https?:\/\/[^\s)]+)\)/);
+        if (mdMatch) return mdMatch[1];
+        return val;
+      }
+    }
     return '';
   };
 
@@ -619,6 +641,48 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
     return res.sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedCard, tlFolderId]);
 
+  const getUrlAlias = (url: string, textBefore: string, defaultText?: string): string => {
+    if (defaultText && !/^https?:\/\//i.test(defaultText.trim())) {
+      return defaultText;
+    }
+    const fieldMatches = Array.from(
+      textBefore.matchAll(/(?:^|\n)\s*[·\-*]?\s*(?!https?:)([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s/()\-]+):(?!\/\/)/gi)
+    );
+    if (fieldMatches.length > 0) {
+      const lastField = fieldMatches[fieldMatches.length - 1][1].toLowerCase().trim();
+      if (lastField.includes('proyectista')) {
+        return 'Carpeta del Proyectista';
+      }
+      if (lastField.includes('otro drive') || (lastField.includes('drive') && lastField.includes('trabajo'))) {
+        return 'Carpeta de Trabajo';
+      }
+    }
+    return url;
+  };
+
+  const CopyUrlButton = ({ url }: { url: string }) => {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast({ title: 'Enlace copiado al portapapeles' });
+      setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="inline-flex items-center justify-center p-0.5 ml-1 rounded hover:bg-zinc-200/80 text-zinc-400 hover:text-zinc-700 transition-colors align-middle"
+        title="Copiar enlace al portapapeles"
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+      </button>
+    );
+  };
+
   const renderDescription = (desc: string) => {
     const parts: (string | JSX.Element)[] = [];
     if (!desc) return parts;
@@ -629,51 +693,67 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
         const [full, linkT, linkU, boldT, rawUrl] = match;
         if (linkT && linkU) {
             const isD = isDriveFolder(linkU);
+            const textBefore = desc.substring(0, match.index);
+            const displayText = getUrlAlias(linkU, textBefore, linkT);
+            const isAlias = displayText === 'Carpeta del Proyectista' || displayText === 'Carpeta de Trabajo';
             parts.push(
-              <a 
-                href={linkU} 
-                key={match.index} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium my-0.5 transition-colors", isD ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:text-foreground")}
-              >
-                {isD ? <Folder className="h-3.5 w-3.5 text-amber-500" /> : <LinkIcon className="h-3 w-3" />} {linkT}
-              </a>
+              <span key={`link-${match.index}`} className="inline-flex items-center">
+                <a 
+                  href={linkU} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={cn("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium my-0.5 transition-colors", isD ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground hover:text-foreground")}
+                  title={`Abrir ${linkU}`}
+                >
+                  {isD ? <Folder className="h-3.5 w-3.5 text-amber-500" /> : <LinkIcon className="h-3 w-3" />} {displayText}
+                </a>
+                {isAlias && <CopyUrlButton url={linkU} />}
+              </span>
             );
         } else if (boldT) {
             const trimmedBold = boldT.trim();
             if (/^https?:\/\//i.test(trimmedBold)) {
                 const isD = isDriveFolder(trimmedBold);
+                const textBefore = desc.substring(0, match.index);
+                const displayText = getUrlAlias(trimmedBold, textBefore);
+                const isAlias = displayText === 'Carpeta del Proyectista' || displayText === 'Carpeta de Trabajo';
                 parts.push(
-                  <a
-                    href={trimmedBold}
-                    key={match.index}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:text-primary/80 break-all transition-colors cursor-pointer"
-                    title={`Abrir ${trimmedBold}`}
-                  >
-                    {isD ? <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500 inline" /> : <ExternalLink className="h-3 w-3 shrink-0 inline" />}
-                    <span>{trimmedBold}</span>
-                  </a>
+                  <span key={`bold-${match.index}`} className="inline-flex items-center">
+                    <a
+                      href={trimmedBold}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:text-primary/80 break-all transition-colors cursor-pointer"
+                      title={`Abrir ${trimmedBold}`}
+                    >
+                      {isD ? <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500 inline" /> : <ExternalLink className="h-3 w-3 shrink-0 inline" />}
+                      <span>{displayText}</span>
+                    </a>
+                    {isAlias && <CopyUrlButton url={trimmedBold} />}
+                  </span>
                 );
             } else {
                 const names = boldT.split(';').map(n => n.trim());
                 names.forEach((name, idx) => {
                     if (/^https?:\/\//i.test(name)) {
                         const isD = isDriveFolder(name);
+                        const textBefore = desc.substring(0, match.index);
+                        const displayText = getUrlAlias(name, textBefore);
+                        const isAlias = displayText === 'Carpeta del Proyectista' || displayText === 'Carpeta de Trabajo';
                         parts.push(
-                          <a
-                            href={name}
-                            key={`${match.index}-${idx}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:text-primary/80 break-all transition-colors cursor-pointer"
-                            title={`Abrir ${name}`}
-                          >
-                            {isD ? <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500 inline" /> : <ExternalLink className="h-3 w-3 shrink-0 inline" />}
-                            <span>{name}</span>
-                          </a>
+                          <span key={`bold-name-${match.index}-${idx}`} className="inline-flex items-center">
+                            <a
+                              href={name}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:text-primary/80 break-all transition-colors cursor-pointer"
+                              title={`Abrir ${name}`}
+                            >
+                              {isD ? <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500 inline" /> : <ExternalLink className="h-3 w-3 shrink-0 inline" />}
+                              <span>{displayText}</span>
+                            </a>
+                            {isAlias && <CopyUrlButton url={name} />}
+                          </span>
                         );
                     } else {
                         const part = WHITELIST.find(p => p.name && p.name.toLowerCase() === name.toLowerCase());
@@ -687,18 +767,23 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             let cleanUrl = rawUrl.replace(/[.,);]+$/, '');
             let trailing = rawUrl.slice(cleanUrl.length);
             const isD = isDriveFolder(cleanUrl);
+            const textBefore = desc.substring(0, match.index);
+            const displayText = getUrlAlias(cleanUrl, textBefore);
+            const isAlias = displayText === 'Carpeta del Proyectista' || displayText === 'Carpeta de Trabajo';
             parts.push(
-              <a
-                href={cleanUrl}
-                key={match.index}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:text-primary/80 break-all transition-colors cursor-pointer"
-                title={`Abrir ${cleanUrl}`}
-              >
-                {isD ? <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500 inline" /> : <ExternalLink className="h-3 w-3 shrink-0 inline" />}
-                <span>{cleanUrl}</span>
-              </a>
+              <span key={`raw-${match.index}`} className="inline-flex items-center">
+                <a
+                  href={cleanUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:text-primary/80 break-all transition-colors cursor-pointer"
+                  title={`Abrir ${cleanUrl}`}
+                >
+                  {isD ? <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500 inline" /> : <ExternalLink className="h-3 w-3 shrink-0 inline" />}
+                  <span>{displayText}</span>
+                </a>
+                {isAlias && <CopyUrlButton url={cleanUrl} />}
+              </span>
             );
             if (trailing) parts.push(trailing);
         }
@@ -1025,19 +1110,67 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                     ) : folderContents.map(f => {
                                                         const isTL = inspectionPath[0]?.name === 'Línea de Tiempo';
                                                         const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+                                                        const isWord = !isFolder && isWordDocument(f.name, f.mimeType);
                                                         const canOpenInDrive = !isTL;
-                                                        const hasDownload = !isFolder && f.webContentLink;
+                                                        const hasDownload = !isFolder && (f.webContentLink || f.id);
                                                         const showMenu = canOpenInDrive || hasDownload;
 
+                                                        const handleItemClick = () => {
+                                                            if (isFolder) {
+                                                                setInspectionPath(p => [...p, { id: f.id, name: f.name }]);
+                                                            } else if (isWord) {
+                                                                setWordDocToDownload(f);
+                                                            } else if (canOpenInDrive) {
+                                                                window.open(f.webViewLink, '_blank');
+                                                            }
+                                                        };
+
                                                         const itemContent = (
-                                                            <div className="flex items-center justify-between p-1.5 bg-white rounded border border-transparent transition-all cursor-pointer hover:bg-zinc-100" onClick={() => { if(isFolder) setInspectionPath(p => [...p, {id: f.id, name: f.name}]); else if(canOpenInDrive) window.open(f.webViewLink, '_blank'); }}>
+                                                            <div className="flex items-center justify-between p-1.5 bg-white rounded border border-transparent transition-all cursor-pointer hover:bg-zinc-100" onClick={handleItemClick}>
                                                                 <div className="flex items-center gap-2 truncate flex-1">
-                                                                    {isFolder ? <Folder className="h-3.5 w-3.5 text-primary" /> : <FileText className="h-3.5 w-3.5 text-zinc-400" />}
-                                                                    <span className="text-[11px] truncate">{f.name}</span>
+                                                                    {isFolder ? (
+                                                                        <Folder className="h-3.5 w-3.5 text-primary" />
+                                                                    ) : isWord ? (
+                                                                        <FileText className="h-3.5 w-3.5 text-blue-600" />
+                                                                    ) : (
+                                                                        <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                                                    )}
+                                                                    <span className={cn("text-[11px] truncate", isWord && "font-medium text-zinc-800")}>{f.name}</span>
                                                                 </div>
                                                                 <div className="flex gap-1">
-                                                                    {f.webContentLink && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webContentLink, '_blank'); }}><Download className="h-3.5 w-3.5" /></Button>}
-                                                                    {canOpenInDrive && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(f.webViewLink, '_blank'); }}><ExternalLink className="h-3.5 w-3.5" /></Button>}
+                                                                    {hasDownload && (
+                                                                        <Button 
+                                                                            variant="ghost" 
+                                                                            size="icon" 
+                                                                            className="h-7 w-7 text-zinc-500 hover:text-black" 
+                                                                            onClick={(e) => { 
+                                                                                e.stopPropagation(); 
+                                                                                const dUrl = f.webContentLink || `https://drive.google.com/uc?export=download&id=${f.id}`;
+                                                                                window.open(dUrl, '_blank'); 
+                                                                            }}
+                                                                            title="Descargar archivo"
+                                                                        >
+                                                                            <Download className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    )}
+                                                                    {canOpenInDrive && (
+                                                                        <Button 
+                                                                            variant="ghost" 
+                                                                            size="icon" 
+                                                                            className="h-7 w-7 text-zinc-500 hover:text-black" 
+                                                                            onClick={(e) => { 
+                                                                                e.stopPropagation(); 
+                                                                                if (isWord) {
+                                                                                    setWordDocToDownload(f);
+                                                                                } else {
+                                                                                    window.open(f.webViewLink, '_blank'); 
+                                                                                }
+                                                                            }}
+                                                                            title={isWord ? "Documento de Word (requiere descarga)" : "Abrir en Drive"}
+                                                                        >
+                                                                            <ExternalLink className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         );
@@ -1050,8 +1183,25 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
                                                                     {itemContent}
                                                                 </ContextMenuTrigger>
                                                                 <ContextMenuContent>
-                                                                    {canOpenInDrive && <ContextMenuItem onSelect={() => window.open(f.webViewLink, '_blank')}>Abrir en Drive</ContextMenuItem>}
-                                                                    {hasDownload && <ContextMenuItem onSelect={() => window.open(f.webContentLink, '_blank')}>Descargar</ContextMenuItem>}
+                                                                    {canOpenInDrive && (
+                                                                        <ContextMenuItem onSelect={() => {
+                                                                            if (isWord) {
+                                                                                setWordDocToDownload(f);
+                                                                            } else {
+                                                                                window.open(f.webViewLink, '_blank');
+                                                                            }
+                                                                        }}>
+                                                                            {isWord ? "Descargar para editar (Word)" : "Abrir en Drive"}
+                                                                        </ContextMenuItem>
+                                                                    )}
+                                                                    {hasDownload && (
+                                                                        <ContextMenuItem onSelect={() => {
+                                                                            const dUrl = f.webContentLink || `https://drive.google.com/uc?export=download&id=${f.id}`;
+                                                                            window.open(dUrl, '_blank');
+                                                                        }}>
+                                                                            Descargar
+                                                                        </ContextMenuItem>
+                                                                    )}
                                                                 </ContextMenuContent>
                                                             </ContextMenu>
                                                         );
@@ -1165,6 +1315,63 @@ export default function CardSearch({ onCardSelect, selectedCard, onClear, isSumm
             </DialogContent>
         </DialogUI>
       )}
+
+      {/* Modal sobrio para advertencia de documentos Word (.doc / .docx) */}
+      <Dialog open={!!wordDocToDownload} onOpenChange={(open) => !open && setWordDocToDownload(null)}>
+        <DialogContent className="w-[92vw] max-w-md p-6 bg-white border border-zinc-200 shadow-2xl rounded-xl overflow-hidden box-border">
+          <DialogHeader className="space-y-3 text-left w-full min-w-0 overflow-hidden">
+            <div className="flex items-center gap-3 w-full min-w-0">
+              <div className="h-10 w-10 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <DialogTitle className="text-base font-bold text-zinc-900 leading-tight">
+                  Documento de Word
+                </DialogTitle>
+                <p 
+                  className="text-[11px] text-zinc-500 truncate font-mono mt-0.5 block w-full max-w-full" 
+                  title={wordDocToDownload?.name}
+                >
+                  {wordDocToDownload?.name}
+                </p>
+              </div>
+            </div>
+            <DialogDescription className="text-xs text-zinc-600 leading-relaxed pt-1 text-left w-full break-words">
+              Para preservar el formato, estilos y tablas originales de este archivo, no se debe abrir en Google Docs ya que altera su estructura.
+              <br /><br />
+              Te recomendamos <strong>descargarlo</strong> para trabajar y editarlo directamente con <strong>Microsoft Word</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-row justify-end gap-2 pt-4 border-t border-zinc-100 sm:space-x-0 w-full mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs h-9 px-4 text-zinc-700 hover:bg-zinc-100"
+              onClick={() => setWordDocToDownload(null)}
+            >
+              Cerrar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="text-xs h-9 px-4 bg-primary hover:bg-primary/90 text-white font-medium flex items-center gap-1.5"
+              onClick={() => {
+                if (wordDocToDownload) {
+                  const downloadUrl = wordDocToDownload.webContentLink || `https://drive.google.com/uc?export=download&id=${wordDocToDownload.id}`;
+                  window.open(downloadUrl, '_blank');
+                }
+                setWordDocToDownload(null);
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Descargar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {selectedCard && <ReorganizationAssistant isOpen={isReorgAssistantOpen} onOpenChange={setIsReorgAssistantOpen} looseFiles={looseFiles} projectId={selectedCard.id} projectName={selectedCard.name} onReorganized={(moved) => { moved.forEach(id => recentlyMovedIds.current.add(id)); setLooseFiles(p => p.filter(f => !moved.includes(f.id))); setIsReorgAssistantOpen(false); setTimeout(() => fetchCardData(), 4000); }} />}
     </div>
   );
