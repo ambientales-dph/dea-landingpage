@@ -36,10 +36,26 @@ export function getAdminApp(): App | null {
     }
   }
 
-  // 2. Intentar variables de entorno (App Hosting / Producción)
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-  if (clientEmail && privateKey) {
+  // 2. Intentar clave completa en variable de entorno (JSON string)
+  const rawKey = process.env.PORTAL_DEA_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (rawKey) {
+    try {
+      const sa = JSON.parse(rawKey);
+      adminApp = initializeApp({
+        credential: cert(sa),
+        projectId: sa.project_id || PROJECT_ID,
+        storageBucket: STORAGE_BUCKET,
+      });
+      return adminApp;
+    } catch (e) {
+      console.warn('[Firebase Admin] Error parseando service account key:', e);
+    }
+  }
+
+  // 3. Intentar variables de entorno de service account SOLO si corresponden a este proyecto
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY || process.env.GOOGLE_PRIVATE_KEY;
+  if (clientEmail && privateKey && clientEmail.includes(PROJECT_ID)) {
     try {
       adminApp = initializeApp({
         credential: cert({
@@ -56,7 +72,7 @@ export function getAdminApp(): App | null {
     }
   }
 
-  // 3. Fallback a Application Default Credentials (ADC nativo de Cloud Run / App Hosting)
+  // 4. Fallback a Application Default Credentials (ADC nativo de Cloud Run / App Hosting)
   try {
     adminApp = initializeApp({
       projectId: PROJECT_ID,
