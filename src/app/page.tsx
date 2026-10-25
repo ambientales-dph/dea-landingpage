@@ -321,13 +321,23 @@ function HomeContent() {
       const token = await user.getIdToken(true);
       const uid = user.uid;
 
+      // Determinamos el código del proyecto activo si hay uno seleccionado
+      let activeProjectCode = '';
+      if (selectedCard) {
+        const { code } = getProjectInfo(selectedCard.name);
+        activeProjectCode = code || selectedCard.name.match(/\b([A-Za-z]{2,4}\d{3})\b/)?.[1]?.toUpperCase() || '';
+      }
+
       // DEBUG LOGS
-      console.log("🚀 [SALTO SEGURO] Iniciando transferencia de sesión a CartoDEA...");
+      console.log(`🚀 [SALTO SEGURO] Iniciando transferencia de sesión a CartoDEA... Proyecto activo: ${activeProjectCode || 'Ninguno'}`);
       
       // 2. El Salto (Formulario Dinámico POST para sincronización segura)
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/api/auth/portal-sync';
+      const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      form.action = isLocal 
+        ? 'http://localhost:9002/api/auth/portal-sync' 
+        : 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/api/auth/portal-sync';
       form.style.display = 'none';
 
       const tokenInput = document.createElement('input');
@@ -341,6 +351,14 @@ function HomeContent() {
       uidInput.name = 'uid';
       uidInput.value = uid;
       form.appendChild(uidInput);
+
+      if (activeProjectCode) {
+        const projectInput = document.createElement('input');
+        projectInput.type = 'hidden';
+        projectInput.name = 'project_code';
+        projectInput.value = activeProjectCode;
+        form.appendChild(projectInput);
+      }
 
       document.body.appendChild(form);
       form.submit();
