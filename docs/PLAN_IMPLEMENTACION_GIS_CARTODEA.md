@@ -81,27 +81,30 @@ flowchart TD
 - [x] **2.3.** Conversor KML/KMZ ➔ GeoJSON (usando `@tmcw/togeojson`, `@xmldom/xmldom` y descompresión `JSZip` para `.kmz`).
 - [x] **2.4.** Cálculo automático de *Bounding Box* (`bbox: [minLon, minLat, maxLon, maxLat]`) para cada capa individual para permitir zoom y encuadre automático en el mapa.
 
-### Fase 3: Almacenamiento del Gemelo y Endpoints API (Caché Estática + Firestore)
-- [x] **3.1.** Estructura de almacenamiento en disco: `public/gis_cache/{projectCode}/{layerId}.geojson`.
-  - Supera la restricción de 1 MB de Firestore (capas como `rsa063_suelos_la_madrid` de 1.4 MB y redes de gas/cloacas de más de 600 KB se sirven velozmente sin límite).
-- [x] **3.2.** Guardado de metadatos en Firestore (`projects_gis/{projectCode}/layers/{layerId}`):
+### Fase 3: Almacenamiento del Gemelo Digital (Firebase Storage + Metadatos en Firestore)
+- [x] **3.1.** Almacenamiento de archivos GeoJSON en **Firebase Storage**:
+  - Destino en bucket: `gis/{projectCode}/{layerId}.geojson`.
+  - **Eliminación total del guardado de GeoJSON en Firestore** para prevenir abortos y fallos por la cuota estricta de 1 MB por documento.
+  - Caché local auxiliar en `public/gis_cache/{projectCode}/{layerId}.geojson` para desarrollo ágil y fallback offline.
+- [x] **3.2.** Catálogo ligero de metadatos en **Firestore** (`projects_gis/{projectCode}/layers/{layerId}`):
   - Nombre (`name`), título legible (`title`), categoría (`category: shp | json | kml | img | dem`).
   - Tipo de geometría (`geometryType`) y conteo de geometrías (`featureCount`).
   - Límites geográficos (`bbox: [minLon, minLat, maxLon, maxLat]`).
   - Proyección original (`sourceProjection`), carpeta origen en Drive (`driveFolderId`) y timestamp (`lastSync`).
-  - URL de consumo (`downloadUrl`).
+  - Referencia al Storage (`storagePath`) y URL de acceso (`downloadUrl`).
 - [x] **3.3.** Endpoints REST con soporte CORS (`Access-Control-Allow-Origin: *`):
-  - `POST / GET /api/gis/sync`: Disparador de sincronización bajo demanda.
+  - `POST / GET /api/gis/sync`: Disparador de sincronización e ingesta bajo demanda.
   - `GET /api/gis/layers?projectCode=...`: Catálogo de capas agrupadas por categoría (`shp`, `json`, `kml`, etc.).
-  - `GET /api/gis/layer?projectCode=...&layerId=...`: Servicio del GeoJSON en WGS84 para carga directa en OpenLayers.
+  - `GET /api/gis/layer?projectCode=...&layerId=...`: Servicio del GeoJSON en WGS84 para carga directa en OpenLayers (desde caché local o Storage).
 
 
 ### Fase 4: Integración en CartoDEA (Visor Cartográfico)
-- [ ] **4.1.** Reemplazar la llamada al GeoServer desatendido en el panel *"Capas DEA"*.
-- [ ] **4.2.** Conectar el panel a la colección de Firestore / Storage para listar las capas dinámicamente por proyecto.
-- [ ] **4.3.** Control de encendido/apagado de capas, selector de opacidad y función *"Centrar en capa"* (utilizando el `bbox`).
-- [ ] **4.4.** Integrar el botón manual *"Sincronizar capas desde Drive"* con indicador de progreso.
-- [ ] **4.5.** Implementar la verificación pasiva (Opción B) al seleccionar un proyecto.
+- [x] **4.1.** Reemplazar la llamada al GeoServer desatendido en el panel *"Capas DEA"* (`cartodea/src/components/geo-mapper-client.tsx`).
+- [x] **4.2.** Conectar el panel al catálogo de capas DEA (`useGeoServerLayers.ts` / `/api/gis/layers`) para listar dinámicamente el proyecto `RSA063` (38 capas) organizado jerárquicamente por Cuenca y Proyecto.
+- [x] **4.3.** Renderizado vectorial nativo en OpenLayers (`handleAddGisVectorLayer` en `useLayerManager.ts`) consumiendo GeoJSONs en WGS84 con reproyección en vivo a EPSG:3857, control de visibilidad/opacidad y encuadre automático por `bbox`.
+- [x] **4.4.** Integrar el botón manual *"Sincronizar capas desde Drive"* en cada proyecto del árbol con indicador de giro para actualización forzada bajo demanda.
+- [x] **4.5.** Implementar la verificación pasiva (Opción B) al expandir un proyecto con *cooldown* de 15 minutos en memoria para evitar saturación de red.
+- [x] **4.6.** Widget flotante de progreso (HUD) en el borde inferior del mapa con streaming en tiempo real (SSE) indicando capa actual, conteo y porcentaje.
 
 ### Fase 5: Pruebas y Validación con Proyecto Piloto
 - [ ] **5.1.** Prueba de carga de Shapefile en QGIS local y sincronización por Drive Desktop.

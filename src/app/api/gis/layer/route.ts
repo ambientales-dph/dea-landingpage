@@ -2,16 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 
-function getDb() {
+const STORAGE_BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'studio-1428739321-e57bb.firebasestorage.app';
+
+function getStorageBucket() {
   const keyFileName = 'studio-1428739321-e57bb-firebase-adminsdk-fbsvc-d9c6c381f2.json';
   const keyPath = path.resolve(process.cwd(), keyFileName);
   if (!fs.existsSync(keyPath)) return null;
 
   const serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
-  const app = getApps().length > 0 ? getApps()[0] : initializeApp({ credential: cert(serviceAccount) });
-  return getFirestore(app);
+  const app = getApps().length > 0 ? getApps()[0] : initializeApp({
+    credential: cert(serviceAccount),
+    storageBucket: STORAGE_BUCKET,
+  });
+  return getStorage(app).bucket();
 }
 
 export async function GET(req: NextRequest) {
@@ -40,13 +45,15 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // 2. Si no está en disco, buscar en Firestore
-  const db = getDb();
-  if (db) {
+  // 2. Si no está en disco local, buscar y descargar desde Firebase Storage
+  const bucket = getStorageBucket();
+  if (bucket) {
     try {
-      const doc = await db.collection('projects_gis').doc(projectCode).collection('layers').doc(layerId).get();
-      if (doc.exists && doc.data()?.cachedGeoJson) {
-        return new NextResponse(doc.data()!.cachedGeoJson, {
+      const file = bucket.file(`gis/${projectCode}/${layerId}.geojson`);
+      const [exists] = await file.exists();
+      if (exists) {
+        const [content] = await file.download();
+        return new NextResponse(content, {
           status: 200,
           headers: {
             'Content-Type': 'application/geo+json; charset=utf-8',
@@ -56,7 +63,7 @@ export async function GET(req: NextRequest) {
         });
       }
     } catch (e: any) {
-      console.error('[API GIS Layer] Error leyendo de Firestore:', e);
+      console.error('[API GIS Layer] Error leyendo de Firebase Storage:', e);
     }
   }
 

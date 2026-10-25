@@ -18,13 +18,6 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const projectCode = searchParams.get('projectCode');
 
-  if (!projectCode) {
-    return NextResponse.json(
-      { error: 'Parámetro obligatorio: projectCode' },
-      { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
-    );
-  }
-
   const db = getDb();
   if (!db) {
     return NextResponse.json(
@@ -34,12 +27,30 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const snap = await db.collection('projects_gis').doc(projectCode).collection('layers').get();
-    const layers = snap.docs.map(doc => {
+    let docs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+
+    if (projectCode && projectCode.toUpperCase() !== 'ALL') {
+      const snap = await db.collection('projects_gis').doc(projectCode).collection('layers').get();
+      docs = snap.docs;
+    } else {
+      const snap = await db.collectionGroup('layers').get();
+      docs = snap.docs;
+    }
+
+    const layers = docs.map(doc => {
       const data = doc.data();
       // Omitir cachedGeoJson pesado en la lista general de metadata
       const { cachedGeoJson, ...metadata } = data;
-      return metadata;
+      const layerId = metadata.id || doc.id;
+      const pCode = metadata.projectCode || doc.ref.parent?.parent?.id || projectCode || 'GENERAL';
+
+      return {
+        ...metadata,
+        id: layerId,
+        projectCode: pCode,
+        category: metadata.category || 'shp',
+        downloadUrl: `/api/gis/layer?projectCode=${encodeURIComponent(pCode)}&layerId=${encodeURIComponent(layerId)}`,
+      };
     });
 
     // Agrupar por categoría para el panel de CartoDEA

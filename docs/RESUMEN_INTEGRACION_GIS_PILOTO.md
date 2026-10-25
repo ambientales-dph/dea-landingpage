@@ -47,16 +47,21 @@ En la Provincia de Buenos Aires, los Shapefiles suelen trabajarse en:
 - Si el archivo `.prj` existe, se detecta la proyección exacta.
 - Si el archivo `.prj` no existe o no tiene proyección explícita pero sus coordenadas están en metros (`X > 5,000,000`), el motor detecta automáticamente que pertenece a **Faja 5** y lo transforma a EPSG:4326 (WGS84).
 
-### B. Almacenamiento Híbrido (Caché en Disco + Firestore)
-Para evitar la limitación de **1 MB por documento de Firestore** (capas como `rsa063_suelos_la_madrid` pesan 1.4 MB y redes de infraestructura superan los 600 KB):
-1. **Archivos GeoJSON completos:** Se guardan en `public/gis_cache/{projectCode}/{layerId}.geojson`. Se sirven de forma estática ultrarrápida sin límite de peso.
-2. **Catálogo de Metadatos:** Se guarda en la colección de Firestore `projects_gis/{projectCode}/layers/{layerId}` con:
+### B. Destino en la Nube: Firebase Storage (Capas) + Firestore (Solo Catálogo)
+Para evitar la limitación estricta de **1 MB por documento de Firestore** (capas como `rsa063_suelos_la_madrid` pesan 1.4 MB y redes de infraestructura superan los 600 KB):
+1. **Destino de Archivos GeoJSON (Firebase Storage):**
+   - Las capas GeoJSON completas **se almacenan directamente en Firebase Storage** bajo la ruta `gis/{projectCode}/{layerId}.geojson`.
+   - **En ningún caso se guardan GeoJSONs dentro de Firestore**, eliminando de raíz el riesgo de abortar la transformación o el guardado por temas de tamaño de archivo.
+   - En entorno de desarrollo local, adicionalmente se almacena una copia en caché estática en `public/gis_cache/{projectCode}/{layerId}.geojson`.
+2. **Catálogo de Metadatos en Firestore:**
+   - La colección `projects_gis/{projectCode}/layers/{layerId}` funciona exclusivamente como un **catálogo ligero de metadatos** (pesa ~1 KB por registro):
    - `id`, `name`, `title`, `category` (`shp` | `json` | `kml` | `img` | `dem`).
    - `geometryType` (Point, LineString, Polygon, MultiPolygon).
    - `featureCount` (cantidad de geometrías).
    - `bbox` (`[minLon, minLat, maxLon, maxLat]`) para zoom automático en el mapa.
-   - `sourceProjection` y `lastSync`.
-   - `downloadUrl` (enlace al GeoJSON).
+   - `sourceProjection`, `driveFolderId`, `lastModifiedDrive` y `lastSync`.
+   - `storagePath` (ruta del objeto en Firebase Storage).
+   - `downloadUrl` (enlace directo o proxy al archivo GeoJSON).
 
 ---
 
