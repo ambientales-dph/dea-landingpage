@@ -10,53 +10,7 @@ import { DOMParser } from '@xmldom/xmldom';
 import JSZip from 'jszip';
 import fs from 'fs';
 import path from 'path';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
-
-// ---------------------------------------------------------------------------
-// 1. Inicialización de Firebase Admin (Firestore + Storage)
-// ---------------------------------------------------------------------------
-const STORAGE_BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'studio-1428739321-e57bb.firebasestorage.app';
-
-let adminDb: FirebaseFirestore.Firestore | null = null;
-let adminStorage: ReturnType<typeof getStorage> | null = null;
-
-function getAdminApp() {
-  if (getApps().length > 0) return getApps()[0];
-
-  const keyFileName = 'studio-1428739321-e57bb-firebase-adminsdk-fbsvc-d9c6c381f2.json';
-  const keyPath = path.resolve(process.cwd(), keyFileName);
-
-  if (fs.existsSync(keyPath)) {
-    const serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
-    return initializeApp({
-      credential: cert(serviceAccount),
-      storageBucket: STORAGE_BUCKET,
-    });
-  } else {
-    console.warn(`[GIS] No se encontró el archivo de credenciales Admin en ${keyPath}`);
-    return null;
-  }
-}
-
-function getAdminFirestore() {
-  if (adminDb) return adminDb;
-  const app = getAdminApp();
-  if (app) {
-    adminDb = getFirestore(app);
-  }
-  return adminDb;
-}
-
-function getAdminStorage() {
-  if (adminStorage) return adminStorage;
-  const app = getAdminApp();
-  if (app) {
-    adminStorage = getStorage(app);
-  }
-  return adminStorage;
-}
+import { getAdminApp, getAdminFirestore, getAdminStorage } from '@/firebase/admin';
 
 // ---------------------------------------------------------------------------
 // 2. Google Drive Client (100% READ-ONLY)

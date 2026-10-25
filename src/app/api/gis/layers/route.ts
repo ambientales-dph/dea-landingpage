@@ -1,24 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-function getDb() {
-  const keyFileName = 'studio-1428739321-e57bb-firebase-adminsdk-fbsvc-d9c6c381f2.json';
-  const keyPath = path.resolve(process.cwd(), keyFileName);
-  if (!fs.existsSync(keyPath)) return null;
-
-  const serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
-  const app = getApps().length > 0 ? getApps()[0] : initializeApp({ credential: cert(serviceAccount) });
-  return getFirestore(app);
-}
+import { getAdminFirestore } from '@/firebase/admin';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const projectCode = searchParams.get('projectCode');
 
-  const db = getDb();
+  const db = getAdminFirestore();
   if (!db) {
     return NextResponse.json(
       { error: 'No se pudo inicializar la base de datos' },

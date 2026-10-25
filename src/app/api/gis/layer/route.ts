@@ -1,23 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getStorage } from 'firebase-admin/storage';
-
-const STORAGE_BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'studio-1428739321-e57bb.firebasestorage.app';
-
-function getStorageBucket() {
-  const keyFileName = 'studio-1428739321-e57bb-firebase-adminsdk-fbsvc-d9c6c381f2.json';
-  const keyPath = path.resolve(process.cwd(), keyFileName);
-  if (!fs.existsSync(keyPath)) return null;
-
-  const serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
-  const app = getApps().length > 0 ? getApps()[0] : initializeApp({
-    credential: cert(serviceAccount),
-    storageBucket: STORAGE_BUCKET,
-  });
-  return getStorage(app).bucket();
-}
+import { getAdminStorage } from '@/firebase/admin';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -46,7 +30,8 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. Si no está en disco local, buscar y descargar desde Firebase Storage
-  const bucket = getStorageBucket();
+  const storage = getAdminStorage();
+  const bucket = storage ? storage.bucket() : null;
   if (bucket) {
     try {
       const file = bucket.file(`gis/${projectCode}/${layerId}.geojson`);
