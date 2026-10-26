@@ -390,29 +390,77 @@ export async function uploadGeoJsonToStorage(
 }
 
 export const STANDARDIZED_PROJECTS: Record<string, { name: string; gisFolderId: string }> = {
-  'RSA063': {
-    name: 'Saneamiento Loteo Chacra 196 - Gral. La Madrid',
-    gisFolderId: '1D5GCJnuhq4rodPSveZbps9vAAMNkaZpd',
+  'RSA003': {
+    name: 'Salado Tramo IV - Etapa IV (Archivo)',
+    gisFolderId: '1GAhiD6qdkCew2ylPL203zeZP7AyxSfQT',
   },
-  'RSA060': {
-    name: 'Restitución terraplén de defensa Carhué',
-    gisFolderId: '13s8GT_nVCAFAh6OEHZ-Yz_jH3xrxJixY',
+  'RSA013': {
+    name: 'General Villegas (descarga Laguna del Parque)',
+    gisFolderId: '12u-ZDpZyf5hWqGhAJFD89ZM0O22kynBe',
   },
-  'RSA062': {
-    name: 'Coronel Suárez',
-    gisFolderId: '10_nJgUZfeXro-K-fHZeGZXYMzG6tzQ8Y',
+  'RSA014': {
+    name: 'Desagües Pluviales Barrio 17 de Octubre - Alberti',
+    gisFolderId: '1NZmkrDuxtwoGeg2VL2bdd4Ft1HmnH-Kd',
   },
-  'RSA069': {
-    name: 'Entubamiento Canal Llambías - Trenque Lauquen',
-    gisFolderId: '1hGeYDRM3KahzS_YWq61W9CD1cE1ipGfn',
+  'RSA016': {
+    name: 'Canales Cuartel IV al A° Las Garzas - Navarro',
+    gisFolderId: '1ROR6wsag6MfGM06jABnhm-D-QKJ4wiCK',
+  },
+  'RSA024': {
+    name: 'Salado Tramo V',
+    gisFolderId: '12ozVMB6pe18OwrdBY5AITUxRbtSj47NJ',
+  },
+  'RSA026': {
+    name: 'Desagües Pluviales General La Madrid Cuenca C',
+    gisFolderId: '1ZYTRM6L5IzkOZO4rrp2TvB8dG3O27w3n',
+  },
+  'RSA036': {
+    name: 'Ampliación Capacidad Río Salado Superior - Tramo IV, Etapas 3 y 4',
+    gisFolderId: '1sY9NWAFigRQYyZXqkW-Zva5BRci0n7Ig',
+  },
+  'RSA040': {
+    name: 'Desagües pluviales sector norte Bolívar',
+    gisFolderId: '1XHKtAjtYJa3aSJMKJhqew0sXk705LNJK',
   },
   'RSA041': {
     name: 'Desagües pluviales Mechita - Alberti',
     gisFolderId: '1B1QDb6Nh05VxUjfk1fnn3ZvVXq31TBUJ',
   },
-  'RSA013': {
-    name: 'General Villegas (descarga Laguna del Parque)',
-    gisFolderId: '12u-ZDpZyf5hWqGhAJFD89ZM0O22kynBe',
+  'RSA042': {
+    name: 'Desagües pluviales Sector Sur (Chacabuco)',
+    gisFolderId: '1CCArWRT2goUUTiYQsmYRYZEkuKqO4Kat',
+  },
+  'RSA050': {
+    name: 'Salado Tramo 4 - Etapa 2',
+    gisFolderId: '1ytFIqgJ7LQLLYNpu3O3biRX8F6M9HwJY',
+  },
+  'RSA057': {
+    name: 'Desagües pluviales en Gral. Las Heras',
+    gisFolderId: '1PPyL5X5MHrk6bUnivjk-_y0lZZdoVZ9U',
+  },
+  'RSA059': {
+    name: 'Limpieza canal Acceso a Zapiola - RN 205',
+    gisFolderId: '1chHbm6qTYNTZa0BnHezOoSyUWa_90dka',
+  },
+  'RSA060': {
+    name: 'Restitución terraplén de defensa Carhué',
+    gisFolderId: '1abzhKoWudCP6w83IMUW5sSoUXR7xMcIn',
+  },
+  'RSA061': {
+    name: 'Saneamiento Bonifacio, Casbas y Garré - Guaminí',
+    gisFolderId: '1eDYeA5uw3Dhn46sn0q54wxgCULoPW_zf',
+  },
+  'RSA062': {
+    name: 'Coronel Suárez',
+    gisFolderId: '1BfWivC0GmKyZXh5w42gqE0W2-tYMFJuq',
+  },
+  'RSA063': {
+    name: 'Saneamiento Loteo Chacra 196 - Gral. La Madrid',
+    gisFolderId: '1p1iuUqgyQM8qeeK9_eLOeeOiksfgG15d',
+  },
+  'RSA069': {
+    name: 'Entubamiento Canal Llambías - Trenque Lauquen',
+    gisFolderId: '1Fl0jkPhZT3vSf1SXsiUjSBq-D-6t6-XO',
   },
   'MAR013': {
     name: 'Prueba CC - Cuenca Matanza-Riachuelo',
