@@ -466,6 +466,30 @@ export const STANDARDIZED_PROJECTS: Record<string, { name: string; gisFolderId: 
     name: 'Prueba CC - Cuenca Matanza-Riachuelo',
     gisFolderId: '1zLNmYe1qlMFzZ99G6Le0RUpQ09lBqV9T',
   },
+  'RLU004': {
+    name: 'Adecuación del cauce del Tramo Medio Río Luján - Etapa II (Luján y Olivera)',
+    gisFolderId: '1EhpdgYMbxyTz903tVkxbV8Kgl8iCuBpL',
+  },
+  'RLU006': {
+    name: 'Puente en Calle Cogna',
+    gisFolderId: '1C8Drcu2vorzFAQnaFM_hSKw6MOD2wilB',
+  },
+  'RLU010': {
+    name: 'Entubamiento A° Cuzco (Malvinas Argentinas)',
+    gisFolderId: '1wb-RV352BDWHMtaE1Dv0_16Ea8jlXeId',
+  },
+  'RLU011': {
+    name: 'Desagües Pluviales - Etapa I (Malvinas Argentinas)',
+    gisFolderId: '1VF0SnhoAAwWlzfqMDUsjwvY9wywKGdSh',
+  },
+  'RLU015': {
+    name: 'Desagües Pluviales en la Localidad de Derqui',
+    gisFolderId: '1yBPoz5x6mUZqit1KXl0Nu9b1xHYYwJQQ',
+  },
+  'RLU016': {
+    name: 'Adecuación del río Luján, Etapa 3 - Mercedes',
+    gisFolderId: '1T-lixZ302BZy50Xc7LUAYFW1fFg22vP5',
+  },
 };
 
 export type GisSyncProgressCallback = (progress: {

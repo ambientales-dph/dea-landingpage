@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../cartodea"
+		},
+		{
+			"path": "../../dea_data_bus"
+		}
+	],
+	"settings": {}
+}
