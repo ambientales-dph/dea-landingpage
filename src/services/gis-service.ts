@@ -84,11 +84,14 @@ export interface DriveItem {
   size?: string | null;
 }
 
-// Carpetas permitidas
-const ALLOWED_CATEGORIES = new Set(['shp', 'json', 'geojson', 'kml', 'img', 'dem']);
+// Carpetas permitidas (ESTRICTAMENTE VECTORIALES: Shapefiles, GeoJSON y KML/KMZ)
+const ALLOWED_CATEGORIES = new Set(['shp', 'json', 'geojson', 'kml']);
 
-// Carpetas explícitamente ignoradas
-const IGNORED_CATEGORIES = new Set(['tabla', 'tablas', 'reportes', 'dwg', 'lyr', 'pdf', 'mapas']);
+// Carpetas explícitamente ignoradas (excluye CAD, PDFs, mapas de impresión y RÁSTERES pesados: img/dem/ortofotos)
+const IGNORED_CATEGORIES = new Set([
+  'tabla', 'tablas', 'reportes', 'dwg', 'lyr', 'pdf', 'mapas', 'fotos', 'planos',
+  'img', 'dem', 'raster', 'ortofoto', 'ortofotos', 'cad_georreferenciar'
+]);
 
 // ---------------------------------------------------------------------------
 // 5. Utilidades Geográficas
@@ -402,6 +405,14 @@ export const STANDARDIZED_PROJECTS: Record<string, { name: string; gisFolderId: 
   'RSA069': {
     name: 'Entubamiento Canal Llambías - Trenque Lauquen',
     gisFolderId: '1hGeYDRM3KahzS_YWq61W9CD1cE1ipGfn',
+  },
+  'RSA041': {
+    name: 'Desagües pluviales Mechita - Alberti',
+    gisFolderId: '1B1QDb6Nh05VxUjfk1fnn3ZvVXq31TBUJ',
+  },
+  'RSA013': {
+    name: 'General Villegas (descarga Laguna del Parque)',
+    gisFolderId: '12u-ZDpZyf5hWqGhAJFD89ZM0O22kynBe',
   },
   'MAR013': {
     name: 'Prueba CC - Cuenca Matanza-Riachuelo',
