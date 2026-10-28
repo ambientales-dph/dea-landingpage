@@ -85,7 +85,7 @@ export interface DriveItem {
 }
 
 // Carpetas permitidas (ESTRICTAMENTE VECTORIALES: Shapefiles, GeoJSON y KML/KMZ)
-const ALLOWED_CATEGORIES = new Set(['shp', 'json', 'geojson', 'kml']);
+const ALLOWED_CATEGORIES = new Set(['shp', 'json', 'geojson', 'kml', 'kmz']);
 
 // Carpetas explícitamente ignoradas (excluye CAD, PDFs, mapas de impresión y RÁSTERES pesados: img/dem/ortofotos)
 const IGNORED_CATEGORIES = new Set([
@@ -490,6 +490,86 @@ export const STANDARDIZED_PROJECTS: Record<string, { name: string; gisFolderId: 
     name: 'Adecuación del río Luján, Etapa 3 - Mercedes',
     gisFolderId: '1T-lixZ302BZy50Xc7LUAYFW1fFg22vP5',
   },
+  'RRQ004': {
+    name: 'Desagües Pluviales Cuenca Las Cabañas - Ituzaingó',
+    gisFolderId: '1SqKVIO76tSAiXaq_30iv9c9VHG7MaC_z',
+  },
+  'RRQ005': {
+    name: 'Limpieza Río Reconquista, tramo medio-superior',
+    gisFolderId: '1JiHSPYGGp-eD-k181MquPElWyLJI3jaG',
+  },
+  'RRQ006': {
+    name: 'Zanjón Madero - San Martín',
+    gisFolderId: '1IIRLknQALm6vw7fbQOHPsZB-UdAkmqx3',
+  },
+  'RRQ009': {
+    name: 'Refuncionalización del sistema presa Roggero y compuertas en el camino del Buen Ayre',
+    gisFolderId: '1uDmVcqBYvVs_IpflI9IVdNJaQUFq405-',
+  },
+  'RRQ021': {
+    name: 'Puente sobre Arroyo Los Berros y obras accesorias',
+    gisFolderId: '18RHQNflQ2nmQffTaAjX9JUZLw7ie61Yo',
+  },
+  'RRQ022': {
+    name: 'Saneamiento Hidráulico Cuenca Defensa – San Miguel',
+    gisFolderId: '151CL2vIOoNGEXMJnhqmcxcWktV6tSsZP',
+  },
+  'RRQ023': {
+    name: 'Desagües Pluviales San Martín, calles Lange y San Andrés',
+    gisFolderId: '1XsxXUgu_XFVNUIx4OB4O01HIPIAFgOrS',
+  },
+  'MAR008': {
+    name: 'Desagües Pluviales Cuenca Arroyo Duppy - Etapa III',
+    gisFolderId: '1Lk2KqAdgsfMh69PqbkXhFLqsX9cEtBtz',
+  },
+  'MAR009': {
+    name: 'Desagües Pluviales Lomas de Zamora',
+    gisFolderId: '1STutmtjT1o4mmzUhdOIV5XScWgRYRIZX',
+  },
+  'ARR002': {
+    name: 'Desagües Pluviales en Barrio España - Rojas',
+    gisFolderId: '1HGFS1HzfrPx1GQ2QC6AuMPBhAERaDNxK',
+  },
+  'ARR008': {
+    name: 'Presa Pergamino',
+    gisFolderId: '1behTeBwKVMGw8Gjr-onWzI322j_4U_kq',
+  },
+  'RPS002': {
+    name: 'Ampliación Planta G. Belgrano y RSS - Quilmes Rivera',
+    gisFolderId: '1vu1rK1_Q7ITv_VZit12sWFVeGI5qv4-y',
+  },
+  'RPS009': {
+    name: 'Desagües Pluviales en Florencio Varela, Barrios Bosques Norte y Ricardo Rojas',
+    gisFolderId: '1Xsew3y9UhZ4W1G7gwndXz5oqKx9m6uX2',
+  },
+  'RPS010': {
+    name: 'Arroyo San Juan',
+    gisFolderId: '1eI0dHpOro_-W0-ytCvhVP9cPcTlJGWm8',
+  },
+  'VAS004': {
+    name: 'Readecuación Canal Maldonado - Bahía Blanca',
+    gisFolderId: '1wrFKvC6VrVmKFNKhE6Ica7aMDQXKBurF',
+  },
+  'RAR001': {
+    name: 'Adecuación Río Areco',
+    gisFolderId: '1jfAysXq_cLCmdHSbiNgtyXVvUG4KccrA',
+  },
+  'RAR003': {
+    name: 'Desagües Pluviales Cuenca Este 3ra Etapa - San Antonio de Areco',
+    gisFolderId: '1-UGMvK6p0jHC_tIPr2GIsR75RoiXmbuK',
+  },
+  'VAE002': {
+    name: 'Sistema de Espigones de Transición y Relleno Artificial de Arena - Camet Norte',
+    gisFolderId: '1mbamGrvJgGJtuJCllZGW3cIr2oOUmaO2',
+  },
+  'VAE004': {
+    name: 'Desagüe Pluvial en Santa Clara del Mar – Cuenca 5 Partido de Mar Chiquita',
+    gisFolderId: '1KHONl9aXTMozA5U8SIkYhVb0ZZusHDNs',
+  },
+  'RSB001': {
+    name: 'Desagües Pluviales Alejandro Korn',
+    gisFolderId: '16VlnNhUBt0IrBp60M6r_KmMypycRy-rB',
+  },
 };
 
 export type GisSyncProgressCallback = (progress: {
@@ -531,10 +611,12 @@ export async function syncProjectGisLayers(
       if (lower.endsWith('.geojson') || lower.endsWith('.json')) totalCandidates++;
     }
   }
-  if (categories['kml']) {
-    for (const f of categories['kml'].files) {
-      const lower = f.name.toLowerCase();
-      if (lower.endsWith('.kml') || lower.endsWith('.kmz')) totalCandidates++;
+  for (const catKey of ['kml', 'kmz']) {
+    if (categories[catKey]) {
+      for (const f of categories[catKey].files) {
+        const lower = f.name.toLowerCase();
+        if (lower.endsWith('.kml') || lower.endsWith('.kmz')) totalCandidates++;
+      }
     }
   }
   const totalItems = Math.max(totalCandidates, 1);
@@ -686,64 +768,66 @@ export async function syncProjectGisLayers(
     }
   }
 
-  // 3. Procesar KML / KMZ (/kml)
-  if (categories['kml']) {
-    const { folderId, files } = categories['kml'];
-    for (const f of files) {
-      const lower = f.name.toLowerCase();
-      if (!lower.endsWith('.kml') && !lower.endsWith('.kmz')) continue;
-      const baseName = path.basename(f.name, path.extname(f.name));
-      try {
-        console.log(`[GIS Sync] Compilando KML: ${f.name}...`);
-        const { geojson, bbox } = await compileKmlLayer(f.id, f.name);
-        const layerId = baseName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+  // 3. Procesar KML / KMZ (/kml y /kmz)
+  for (const catKey of ['kml', 'kmz']) {
+    if (categories[catKey]) {
+      const { folderId, files } = categories[catKey];
+      for (const f of files) {
+        const lower = f.name.toLowerCase();
+        if (!lower.endsWith('.kml') && !lower.endsWith('.kmz')) continue;
+        const baseName = path.basename(f.name, path.extname(f.name));
+        try {
+          console.log(`[GIS Sync] Compilando KML: ${f.name}...`);
+          const { geojson, bbox } = await compileKmlLayer(f.id, f.name);
+          const layerId = baseName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
 
-        // A. Subir GeoJSON a Firebase Storage
-        const { storagePath, downloadUrl } = await uploadGeoJsonToStorage(projectCode, layerId, geojson);
+          // A. Subir GeoJSON a Firebase Storage
+          const { storagePath, downloadUrl } = await uploadGeoJsonToStorage(projectCode, layerId, geojson);
 
-        // B. Réplica en disco local
-        const cacheDir = path.resolve(process.cwd(), 'public', 'gis_cache', projectCode);
-        if (!fs.existsSync(cacheDir)) {
-          fs.mkdirSync(cacheDir, { recursive: true });
+          // B. Réplica en disco local
+          const cacheDir = path.resolve(process.cwd(), 'public', 'gis_cache', projectCode);
+          if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
+          }
+          const geoJsonPath = path.join(cacheDir, `${layerId}.geojson`);
+          fs.writeFileSync(geoJsonPath, JSON.stringify(geojson), 'utf8');
+
+          const layerMeta: GisLayerMetadata = {
+            id: layerId,
+            name: baseName,
+            title: baseName.replace(/_/g, ' '),
+            category: 'kml',
+            geometryType: geojson.features?.[0]?.geometry?.type || 'Geometry',
+            featureCount: geojson.features?.length || 0,
+            bbox,
+            sourceProjection: 'EPSG:4326',
+            driveFolderId: folderId,
+            lastModifiedDrive: f.modifiedTime || undefined,
+            lastSync: new Date().toISOString(),
+            storagePath,
+            downloadUrl,
+            hasCachedData: true,
+          };
+
+          // C. Guardar únicamente metadatos en Firestore
+          if (db) {
+            const docRef = db.collection('projects_gis').doc(projectCode).collection('layers').doc(layerMeta.id);
+            await docRef.set(layerMeta);
+          }
+
+          compiledLayers.push(layerMeta);
+          processedItems++;
+          if (onProgress) {
+            onProgress({
+              current: processedItems,
+              total: totalItems,
+              layerName: f.name,
+              percent: Math.round((processedItems / totalItems) * 100),
+            });
+          }
+        } catch (err: any) {
+          console.error(`[GIS Sync] Error procesando KML ${f.name}:`, err.message);
         }
-        const geoJsonPath = path.join(cacheDir, `${layerId}.geojson`);
-        fs.writeFileSync(geoJsonPath, JSON.stringify(geojson), 'utf8');
-
-        const layerMeta: GisLayerMetadata = {
-          id: layerId,
-          name: baseName,
-          title: baseName.replace(/_/g, ' '),
-          category: 'kml',
-          geometryType: geojson.features?.[0]?.geometry?.type || 'Geometry',
-          featureCount: geojson.features?.length || 0,
-          bbox,
-          sourceProjection: 'EPSG:4326',
-          driveFolderId: folderId,
-          lastModifiedDrive: f.modifiedTime || undefined,
-          lastSync: new Date().toISOString(),
-          storagePath,
-          downloadUrl,
-          hasCachedData: true,
-        };
-
-        // C. Guardar únicamente metadatos en Firestore
-        if (db) {
-          const docRef = db.collection('projects_gis').doc(projectCode).collection('layers').doc(layerMeta.id);
-          await docRef.set(layerMeta);
-        }
-
-        compiledLayers.push(layerMeta);
-        processedItems++;
-        if (onProgress) {
-          onProgress({
-            current: processedItems,
-            total: totalItems,
-            layerName: f.name,
-            percent: Math.round((processedItems / totalItems) * 100),
-          });
-        }
-      } catch (err: any) {
-        console.error(`[GIS Sync] Error procesando KML ${f.name}:`, err.message);
       }
     }
   }
