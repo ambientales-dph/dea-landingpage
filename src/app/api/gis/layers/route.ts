@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
         id: layerId,
         projectCode: pCode,
         category: metadata.category || 'shp',
-        downloadUrl: `/api/gis/layer?projectCode=${encodeURIComponent(pCode)}&layerId=${encodeURIComponent(layerId)}`,
+        downloadUrl: metadata.isDownloadOnly && metadata.downloadUrl
+          ? metadata.downloadUrl
+          : `/api/gis/layer?projectCode=${encodeURIComponent(pCode)}&layerId=${encodeURIComponent(layerId)}`,
       };
     });
 
