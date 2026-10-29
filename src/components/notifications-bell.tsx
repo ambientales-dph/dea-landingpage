@@ -24,12 +24,15 @@ import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestor
 interface CombinedAction {
     id: string;
     type: string;
-    source: 'trello' | 'portal';
+    source: 'trello' | 'portal' | 'databus';
     date: Date;
     text: string;
     userName: string;
     userAvatar?: string;
     cardId?: string;
+    stationName?: string;
+    reportOid?: string;
+    details?: string;
 }
 
 interface NotificationsBellProps {
@@ -123,8 +126,19 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                     
                     if (data.actionType === 'export_card') return null;
 
+                    const isDataBus = data.source === 'databus' || String(data.actionType || '').startsWith('data_bus_');
+                    const source: 'portal' | 'databus' = isDataBus ? 'databus' : (data.source || 'portal');
+
                     let actionText = '';
-                    if (data.actionType === 'create_project') {
+                    if (data.actionType === 'data_bus_report_created') {
+                        actionText = `inició el reporte ${data.reportOid ? `[${data.reportOid}]` : ''} en la estación "${data.stationName || 'de campo'}" (${data.projectName || 'Sin Proyecto'})`;
+                    } else if (data.actionType === 'data_bus_samples_uploaded') {
+                        actionText = `cargó mediciones de campo ${data.details ? `(${data.details})` : ''} en "${data.stationName || 'estación'}"`;
+                    } else if (data.actionType === 'data_bus_photos_uploaded') {
+                        actionText = `subió evidencia fotográfica de campo en "${data.stationName || 'estación'}"${data.details ? ` (${data.details})` : ''}`;
+                    } else if (data.actionType === 'data_bus_survey_created') {
+                        actionText = `inició la campaña de campo "${data.projectName || data.details || 'Campaña DPH'}"`;
+                    } else if (data.actionType === 'create_project') {
                         actionText = `creó el proyecto "${data.projectName}" desde el portal`;
                     } else if (data.actionType === 'attach_resource') {
                         actionText = `adjuntó un recurso en "${data.projectName}" desde el portal`;
@@ -152,13 +166,16 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
 
                     return {
                         id: doc.id,
-                        source: 'portal',
+                        source: source,
                         type: data.actionType,
                         date: date,
                         userName: data.userName,
                         userAvatar: data.userPhoto,
                         cardId: data.cardId,
                         text: actionText,
+                        stationName: data.stationName,
+                        reportOid: data.reportOid,
+                        details: data.details,
                     };
                 })
                 .filter((a): a is CombinedAction => a !== null);
@@ -222,6 +239,11 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
             } catch (e) {
                 toast({ variant: 'destructive', title: 'Error', description: 'No se pudo abrir la tarjeta.' });
             }
+        } else if (action.source === 'databus') {
+            toast({
+                title: action.stationName ? `Monitoreo en ${action.stationName}` : 'Actividad DEA Data Bus',
+                description: action.text,
+            });
         }
     };
 
@@ -260,8 +282,14 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                                         <span className="text-[10px] text-muted-foreground">
                                             {formatDistanceToNow(action.date, { addSuffix: true, locale: es })}
                                         </span>
+                                        {action.source === 'databus' && (
+                                            <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-teal-500/50 text-teal-600 dark:text-teal-400 bg-teal-500/10 uppercase font-bold">Data Bus</Badge>
+                                        )}
                                         {action.source === 'portal' && (
                                             <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-primary/30 text-primary uppercase font-bold">Portal</Badge>
+                                        )}
+                                        {action.source === 'trello' && (
+                                            <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-blue-500/30 text-blue-600 dark:text-blue-400 uppercase font-bold">Trello</Badge>
                                         )}
                                     </div>
                                 </div>
