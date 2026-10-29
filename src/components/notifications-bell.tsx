@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Bell, Loader2 } from 'lucide-react';
+import { Bell, Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,6 +18,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useFirestore, useUser } from '@/firebase';
+import { getDatabusFirestore } from '@/firebase/databus-client';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
 interface CombinedAction {
@@ -49,7 +49,11 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
     const { user } = useUser();
     const { toast } = useToast();
 
-    const [allActions, setAllActions] = useState<{trello: CombinedAction[], portal: CombinedAction[]}>({ trello: [], portal: [] });
+    const [allActions, setAllActions] = useState<{
+        trello: CombinedAction[];
+        portal: CombinedAction[];
+        databus: CombinedAction[];
+    }>({ trello: [], portal: [], databus: [] });
 
     const formatTrelloAction = (a: TrelloBoardAction): string => {
         const cardName = a.data.card ? `"${a.data.card.name}"` : 'una tarjeta';
@@ -63,28 +67,9 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
 
     const filterDuplicateActions = (actions: CombinedAction[]): CombinedAction[] => {
         const seenIds = new Set<string>();
-        return actions.filter((action, index, self) => {
-            // 1. Evitar duplicados por ID (Error de React key)
+        return actions.filter((action) => {
             if (seenIds.has(action.id)) return false;
             seenIds.add(action.id);
-
-            // 2. Evitar duplicados lógicos (Portal + Trello reportando lo mismo)
-            if (action.source === 'trello') {
-                const cardNameMatch = action.text.match(/"([^"]+)"/);
-                const cardName = cardNameMatch ? cardNameMatch[1] : null;
-
-                if (cardName) {
-                    const isAutomated = ['createCard', 'addAttachmentToCard', 'updateCard'].includes(action.type);
-                    if (isAutomated) {
-                        const hasPortalEquivalent = self.some(other => 
-                            other.source === 'portal' && 
-                            other.text.includes(`"${cardName}"`) &&
-                            Math.abs(other.date.getTime() - action.date.getTime()) < 120000 
-                        );
-                        if (hasPortalEquivalent) return false;
-                    }
-                }
-            }
             return true;
         });
     };
@@ -110,95 +95,139 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
     };
 
     useEffect(() => {
-        if (!db || !user) return;
-        
+        if (!user) return;
         setIsLoading(true);
-        
-        const q = query(collection(db, 'app_activities'), orderBy('timestamp', 'desc'), limit(50));
-        const unsubscribePortal = onSnapshot(q, (snapshot) => {
-            const eightHoursAgo = Date.now() - 8 * 60 * 60 * 1000;
-            const portalActions: CombinedAction[] = snapshot.docs
-                .map(doc => {
-                    const data = doc.data();
-                    const date = data.timestamp?.toDate() || new Date();
-                    
-                    if (date.getTime() < eightHoursAgo) return null;
-                    
-                    if (data.actionType === 'export_card') return null;
 
-                    const isDataBus = data.source === 'databus' || String(data.actionType || '').startsWith('data_bus_');
-                    const source: 'portal' | 'databus' = isDataBus ? 'databus' : (data.source || 'portal');
+        const eightHoursAgo = Date.now() - 24 * 60 * 60 * 1000; // Últimas 24 hs
 
-                    let actionText = '';
-                    if (data.actionType === 'data_bus_report_created') {
-                        actionText = `inició el reporte ${data.reportOid ? `[${data.reportOid}]` : ''} en la estación "${data.stationName || 'de campo'}" (${data.projectName || 'Sin Proyecto'})`;
-                    } else if (data.actionType === 'data_bus_samples_uploaded') {
-                        actionText = `cargó mediciones de campo ${data.details ? `(${data.details})` : ''} en "${data.stationName || 'estación'}"`;
-                    } else if (data.actionType === 'data_bus_photos_uploaded') {
-                        actionText = `subió evidencia fotográfica de campo en "${data.stationName || 'estación'}"${data.details ? ` (${data.details})` : ''}`;
-                    } else if (data.actionType === 'data_bus_survey_created') {
-                        actionText = `inició la campaña de campo "${data.projectName || data.details || 'Campaña DPH'}"`;
-                    } else if (data.actionType === 'create_project') {
-                        actionText = `creó el proyecto "${data.projectName}" desde el portal`;
-                    } else if (data.actionType === 'attach_resource') {
-                        actionText = `adjuntó un recurso en "${data.projectName}" desde el portal`;
-                    } else if (data.actionType === 'update_project') {
-                        actionText = `editó el proyecto "${data.projectName}" desde el portal`;
-                    } else if (data.actionType === 'update_cover') {
-                        actionText = `cambió la portada de "${data.projectName}" desde el portal`;
-                    } else if (data.actionType === 'update_labels') {
-                        actionText = `actualizó etiquetas de "${data.projectName}" desde el portal`;
-                    } else if (data.actionType === 'add_comment') {
-                        actionText = `comentó en "${data.projectName}" desde el portal`;
-                    } else if (data.actionType === 'remove_attachment') {
-                        actionText = `quitó un adjunto de "${data.projectName}" desde el portal`;
-                    } else if (data.actionType === 'status_change') {
-                        actionText = `cambió el hito/estado de "${data.projectName}" desde el portal`;
-                    } else if (data.actionType === 'timeline_milestone_created') {
-                        actionText = `creó un hito en la línea de tiempo de "${data.projectName}"`;
-                    } else if (data.actionType === 'milestone_files_added') {
-                        actionText = `subió nuevos archivos al hito de "${data.projectName}"`;
-                    } else if (data.actionType === 'timeline_milestone_deleted') {
-                        actionText = `eliminó un hito de la línea de tiempo de "${data.projectName}"`;
-                    } else {
-                        actionText = `actualizó el proyecto "${data.projectName}" desde el portal`;
-                    }
+        // 1. Suscripción a actividades del Portal DEA (backend local)
+        let unsubPortal: (() => void) | null = null;
+        if (db) {
+            const q = query(collection(db, 'app_activities'), orderBy('timestamp', 'desc'), limit(50));
+            unsubPortal = onSnapshot(q, (snapshot) => {
+                const portalActions: CombinedAction[] = snapshot.docs
+                    .map(doc => {
+                        const data = doc.data();
+                        const date = data.timestamp?.toDate() || new Date();
+                        if (date.getTime() < eightHoursAgo) return null;
+                        if (data.actionType === 'export_card') return null;
 
-                    return {
-                        id: doc.id,
-                        source: source,
-                        type: data.actionType,
-                        date: date,
-                        userName: data.userName,
-                        userAvatar: data.userPhoto,
-                        cardId: data.cardId,
-                        text: actionText,
-                        stationName: data.stationName,
-                        reportOid: data.reportOid,
-                        details: data.details,
-                    };
-                })
-                .filter((a): a is CombinedAction => a !== null);
-            
-            setAllActions(prev => {
-                const updated = { ...prev, portal: portalActions };
-                const combined = [...updated.trello, ...updated.portal]
-                    .sort((a, b) => b.date.getTime() - a.date.getTime());
-                
-                const filtered = filterDuplicateActions(combined);
-                setNotifications(filtered);
-                return updated;
+                        let actionText = '';
+                        if (data.actionType === 'create_project') {
+                            actionText = `creó el proyecto "${data.projectName}" desde el portal`;
+                        } else if (data.actionType === 'attach_resource') {
+                            actionText = `adjuntó un recurso en "${data.projectName}" desde el portal`;
+                        } else if (data.actionType === 'update_project') {
+                            actionText = `editó el proyecto "${data.projectName}" desde el portal`;
+                        } else if (data.actionType === 'update_cover') {
+                            actionText = `cambió la portada de "${data.projectName}" desde el portal`;
+                        } else if (data.actionType === 'update_labels') {
+                            actionText = `actualizó etiquetas de "${data.projectName}" desde el portal`;
+                        } else if (data.actionType === 'add_comment') {
+                            actionText = `comentó en "${data.projectName}" desde el portal`;
+                        } else if (data.actionType === 'remove_attachment') {
+                            actionText = `quitó un adjunto de "${data.projectName}" desde el portal`;
+                        } else if (data.actionType === 'status_change') {
+                            actionText = `cambió el hito/estado de "${data.projectName}" desde el portal`;
+                        } else if (data.actionType === 'timeline_milestone_created') {
+                            actionText = `creó un hito en la línea de tiempo de "${data.projectName}"`;
+                        } else if (data.actionType === 'milestone_files_added') {
+                            actionText = `subió nuevos archivos al hito de "${data.projectName}"`;
+                        } else if (data.actionType === 'timeline_milestone_deleted') {
+                            actionText = `eliminó un hito de la línea de tiempo de "${data.projectName}"`;
+                        } else {
+                            actionText = `actualizó el proyecto "${data.projectName}" desde el portal`;
+                        }
+
+                        return {
+                            id: `portal-${doc.id}`,
+                            source: 'portal',
+                            type: data.actionType,
+                            date: date,
+                            userName: data.userName || 'Usuario',
+                            userAvatar: data.userPhoto,
+                            cardId: data.cardId,
+                            text: actionText,
+                            stationName: data.stationName,
+                            reportOid: data.reportOid,
+                            details: data.details,
+                        };
+                    })
+                    .filter((a): a is CombinedAction => a !== null);
+
+                setAllActions(prev => {
+                    const updated = { ...prev, portal: portalActions };
+                    const combined = [...updated.trello, ...updated.portal, ...updated.databus]
+                        .sort((a, b) => b.date.getTime() - a.date.getTime());
+                    setNotifications(filterDuplicateActions(combined));
+                    return updated;
+                });
+                setIsLoading(false);
+            }, (error) => {
+                console.warn('[Notifications] Error snapshot Portal:', error.message);
             });
-            setIsLoading(false);
-        }, (error) => {
-            console.warn('Error en snapshot de actividades:', error.message);
-        });
+        }
 
+        // 2. Suscripción a actividades de DEA Data Bus (backend remoto de campo)
+        let unsubDataBus: (() => void) | null = null;
+        const databusDb = getDatabusFirestore();
+        if (databusDb) {
+            const qDdb = query(collection(databusDb, 'app_activities'), orderBy('timestamp', 'desc'), limit(50));
+            unsubDataBus = onSnapshot(qDdb, (snapshot) => {
+                const databusActions: CombinedAction[] = snapshot.docs
+                    .map(doc => {
+                        const data = doc.data();
+                        const date = data.timestamp?.toDate() || new Date();
+                        if (date.getTime() < eightHoursAgo) return null;
+
+                        let actionText = '';
+                        if (data.actionType === 'data_bus_report_created') {
+                            actionText = `inició el reporte ${data.reportOid ? `[${data.reportOid}]` : ''} en "${data.stationName || 'estación de campo'}" (${data.projectName || 'DPH'})`;
+                        } else if (data.actionType === 'data_bus_samples_uploaded') {
+                            actionText = `cargó mediciones de campo ${data.details ? `(${data.details})` : ''} en "${data.stationName || 'estación'}"`;
+                        } else if (data.actionType === 'data_bus_photos_uploaded') {
+                            actionText = `subió evidencia fotográfica de campo en "${data.stationName || 'estación'}"${data.details ? ` (${data.details})` : ''}`;
+                        } else if (data.actionType === 'data_bus_survey_created') {
+                            actionText = `inició la campaña de campo "${data.projectName || data.details || 'Campaña DPH'}"`;
+                        } else {
+                            actionText = `registró actividad de campo en "${data.stationName || 'estación'}"`;
+                        }
+
+                        return {
+                            id: `ddb-${doc.id}`,
+                            source: 'databus',
+                            type: data.actionType || 'databus',
+                            date: date,
+                            userName: data.userName || 'Técnico de Campo',
+                            userAvatar: data.userPhoto,
+                            cardId: data.cardId,
+                            text: actionText,
+                            stationName: data.stationName,
+                            reportOid: data.reportOid,
+                            details: data.details,
+                        };
+                    })
+                    .filter((a): a is CombinedAction => a !== null);
+
+                setAllActions(prev => {
+                    const updated = { ...prev, databus: databusActions };
+                    const combined = [...updated.trello, ...updated.portal, ...updated.databus]
+                        .sort((a, b) => b.date.getTime() - a.date.getTime());
+                    setNotifications(filterDuplicateActions(combined));
+                    return updated;
+                });
+                setIsLoading(false);
+            }, (error) => {
+                console.warn('[Notifications] Error snapshot Data Bus:', error.message);
+            });
+        }
+
+        // 3. Consulta periódica a Trello
         const fetchTrello = async () => {
             try {
                 const trelloRaw = await getAllRecentActions(8);
                 const trelloActions: CombinedAction[] = trelloRaw.map(a => ({
-                    id: a.id,
+                    id: `trello-${a.id}`,
                     source: 'trello',
                     type: a.type,
                     date: new Date(a.date),
@@ -210,15 +239,13 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                 
                 setAllActions(prev => {
                     const updated = { ...prev, trello: trelloActions };
-                    const combined = [...updated.trello, ...updated.portal]
+                    const combined = [...updated.trello, ...updated.portal, ...updated.databus]
                         .sort((a, b) => b.date.getTime() - a.date.getTime());
-                    
-                    const filtered = filterDuplicateActions(combined);
-                    setNotifications(filtered);
+                    setNotifications(filterDuplicateActions(combined));
                     return updated;
                 });
             } catch (e) {
-                console.error("Error fetching Trello actions:", e);
+                console.error("[Notifications] Error fetching Trello actions:", e);
             }
         };
 
@@ -226,10 +253,13 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
         const interval = setInterval(fetchTrello, 3 * 60 * 1000);
 
         return () => {
-            unsubscribePortal();
+            if (unsubPortal) unsubPortal();
+            if (unsubDataBus) unsubDataBus();
             clearInterval(interval);
         };
     }, [db, user]);
+
+    const databusUrl = process.env.NEXT_PUBLIC_DATABUS_URL || 'https://dea-data-bus--studio-7793356696-41de0.us-east4.hosted.app';
 
     const handleSelect = async (action: CombinedAction) => {
         if (action.cardId) {
@@ -242,7 +272,20 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
         } else if (action.source === 'databus') {
             toast({
                 title: action.stationName ? `Monitoreo en ${action.stationName}` : 'Actividad DEA Data Bus',
-                description: action.text,
+                description: (
+                    <div className="space-y-2 mt-1">
+                        <p>{action.text}</p>
+                        <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            className="h-7 text-xs flex items-center gap-1.5 w-full justify-center mt-1"
+                            onClick={() => window.open(databusUrl, '_blank')}
+                        >
+                            <span>Abrir DEA Data Bus en vivo</span>
+                            <ExternalLink className="h-3 w-3" />
+                        </Button>
+                    </div>
+                ),
             });
         }
     };
