@@ -29,3 +29,4 @@ export function getDatabusFirestore(): Firestore | null {
   }
   return databusDb;
 }
+
