@@ -311,16 +311,18 @@ function HomeContent() {
       targetCard = allCards.find(c => c.id === action.cardId);
     }
     
-    if (!targetCard && action.projectName) {
-      const codeMatch = action.projectName.match(/\b([A-Za-z]{2,4}\d{3,})\b/);
+    const searchSource = `${action.projectName || ''} ${action.text || ''} ${action.details || ''}`;
+    if (!targetCard && searchSource.trim()) {
+      const codeMatch = searchSource.match(/\b([A-Za-z]{2,4}\d{3,})\b/);
       const code = codeMatch ? codeMatch[1].toUpperCase() : null;
       if (code) {
         targetCard = allCards.find(c => {
-          const cCode = getProjectInfo(c.name).code || c.name.match(/\b([A-Za-z]{2,4}\d{3,})\b/)?.[1]?.toUpperCase();
-          return cCode === code;
+          const info = getProjectInfo(c.name);
+          const cCode = info.code || c.name.match(/\b([A-Za-z]{2,4}\d{3,})\b/)?.[1]?.toUpperCase();
+          return cCode === code || c.name.toUpperCase().includes(code);
         });
       }
-      if (!targetCard) {
+      if (!targetCard && action.projectName) {
         targetCard = allCards.find(c => c.name.toLowerCase().includes(action.projectName!.toLowerCase()));
       }
     }

@@ -204,6 +204,7 @@ export default function NotificationsBell({ onNotificationClick, onDataBusNotifi
                             userName: data.userName || 'Técnico de Campo',
                             userAvatar: data.userPhoto,
                             cardId: data.cardId,
+                            projectName: data.projectName,
                             text: actionText,
                             stationName: data.stationName,
                             reportOid: data.reportOid,
