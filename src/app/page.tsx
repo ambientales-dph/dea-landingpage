@@ -49,6 +49,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Accordion,
@@ -74,7 +76,7 @@ import {
   DropdownMenuSubContent
 } from '@/components/ui/dropdown-menu';
 import jsPDF from 'jspdf';
-import NotificationsBell from '@/components/notifications-bell';
+import NotificationsBell, { type CombinedAction } from '@/components/notifications-bell';
 import MailRadar from '@/components/mail-radar';
 import { useAuth, useUser } from '@/firebase';
 import { loginConGoogle, cerrarSesion, isUserAuthorized, WHITELIST } from '@/services/auth-service';
@@ -110,6 +112,11 @@ function HomeContent() {
   const [recentProjects, setRecentProjects] = useState<TrelloCard[]>([]);
   const [isUserProjectsLoading, setIsUserProjectsLoading] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [projectSwitchModal, setProjectSwitchModal] = useState<{
+    open: boolean;
+    currentCard: TrelloCard | null;
+    targetCard: TrelloCard | null;
+  }>({ open: false, currentCard: null, targetCard: null });
   
   const authorized = user ? isUserAuthorized(user.email) : false;
 
@@ -280,6 +287,42 @@ function HomeContent() {
       setIsSummaryOpen(true);
     }, 150);
   }, [handleCardSelect]);
+
+    const handleDataBusNotificationClick = useCallback((action: CombinedAction) => {
+    let targetCard: TrelloCard | undefined;
+    if (action.cardId) {
+      targetCard = allCards.find(c => c.id === action.cardId);
+    }
+    
+    if (!targetCard && action.projectName) {
+      const codeMatch = action.projectName.match(/\b([A-Za-z]{2,4}\d{3,})\b/);
+      const code = codeMatch ? codeMatch[1].toUpperCase() : null;
+      if (code) {
+        targetCard = allCards.find(c => {
+          const cCode = getProjectInfo(c.name).code || c.name.match(/\b([A-Za-z]{2,4}\d{3,})\b/)?.[1]?.toUpperCase();
+          return cCode === code;
+        });
+      }
+      if (!targetCard) {
+        targetCard = allCards.find(c => c.name.toLowerCase().includes(action.projectName!.toLowerCase()));
+      }
+    }
+
+    if (!targetCard) return;
+
+    if (!selectedCard) {
+      handleCardSelect(targetCard);
+      setTimeout(() => setIsSummaryOpen(true), 150);
+    } else if (selectedCard.id === targetCard.id) {
+      setIsSummaryOpen(true);
+    } else {
+      setProjectSwitchModal({
+        open: true,
+        currentCard: selectedCard,
+        targetCard,
+      });
+    }
+  }, [allCards, selectedCard, handleCardSelect, getProjectInfo]);
 
   const handleActivityLogClick = useCallback(async (cardId: string) => {
     const cached = allCards.find(c => c.id === cardId);
@@ -725,7 +768,7 @@ function HomeContent() {
             <h1 className="font-headline text-lg md:text-xl font-bold tracking-tight text-primary-foreground">Portal DEA</h1>
             <div className='flex items-center gap-2'>
               <MailRadar />
-              <NotificationsBell onNotificationClick={handleNotificationClick} />
+              <NotificationsBell onNotificationClick={handleNotificationClick} onDataBusNotificationClick={handleDataBusNotificationClick} />
               <DropdownMenu>
                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/80"><Settings className="h-6 w-6" /></Button></DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
@@ -1120,6 +1163,55 @@ function HomeContent() {
             />
           </DialogContent>
         </Dialog>
+                {/* Modal de confirmación para cambiar de proyecto desde notificación de Data Bus */}
+        <Dialog open={projectSwitchModal.open} onOpenChange={(open) => setProjectSwitchModal(prev => ({ ...prev, open }))}>
+          <DialogContent className="max-w-md bg-white p-6 shadow-2xl rounded-none border border-black text-black">
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="text-sm font-bold uppercase tracking-wider text-black">
+                ¿Cambiar de proyecto?
+              </DialogTitle>
+              <DialogDescription className="text-xs text-neutral-600 leading-relaxed pt-2">
+                Actualmente estás visualizando:
+                <span className="block font-semibold text-black mt-1 p-2 bg-neutral-100 rounded-none border-l-2 border-neutral-400">
+                  {projectSwitchModal.currentCard?.name}
+                </span>
+                <span className="block mt-3">
+                  La notificación corresponde a:
+                </span>
+                <span className="block font-semibold text-primary mt-1 p-2 bg-primary/5 rounded-none border-l-2 border-primary">
+                  {projectSwitchModal.targetCard?.name}
+                </span>
+                <span className="block mt-3 text-[11px] text-neutral-500">
+                  ¿Deseás cambiar el proyecto activo para consultar sus datos en el Portal?
+                </span>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-5 flex gap-2 justify-end sm:justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setProjectSwitchModal({ open: false, currentCard: null, targetCard: null })}
+                className="h-8 text-xs font-normal border-black text-black rounded-none hover:bg-black/5"
+              >
+                Permanecer en el actual
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  if (projectSwitchModal.targetCard) {
+                    handleCardSelect(projectSwitchModal.targetCard);
+                    setTimeout(() => setIsSummaryOpen(true), 150);
+                  }
+                  setProjectSwitchModal({ open: false, currentCard: null, targetCard: null });
+                }}
+                className="h-8 text-xs font-normal bg-primary hover:bg-primary/90 text-white rounded-none"
+              >
+                Cambiar de proyecto
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <FeedbackButton onClick={() => setIsFeedbackOpen(true)} className="bottom-6 right-6" />
         <FeedbackDialog isOpen={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
       </div>

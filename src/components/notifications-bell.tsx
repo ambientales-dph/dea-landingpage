@@ -30,6 +30,7 @@ interface CombinedAction {
     userName: string;
     userAvatar?: string;
     cardId?: string;
+    projectName?: string;
     stationName?: string;
     reportOid?: string;
     details?: string;
@@ -37,9 +38,10 @@ interface CombinedAction {
 
 interface NotificationsBellProps {
     onNotificationClick: (card: TrelloCard) => void;
+    onDataBusNotificationClick?: (action: CombinedAction) => void;
 }
 
-export default function NotificationsBell({ onNotificationClick }: NotificationsBellProps) {
+export default function NotificationsBell({ onNotificationClick, onDataBusNotificationClick }: NotificationsBellProps) {
     const [notifications, setNotifications] = useState<CombinedAction[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [lastViewedAt, setLastViewedAt] = useState<number>(0);
@@ -147,6 +149,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                             userName: data.userName || 'Usuario',
                             userAvatar: data.userPhoto,
                             cardId: data.cardId,
+                            projectName: data.projectName,
                             text: actionText,
                             stationName: data.stationName,
                             reportOid: data.reportOid,
@@ -184,7 +187,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                         if (data.actionType === 'data_bus_report_created') {
                             actionText = `inició el reporte ${data.reportOid ? `[${data.reportOid}]` : ''} en "${data.stationName || 'estación de campo'}" (${data.projectName || 'DPH'})`;
                         } else if (data.actionType === 'data_bus_samples_uploaded') {
-                            actionText = `cargó mediciones de campo ${data.details ? `(${data.details})` : ''} en "${data.stationName || 'estación'}"`;
+                            actionText = `cargó la planilla ${data.details || 'de campo'} en ${data.projectName || data.stationName || 'el proyecto'}${data.stationName ? ` (${data.stationName})` : ''}`;
                         } else if (data.actionType === 'data_bus_photos_uploaded') {
                             actionText = `subió evidencia fotográfica de campo en "${data.stationName || 'estación'}"${data.details ? ` (${data.details})` : ''}`;
                         } else if (data.actionType === 'data_bus_survey_created') {
@@ -270,6 +273,7 @@ export default function NotificationsBell({ onNotificationClick }: Notifications
                 toast({ variant: 'destructive', title: 'Error', description: 'No se pudo abrir la tarjeta.' });
             }
         } else if (action.source === 'databus') {
+            if (onDataBusNotificationClick) { onDataBusNotificationClick(action); }
             toast({
                 title: action.stationName ? `Monitoreo en ${action.stationName}` : 'Actividad DEA Data Bus',
                 description: (
