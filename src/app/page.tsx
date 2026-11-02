@@ -90,6 +90,7 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const cardIdParam = searchParams.get('cardId');
+  const projectParam = searchParams.get('project') || searchParams.get('projectCode');
   const { user, loading } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
@@ -232,24 +233,40 @@ function HomeContent() {
   }, [updateRecentProjects, setSelectedCard, setViewState]);
 
   useEffect(() => {
-    // Solo sincronizamos si el ID de la URL es diferente al ID actual.
+    // 1. Sincronización por cardId explícito
     if (cardIdParam && (!selectedCard || selectedCard.id !== cardIdParam)) {
       const cachedCard = allCards.find(c => c.id === cardIdParam);
       if (cachedCard) {
         handleCardSelect(cachedCard);
+        setTimeout(() => setIsSummaryOpen(true), 150);
       } else {
         const syncCardFromUrl = async () => {
           try {
             const card = await getCardById(cardIdParam);
             handleCardSelect(card);
+            setTimeout(() => setIsSummaryOpen(true), 150);
           } catch (error) {
             console.error("Error syncing card from URL:", error);
           }
         };
         syncCardFromUrl();
       }
+    } else if (projectParam && allCards.length > 0) {
+      // 2. Sincronización por código de proyecto (ej. RLU019)
+      const targetCode = projectParam.trim().toUpperCase();
+      const currentCode = selectedCard ? getProjectInfo(selectedCard.name).code?.toUpperCase() : null;
+      if (currentCode !== targetCode) {
+        const matched = allCards.find(c => {
+          const info = getProjectInfo(c.name);
+          return info.code?.toUpperCase() === targetCode || c.name.toUpperCase().includes(targetCode);
+        });
+        if (matched) {
+          handleCardSelect(matched);
+          setTimeout(() => setIsSummaryOpen(true), 150);
+        }
+      }
     }
-  }, [cardIdParam, handleCardSelect, allCards]);
+  }, [cardIdParam, projectParam, handleCardSelect, allCards, selectedCard, getProjectInfo]);
 
   const handleLogin = async () => {
     if (isLoggingIn) return;
