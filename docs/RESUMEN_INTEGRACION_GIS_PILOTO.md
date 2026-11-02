@@ -14,8 +14,9 @@ Este documento centraliza todas las decisiones técnicas, criterios de diseño U
 ### B. Puertos y Dominios
 | Servicio | Entorno Local | Entorno Producción (Firebase App Hosting) |
 | :--- | :---: | :--- |
-| **Portal DEA** | `http://localhost:9003` | `https://studio--studio-1428739321-e57bb.us-central1.hosted.app` |
+| **DEA Data Bus** | `http://localhost:9001` | *Por definir* |
 | **CartoDEA** | `http://localhost:9002` | `https://studio--studio-6665536283-f3ea6.us-central1.hosted.app` |
+| **Portal DEA** | `http://localhost:9003` | `https://studio--studio-1428739321-e57bb.us-central1.hosted.app` |
 
 ### C. Fuentes de Datos y Almacenamiento
 - **Google Drive (Raíz de Cuencas):** ID `1H0f7lTJFCVMD1jiIkcOqxI1L2HC14weD`

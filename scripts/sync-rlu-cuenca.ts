@@ -30,6 +30,7 @@ const RLU_PROJECTS = [
   'RLU011', // Desagües Pluviales - Etapa I (Malvinas Argentinas)
   'RLU015', // Desagües Pluviales en la Localidad de Derqui
   'RLU016', // Adecuación del río Luján, Etapa 3 - Mercedes
+  'RLU019', // Desagües Pluviales Arroyo Bedoya
 ];
 
 async function runRluBatch() {

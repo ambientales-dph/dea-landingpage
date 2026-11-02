@@ -490,6 +490,10 @@ export const STANDARDIZED_PROJECTS: Record<string, { name: string; gisFolderId: 
     name: 'Adecuación del río Luján, Etapa 3 - Mercedes',
     gisFolderId: '1T-lixZ302BZy50Xc7LUAYFW1fFg22vP5',
   },
+  'RLU019': {
+    name: 'Desagües Pluviales Arroyo Bedoya',
+    gisFolderId: '16AtPE9j0Bjx1DnsJmM9UobSA1OIYcFiU',
+  },
   'RRQ004': {
     name: 'Desagües Pluviales Cuenca Las Cabañas - Ituzaingó',
     gisFolderId: '1SqKVIO76tSAiXaq_30iv9c9VHG7MaC_z',
