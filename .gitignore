@@ -47,4 +47,5 @@ firebase-debug.log
 firestore-debug.log
 
 *.json
-/public/gis_cache/
+/public/gis_cache/!src/lib/rules/*.json
+public/gis_cache/**

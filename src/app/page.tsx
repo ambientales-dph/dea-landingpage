@@ -78,6 +78,7 @@ import {
 import jsPDF from 'jspdf';
 import NotificationsBell, { type CombinedAction } from '@/components/notifications-bell';
 import MailRadar from '@/components/mail-radar';
+import EnvironmentalAlertsBell, { type EnvironmentalAlert } from '@/components/environmental-alerts-bell';
 import { useAuth, useUser } from '@/firebase';
 import { loginConGoogle, cerrarSesion, isUserAuthorized, WHITELIST } from '@/services/auth-service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -342,6 +343,47 @@ function HomeContent() {
       });
     }
   }, [allCards, selectedCard, handleCardSelect, getProjectInfo]);
+
+  const handleEnvironmentalAlertClick = useCallback((alert: EnvironmentalAlert) => {
+    let targetCard: TrelloCard | undefined;
+    const searchSource = `${alert.projectName || ''} ${alert.stationId || ''} ${alert.formName || ''}`;
+    
+    if (searchSource.trim()) {
+      const codeMatch = searchSource.match(/\b([A-Za-z]{2,4}\d{3,})\b/);
+      const code = codeMatch ? codeMatch[1].toUpperCase() : null;
+      if (code) {
+        targetCard = allCards.find(c => {
+          const info = getProjectInfo(c.name);
+          const cCode = info.code || c.name.match(/\b([A-Za-z]{2,4}\d{3,})\b/)?.[1]?.toUpperCase();
+          return cCode === code || c.name.toUpperCase().includes(code);
+        });
+      }
+      if (!targetCard && alert.projectName) {
+        targetCard = allCards.find(c => c.name.toLowerCase().includes(alert.projectName.toLowerCase()));
+      }
+    }
+
+    if (!targetCard) {
+      toast({
+        title: `Alerta: ${alert.analyte}`,
+        description: `Proyecto: ${alert.projectName} • Estación: ${alert.stationName || alert.stationId || ''}. Valor: ${alert.value} ${alert.unit || ''} (Supera norma: ${alert.primaryNorm})`,
+      });
+      return;
+    }
+
+    if (!selectedCard) {
+      handleCardSelect(targetCard);
+      setTimeout(() => setIsSummaryOpen(true), 150);
+    } else if (selectedCard.id === targetCard.id) {
+      setIsSummaryOpen(true);
+    } else {
+      setProjectSwitchModal({
+        open: true,
+        currentCard: selectedCard,
+        targetCard,
+      });
+    }
+  }, [allCards, selectedCard, handleCardSelect, getProjectInfo, toast]);
 
   const handleActivityLogClick = useCallback(async (cardId: string) => {
     const cached = allCards.find(c => c.id === cardId);
@@ -786,6 +828,7 @@ function HomeContent() {
           <div className="container mx-auto flex h-full items-center justify-between px-4">
             <h1 className="font-headline text-lg md:text-xl font-bold tracking-tight text-primary-foreground">Portal DEA</h1>
             <div className='flex items-center gap-2'>
+              <EnvironmentalAlertsBell onAlertClick={handleEnvironmentalAlertClick} />
               <MailRadar />
               <NotificationsBell onNotificationClick={handleNotificationClick} onDataBusNotificationClick={handleDataBusNotificationClick} />
               <DropdownMenu>
