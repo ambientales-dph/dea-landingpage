@@ -163,6 +163,7 @@ export default function EnvironmentalAlertsBell({ onAlertClick }: Props) {
             if (data.actionType !== 'data_bus_guideline_alert') return null;
 
             const date = data.timestamp?.toDate ? data.timestamp.toDate() : new Date();
+            if (date.getTime() < Date.now() - 48 * 60 * 60 * 1000) return null;
             const violations = data.violations || [];
             const primary = violations[0] || {};
 
@@ -212,6 +213,7 @@ export default function EnvironmentalAlertsBell({ onAlertClick }: Props) {
               : data.fechaServidor?.toDate 
                 ? data.fechaServidor.toDate() 
                 : new Date();
+            if (date.getTime() < Date.now() - 48 * 60 * 60 * 1000) return;
 
             const repInfo = data.reportId ? reportsMap.get(data.reportId) : null;
             const stName = data.stationId ? (stationsMap.get(data.stationId) || repInfo?.stationName || 'Estación') : 'Estación';
@@ -256,13 +258,13 @@ export default function EnvironmentalAlertsBell({ onAlertClick }: Props) {
         <Button 
           variant="ghost" 
           size="icon" 
-          className="relative text-amber-500 hover:text-amber-400 hover:bg-white/10 transition-colors cursor-pointer"
+          className="relative text-amber-300 hover:text-amber-200 hover:bg-white/10 transition-colors cursor-pointer"
           title="Alertas de Niveles Guía Normativos"
         >
-          <FlaskConical className="h-6 w-6 text-amber-500 hover:text-amber-400 drop-shadow-sm" />
+          <FlaskConical className="h-6 w-6 text-amber-300 hover:text-amber-200 drop-shadow-sm" />
           {unreadCount > 0 && (
             <Badge 
-              className="absolute -top-1 -right-1 h-5 min-w-5 justify-center rounded-full p-0 px-1 text-[10px] font-black bg-amber-500 hover:bg-amber-500 text-neutral-950 border border-amber-600 shadow-md animate-in zoom-in-75"
+              className="absolute -top-1 -right-1 h-5 min-w-5 justify-center rounded-full p-0 px-1 text-[10px] font-black bg-amber-400 hover:bg-amber-300 text-neutral-950 border border-amber-300 shadow-md animate-in zoom-in-75"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
@@ -274,15 +276,28 @@ export default function EnvironmentalAlertsBell({ onAlertClick }: Props) {
         align="end" 
         className="w-80 md:w-96 max-h-[70vh] overflow-hidden flex flex-col p-0 bg-neutral-900 border-neutral-700 text-white shadow-2xl z-50 rounded-none"
       >
+        {/* Primer renglón: Aviso en desarrollo */}
+        <div className="px-3 py-1.5 bg-amber-400/15 border-b border-amber-400/25 flex items-center justify-between text-[11px] text-amber-200">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse shrink-0" />
+            <span className="font-semibold uppercase tracking-wider text-[10px] text-amber-300">
+              En desarrollo...
+            </span>
+          </div>
+          <span className="text-[9px] text-neutral-400 italic">
+            Módulo de alertas normativas
+          </span>
+        </div>
+
         {/* Cabecera del Panel de Alertas */}
         <div className="p-3 bg-neutral-800 border-b border-neutral-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FlaskConical className="h-4 w-4 text-amber-400" />
-            <span className="font-bold text-xs uppercase tracking-wider text-amber-300">
+            <FlaskConical className="h-4 w-4 text-amber-300" />
+            <span className="font-bold text-xs uppercase tracking-wider text-amber-200">
               Alertas de Niveles Guía
             </span>
           </div>
-          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 font-bold px-1.5 py-0.2">
+          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-300 border-amber-400/30 font-bold px-1.5 py-0.2">
             {alerts.length} {alerts.length === 1 ? 'Alerta' : 'Alertas'}
           </Badge>
         </div>
@@ -352,7 +367,7 @@ export default function EnvironmentalAlertsBell({ onAlertClick }: Props) {
                       {formatDistanceToNow(alert.date, { addSuffix: true, locale: es })}
                     </span>
                     <span className="text-amber-500/80 hover:text-amber-400 flex items-center gap-0.5 font-medium">
-                      Ver en Portal <ExternalLink className="h-2.5 w-2.5" />
+                      Ver en CartoDEA <ExternalLink className="h-2.5 w-2.5" />
                     </span>
                   </div>
                 </div>

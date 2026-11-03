@@ -301,9 +301,6 @@ function HomeContent() {
 
   const handleNotificationClick = useCallback((card: TrelloCard) => {
     handleCardSelect(card);
-    setTimeout(() => {
-      setIsSummaryOpen(true);
-    }, 150);
   }, [handleCardSelect]);
 
     const handleDataBusNotificationClick = useCallback((action: CombinedAction) => {
@@ -332,9 +329,8 @@ function HomeContent() {
 
     if (!selectedCard) {
       handleCardSelect(targetCard);
-      setTimeout(() => setIsSummaryOpen(true), 150);
     } else if (selectedCard.id === targetCard.id) {
-      setIsSummaryOpen(true);
+      // Ya seleccionado
     } else {
       setProjectSwitchModal({
         open: true,
@@ -343,6 +339,92 @@ function HomeContent() {
       });
     }
   }, [allCards, selectedCard, handleCardSelect, getProjectInfo]);
+
+  const jumpToCartoDEA = useCallback(async (options?: {
+    projectCode?: string;
+    stationId?: string;
+    stationName?: string;
+    reportId?: string;
+    reportOid?: string;
+    formId?: string;
+    analyte?: string;
+  }) => {
+    if (isRedirectingToCartoDEA) return;
+    setIsRedirectingToCartoDEA(true);
+
+    try {
+      if (!user) {
+        throw new Error("No hay un usuario activo para realizar el salto.");
+      }
+
+      // 1. Obtención del Token (Forzando refresco para evitar expiración en el salto)
+      const token = await user.getIdToken(true);
+      const uid = user.uid;
+
+      // Determinamos el código del proyecto activo si hay uno seleccionado
+      let activeProjectCode = options?.projectCode || '';
+      if (!activeProjectCode && selectedCard) {
+        const { code } = getProjectInfo(selectedCard.name);
+        activeProjectCode = code || selectedCard.name.match(/\b([A-Za-z]{2,4}\d{3})\b/)?.[1]?.toUpperCase() || '';
+      }
+
+      console.log(`🚀 [SALTO SEGURO] Iniciando transferencia de sesión a CartoDEA... Proyecto: ${activeProjectCode || 'Ninguno'}, Estación: ${options?.stationName || options?.stationId || 'N/A'}`);
+
+      // 2. Formulario Dinámico POST para sincronización segura
+      const form = document.createElement('form');
+      form.method = 'POST';
+      const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      form.action = isLocal 
+        ? 'http://localhost:9002/api/auth/portal-sync' 
+        : 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/api/auth/portal-sync';
+      form.style.display = 'none';
+
+      const appendField = (name: string, value?: string | null) => {
+        if (!value) return;
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      };
+
+      appendField('firebase_token', token);
+      appendField('uid', uid);
+      if (activeProjectCode) appendField('project_code', activeProjectCode);
+      if (options?.stationId) appendField('station_id', options.stationId);
+      if (options?.stationName) appendField('station_name', options.stationName);
+      if (options?.reportId) appendField('report_id', options.reportId);
+      if (options?.reportOid) appendField('report_oid', options.reportOid);
+      if (options?.formId) appendField('form_id', options.formId);
+      if (options?.analyte) appendField('analyte', options.analyte);
+
+      document.body.appendChild(form);
+      form.submit();
+
+      setTimeout(() => {
+        if (document.body.contains(form)) {
+          document.body.removeChild(form);
+        }
+      }, 500);
+
+    } catch (error: any) {
+      console.error("Error al saltar a CartoDEA:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error de salto',
+        description: error.message || 'No se pudo generar el acceso seguro.',
+      });
+      setIsRedirectingToCartoDEA(false);
+
+      if (!user) {
+        router.push('/');
+      }
+    }
+  }, [isRedirectingToCartoDEA, user, selectedCard, getProjectInfo, toast, router]);
+
+  const handleCartoDEAClick = async () => {
+    await jumpToCartoDEA();
+  };
 
   const handleEnvironmentalAlertClick = useCallback((alert: EnvironmentalAlert) => {
     let targetCard: TrelloCard | undefined;
@@ -363,27 +445,31 @@ function HomeContent() {
       }
     }
 
-    if (!targetCard) {
-      toast({
-        title: `Alerta: ${alert.analyte}`,
-        description: `Proyecto: ${alert.projectName} • Estación: ${alert.stationName || alert.stationId || ''}. Valor: ${alert.value} ${alert.unit || ''} (Supera norma: ${alert.primaryNorm})`,
-      });
-      return;
+    let projectCode = '';
+    if (targetCard) {
+      const info = getProjectInfo(targetCard.name);
+      projectCode = info.code || targetCard.name.match(/\b([A-Za-z]{2,4}\d{3,})\b/)?.[1]?.toUpperCase() || '';
+      
+      // 1. Cargar el proyecto en el Portal (sin abrir tarjeta)
+      if (!selectedCard || selectedCard.id !== targetCard.id) {
+        handleCardSelect(targetCard);
+      }
+    } else {
+      const codeMatch = (alert.projectName || '').match(/\b([A-Za-z]{2,4}\d{3,})\b/);
+      if (codeMatch) projectCode = codeMatch[1].toUpperCase();
     }
 
-    if (!selectedCard) {
-      handleCardSelect(targetCard);
-      setTimeout(() => setIsSummaryOpen(true), 150);
-    } else if (selectedCard.id === targetCard.id) {
-      setIsSummaryOpen(true);
-    } else {
-      setProjectSwitchModal({
-        open: true,
-        currentCard: selectedCard,
-        targetCard,
-      });
-    }
-  }, [allCards, selectedCard, handleCardSelect, getProjectInfo, toast]);
+    // 2. Realizar el salto seguro a CartoDEA pasando todos los datos de la alerta
+    jumpToCartoDEA({
+      projectCode,
+      stationId: alert.stationId,
+      stationName: alert.stationName,
+      reportId: alert.reportId,
+      reportOid: alert.reportOid,
+      formId: alert.matrix || alert.formName,
+      analyte: alert.analyte,
+    });
+  }, [allCards, selectedCard, handleCardSelect, getProjectInfo, jumpToCartoDEA]);
 
   const handleActivityLogClick = useCallback(async (cardId: string) => {
     const cached = allCards.find(c => c.id === cardId);
@@ -412,81 +498,7 @@ function HomeContent() {
     router.push(path);
   };
 
-  const handleCartoDEAClick = async () => {
-    if (isRedirectingToCartoDEA) return;
-    setIsRedirectingToCartoDEA(true);
-
-    try {
-      if (!user) {
-        throw new Error("No hay un usuario activo para realizar el salto.");
-      }
-
-      // 1. Obtención del Token (Forzando refresco para evitar expiración en el salto)
-      const token = await user.getIdToken(true);
-      const uid = user.uid;
-
-      // Determinamos el código del proyecto activo si hay uno seleccionado
-      let activeProjectCode = '';
-      if (selectedCard) {
-        const { code } = getProjectInfo(selectedCard.name);
-        activeProjectCode = code || selectedCard.name.match(/\b([A-Za-z]{2,4}\d{3})\b/)?.[1]?.toUpperCase() || '';
-      }
-
-      // DEBUG LOGS
-      console.log(`🚀 [SALTO SEGURO] Iniciando transferencia de sesión a CartoDEA... Proyecto activo: ${activeProjectCode || 'Ninguno'}`);
-      
-      // 2. El Salto (Formulario Dinámico POST para sincronización segura)
-      const form = document.createElement('form');
-      form.method = 'POST';
-      const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-      form.action = isLocal 
-        ? 'http://localhost:9002/api/auth/portal-sync' 
-        : 'https://studio--studio-6665536283-f3ea6.us-central1.hosted.app/api/auth/portal-sync';
-      form.style.display = 'none';
-
-      const tokenInput = document.createElement('input');
-      tokenInput.type = 'hidden';
-      tokenInput.name = 'firebase_token';
-      tokenInput.value = token;
-      form.appendChild(tokenInput);
-
-      const uidInput = document.createElement('input');
-      uidInput.type = 'hidden';
-      uidInput.name = 'uid';
-      uidInput.value = uid;
-      form.appendChild(uidInput);
-
-      if (activeProjectCode) {
-        const projectInput = document.createElement('input');
-        projectInput.type = 'hidden';
-        projectInput.name = 'project_code';
-        projectInput.value = activeProjectCode;
-        form.appendChild(projectInput);
-      }
-
-      document.body.appendChild(form);
-      form.submit();
-      
-      setTimeout(() => {
-        if (document.body.contains(form)) {
-          document.body.removeChild(form);
-        }
-      }, 500);
-
-    } catch (error: any) {
-      console.error("Error al saltar a CartoDEA:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Error de salto',
-        description: error.message || 'No se pudo generar el acceso seguro.',
-      });
-      setIsRedirectingToCartoDEA(false);
-      
-      if (!user) {
-        router.push('/');
-      }
-    }
-  };
+// handleCartoDEAClick is declared above with jumpToCartoDEA
   
   const handleClearSelection = useCallback(() => {
       setSelectedCard(null);
@@ -982,7 +994,7 @@ function HomeContent() {
                               {code && <span className="text-[10px] font-bold text-[#9FCCE3] font-mono select-none bg-[#9FCCE3]/10 px-1.5 py-0.5 rounded border border-[#9FCCE3]/20">{code.toUpperCase()}</span>}
                             </div>
                             <h2 className="text-white text-sm font-headline leading-tight text-justify line-clamp-4 pr-4">
-                              <span className="font-medium">{nameWithoutCode}</span>
+                              <span className="font-bold">{nameWithoutCode}</span>
                             </h2>
                           </>
                         );
@@ -1262,7 +1274,6 @@ function HomeContent() {
                 onClick={() => {
                   if (projectSwitchModal.targetCard) {
                     handleCardSelect(projectSwitchModal.targetCard);
-                    setTimeout(() => setIsSummaryOpen(true), 150);
                   }
                   setProjectSwitchModal({ open: false, currentCard: null, targetCard: null });
                 }}

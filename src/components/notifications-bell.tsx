@@ -21,7 +21,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { getDatabusFirestore } from '@/firebase/databus-client';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
-interface CombinedAction {
+export interface CombinedAction {
     id: string;
     type: string;
     source: 'trello' | 'portal' | 'databus';
@@ -100,7 +100,7 @@ export default function NotificationsBell({ onNotificationClick, onDataBusNotifi
         if (!user) return;
         setIsLoading(true);
 
-        const eightHoursAgo = Date.now() - 24 * 60 * 60 * 1000; // Últimas 24 hs
+        const fortyEightHoursAgo = Date.now() - 48 * 60 * 60 * 1000; // Últimas 48 hs
 
         // 1. Suscripción a actividades del Portal DEA (backend local)
         let unsubPortal: (() => void) | null = null;
@@ -111,7 +111,7 @@ export default function NotificationsBell({ onNotificationClick, onDataBusNotifi
                     .map(doc => {
                         const data = doc.data();
                         const date = data.timestamp?.toDate() || new Date();
-                        if (date.getTime() < eightHoursAgo) return null;
+                        if (date.getTime() < fortyEightHoursAgo) return null;
                         if (data.actionType === 'export_card') return null;
 
                         let actionText = '';
@@ -181,7 +181,7 @@ export default function NotificationsBell({ onNotificationClick, onDataBusNotifi
                     .map(doc => {
                         const data = doc.data();
                         const date = data.timestamp?.toDate() || new Date();
-                        if (date.getTime() < eightHoursAgo) return null;
+                        if (date.getTime() < fortyEightHoursAgo) return null;
 
                         let actionText = '';
                         if (data.actionType === 'data_bus_report_created') {
@@ -229,7 +229,7 @@ export default function NotificationsBell({ onNotificationClick, onDataBusNotifi
         // 3. Consulta periódica a Trello
         const fetchTrello = async () => {
             try {
-                const trelloRaw = await getAllRecentActions(8);
+                const trelloRaw = await getAllRecentActions(48);
                 const trelloActions: CombinedAction[] = trelloRaw.map(a => ({
                     id: `trello-${a.id}`,
                     source: 'trello',
