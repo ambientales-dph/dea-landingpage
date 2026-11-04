@@ -23,6 +23,7 @@ import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Star, Paperclip } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer, XAxis } from 'recharts';
+import { ESTADOS_PROYECTO } from '@/lib/cuencas';
 
 interface TimelineProps {
   milestones: Milestone[];
@@ -109,6 +110,35 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
     });
   }, [milestones, viewRange]);
 
+function extractStatusFromMilestone(m: Milestone): { oldStatus?: string; newStatus?: string } {
+  const mAny = m as any;
+  if (mAny.newStatus) {
+    return {
+      oldStatus: mAny.oldStatus,
+      newStatus: mAny.newStatus,
+    };
+  }
+
+  const desc = m.description || '';
+  const deMatch = desc.match(/ha cambiado de ["'“](.*?)["'”]\s+a\s+["'“](.*?)["'”]/i);
+  if (deMatch) {
+    return { oldStatus: deMatch[1].trim(), newStatus: deMatch[2].trim() };
+  }
+
+  const aMatch = desc.match(/a ["'“](.*?)["'”]/i);
+  if (aMatch) {
+    return { newStatus: aMatch[1].trim() };
+  }
+
+  for (const status of ESTADOS_PROYECTO) {
+    if (m.name.includes(status) || desc.includes(status)) {
+      return { newStatus: status };
+    }
+  }
+
+  return {};
+}
+
   const statusSegments = React.useMemo(() => {
     const segments: { start: number; status: string; color: string }[] = [];
     
@@ -116,34 +146,38 @@ export function Timeline({ milestones, startDate, endDate, onMilestoneClick, isD
     const projectStartTime = creationMilestone ? parseISO(creationMilestone.occurredAt).getTime() : 0;
 
     const changeMilestones = milestones
-      .filter(m => m.description?.includes('📍 HITO DE PROYECTO: El estado ha cambiado'))
+      .filter(m => 
+        m.description?.includes('📍 HITO DE PROYECTO: El estado ha cambiado') ||
+        m.category?.name?.toLowerCase().includes('cambio de estado') ||
+        m.category?.id === 'cat-status' ||
+        Boolean((m as any).newStatus)
+      )
       .sort((a, b) => parseISO(a.occurredAt).getTime() - parseISO(b.occurredAt).getTime());
 
     if (changeMilestones.length > 0) {
-      const firstMatch = changeMilestones[0].description.match(/El estado ha cambiado de "(.*?)" a "(.*?)". Fecha/);
-      if (firstMatch) {
-        const oldStatus = firstMatch[1] === '---' ? 'Sin iniciar' : firstMatch[1];
-        segments.push({
-          start: projectStartTime || parseISO(changeMilestones[0].occurredAt).getTime() - 86400000,
-          status: oldStatus,
-          color: TRELLO_HEX_MAP[STATUS_COLORS_MAP[oldStatus] || 'red'] || '#f87168'
-        });
-      }
+      const firstStatus = extractStatusFromMilestone(changeMilestones[0]);
+      const initialStatus = (firstStatus.oldStatus && firstStatus.oldStatus !== '---') ? firstStatus.oldStatus : 'Sin iniciar';
+      const firstMilestoneTime = parseISO(changeMilestones[0].occurredAt).getTime();
+
+      segments.push({
+        start: projectStartTime || (firstMilestoneTime - 86400000),
+        status: initialStatus,
+        color: TRELLO_HEX_MAP[STATUS_COLORS_MAP[initialStatus] || 'red'] || '#f87168'
+      });
 
       changeMilestones.forEach(m => {
-        const match = m.description.match(/a "(.*?)". Fecha/);
-        if (match && match[1]) {
-          const newStatus = match[1];
+        const statusInfo = extractStatusFromMilestone(m);
+        if (statusInfo.newStatus) {
           segments.push({
             start: parseISO(m.occurredAt).getTime(),
-            status: newStatus,
-            color: TRELLO_HEX_MAP[STATUS_COLORS_MAP[newStatus] || 'red'] || '#f87168'
+            status: statusInfo.newStatus,
+            color: TRELLO_HEX_MAP[STATUS_COLORS_MAP[statusInfo.newStatus] || 'red'] || '#f87168'
           });
         }
       });
     } else if (milestones.length > 0) {
       segments.push({
-        start: projectStartTime || Date.now() - 31536000000,
+        start: projectStartTime || (Date.now() - 31536000000),
         status: 'Sin iniciar',
         color: TRELLO_HEX_MAP['red']
       });

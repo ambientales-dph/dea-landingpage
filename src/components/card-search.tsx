@@ -72,19 +72,9 @@ import { EQUIPO_DEA, EQUIPO_SIG, EQUIPO_DRON } from '@/lib/equipo';
 import { MUNICIPIOS } from '@/lib/municipios';
 import { PROYECTISTAS } from '@/lib/proyectistas';
 import { FINANCIAMIENTO } from '@/lib/financiamiento';
-import { CUENCAS } from '@/lib/cuencas';
+import { CUENCAS, ESTADOS_PROYECTO } from '@/lib/cuencas';
 import LocationPicker from './location-picker';
 import UploadWorkingFilesDialog, { type PreparedUploadFile } from './upload-working-files-dialog';
-
-const ESTADOS_PROYECTO = [
-    "Sin iniciar",
-    "Iniciado",
-    "Neutralizado",
-    "Terminado",
-    "Con DIA",
-    "Rescindido",
-    "En seguimiento"
-];
 
 const trelloCoverColors = [
     { name: 'green', hex: '#4bce97', label: 'Verde' },

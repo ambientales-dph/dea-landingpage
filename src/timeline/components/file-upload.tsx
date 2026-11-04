@@ -35,7 +35,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { listSubfolders, createSubfolder, getOrCreateProjectFolder } from '@/timeline/services/google-drive';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { type FileConfig } from './add-files-dialog';
-import { CUENCAS } from '@/lib/cuencas';
+import { CUENCAS, ESTADOS_PROYECTO } from '@/lib/cuencas';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -46,6 +46,7 @@ const uploadSchema = z.object({
   categoryId: z.string().min(1, 'Por favor, seleccioná una categoría.'),
   occurredAt: z.date({ required_error: "Debes seleccionar una fecha." }),
   targetFolderId: z.string().optional(),
+  newStatus: z.string().optional(),
 });
 
 type UploadFormValues = z.infer<typeof uploadSchema>;
@@ -56,13 +57,16 @@ interface FileUploadProps {
   categories: Category[];
   projectCode: string | null;
   projectName: string | null;
+  currentStatus?: string;
   onUpload: (data: { 
     fileConfigs: FileConfig[], 
     categoryId: string, 
     name: string, 
     description: string, 
     occurredAt: Date,
-    targetFolderId?: string
+    targetFolderId?: string,
+    newStatus?: string,
+    oldStatus?: string
   }) => void;
   isUploading: boolean;
   uploadProgress: number;
@@ -75,6 +79,7 @@ export function FileUpload({
   categories,
   projectCode,
   projectName,
+  currentStatus,
   onUpload,
   isUploading,
   uploadProgress,
@@ -97,8 +102,19 @@ export function FileUpload({
       categoryId: '',
       occurredAt: new Date(),
       targetFolderId: 'root',
+      newStatus: '',
     },
   });
+
+  const watchCategoryId = form.watch('categoryId');
+  const selectedCategory = React.useMemo(() => {
+    return categories.find(c => c.id === watchCategoryId);
+  }, [categories, watchCategoryId]);
+
+  const isStatusChangeCategory = React.useMemo(() => {
+    if (!selectedCategory) return false;
+    return selectedCategory.id === 'cat-status' || selectedCategory.name.toLowerCase().includes('cambio de estado');
+  }, [selectedCategory]);
 
   const hasWorkFiles = fileConfigs.some(c => !c.isFinal);
 
@@ -109,7 +125,8 @@ export function FileUpload({
         description: '',
         categoryId: '',
         occurredAt: new Date(),
-        targetFolderId: 'root'
+        targetFolderId: 'root',
+        newStatus: '',
       });
       setIsCreatingFolder(false);
       setShowCalendar(false);
@@ -216,11 +233,17 @@ export function FileUpload({
   };
 
   const handleFormSubmit = (data: UploadFormValues) => {
+    if (isStatusChangeCategory && !data.newStatus) {
+      form.setError('newStatus', { message: 'Debes seleccionar el nuevo estado del proyecto.' });
+      return;
+    }
     onUpload({
         ...data,
         fileConfigs,
         description: data.description || '',
-        targetFolderId: hasWorkFiles ? navigationStack[navigationStack.length - 1]?.id : undefined
+        targetFolderId: hasWorkFiles ? navigationStack[navigationStack.length - 1]?.id : undefined,
+        newStatus: isStatusChangeCategory ? data.newStatus : undefined,
+        oldStatus: isStatusChangeCategory ? (currentStatus || 'Sin iniciar') : undefined,
     });
   };
 
@@ -275,7 +298,17 @@ export function FileUpload({
                             render={({ field }) => (
                               <FormItem className="space-y-1">
                                 <FormLabel className="text-xs font-semibold">Categoría *</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select 
+                                  onValueChange={(val) => {
+                                    field.onChange(val);
+                                    const cat = categories.find(c => c.id === val);
+                                    const isStatus = cat ? (cat.id === 'cat-status' || cat.name.toLowerCase().includes('cambio de estado')) : false;
+                                    if (!isStatus) {
+                                      form.setValue('newStatus', '');
+                                    }
+                                  }} 
+                                  value={field.value}
+                                >
                                   <FormControl>
                                     <SelectTrigger className="h-8 text-sm bg-zinc-100 border-zinc-400">
                                       <SelectValue placeholder="Seleccioná" />
@@ -319,6 +352,57 @@ export function FileUpload({
                             )}
                           />
                         </div>
+
+                        {isStatusChangeCategory && (
+                          <div className="col-span-2 p-3 rounded-lg border border-lime-600/40 bg-lime-100/70 text-black space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-bold text-zinc-800">Cambio de Estado del Proyecto</span>
+                              <span className="text-[11px] text-zinc-600">
+                                Estado actual: <strong className="text-zinc-900">{currentStatus || 'Sin iniciar'}</strong>
+                              </span>
+                            </div>
+
+                            <FormField
+                              control={form.control}
+                              name="newStatus"
+                              render={({ field }) => (
+                                <FormItem className="space-y-1">
+                                  <FormLabel className="text-xs font-semibold text-zinc-800">
+                                    Nuevo Estado a asignar *
+                                  </FormLabel>
+                                  <Select
+                                    value={field.value || ''}
+                                    onValueChange={(val) => {
+                                      field.onChange(val);
+                                      const currentName = form.getValues('name');
+                                      if (!currentName || currentName.startsWith('Cambio de Estado')) {
+                                        form.setValue('name', `Cambio de Estado: ${val}`);
+                                      }
+                                      const currentDesc = form.getValues('description');
+                                      if (!currentDesc || currentDesc.startsWith('Pase de estado')) {
+                                        form.setValue('description', `Pase de estado del proyecto de "${currentStatus || 'Sin iniciar'}" a "${val}".`);
+                                      }
+                                    }}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger className="h-8 text-sm bg-zinc-100 border-zinc-400 text-black">
+                                        <SelectValue placeholder="Seleccioná el nuevo estado" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent className="max-h-[220px]" position="popper">
+                                      {ESTADOS_PROYECTO.map((est) => (
+                                        <SelectItem key={est} value={est} className="text-xs font-medium">
+                                          {est} {currentStatus === est ? '(Actual)' : ''}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage className="text-[10px]" />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )}
 
                         <FormField
                           control={form.control}

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createProject, updateProject, type ProjectState } from '@/app/actions/project-actions';
-import { CUENCAS } from '@/lib/cuencas';
+import { CUENCAS, ESTADOS_PROYECTO } from '@/lib/cuencas';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -28,16 +28,6 @@ import { useProject } from '@/providers/project-provider';
 import LocationPicker from './location-picker';
 
 const initialState: ProjectState = { message: undefined, success: false };
-
-const ESTADOS_PROYECTO = [
-    "Sin iniciar",
-    "Iniciado",
-    "Neutralizado",
-    "Terminado",
-    "Con DIA",
-    "Rescindido",
-    "En seguimiento"
-];
 
 interface CreateProjectFormProps {
   setOpen: (open: boolean) => void;

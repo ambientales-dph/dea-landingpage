@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Mail, Loader2, AlertCircle, Trash2, RefreshCw, Sparkles, Zap, Info, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -63,14 +63,14 @@ export default function MailRadar() {
         return () => unsubscribe();
     }, [db, user]);
 
-    const handleSync = async (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const executeSync = async (silent = false) => {
         if (isSyncing) return;
 
         setIsSyncing(true);
         setErrorState(null);
-        toast({ title: 'Escaneando Gmail...', description: 'La IA está analizando los correos en busca de obras.' });
+        if (!silent) {
+            toast({ title: 'Escaneando Gmail...', description: 'La IA está analizando los correos no leídos en busca de obras.' });
+        }
 
         try {
             const projectList = allCards.map(c => {
@@ -82,44 +82,90 @@ export default function MailRadar() {
                 };
             }).filter(p => p.code !== 'S/C');
 
-            const result = await syncGmailAlerts(projectList);
+            const result = await syncGmailAlerts(projectList.length > 0 ? projectList : null);
             if (result.success) {
-                if (result.newAlerts > 0) {
-                    toast({ title: 'Escaneo finalizado', description: `Se detectaron ${result.newAlerts} correos vinculados.` });
-                } else {
+                if (result.newAlerts && result.newAlerts > 0) {
+                    toast({ 
+                        title: '📬 Nuevos correos detectados', 
+                        description: `Se detectaron ${result.newAlerts} correo(s) vinculado(s) a obras.` 
+                    });
+                } else if (!silent) {
                     toast({ title: 'Sin novedades', description: 'No se encontraron correos nuevos para obras conocidas.' });
                 }
             } else {
                 setErrorState(result.error || 'Error desconocido');
-                toast({ variant: 'destructive', title: 'Error de escaneo', description: result.error });
+                if (!silent) {
+                    toast({ variant: 'destructive', title: 'Error de escaneo', description: result.error });
+                }
             }
         } catch (error: any) {
             const msg = error.message || 'Error de comunicación con el servidor.';
             setErrorState(msg);
-            toast({ variant: 'destructive', title: 'Error de conexión', description: msg });
+            if (!silent) {
+                toast({ variant: 'destructive', title: 'Error de conexión', description: msg });
+            }
         } finally {
             setIsSyncing(false);
         }
     };
 
-    const handleActivatePush = async (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const activatePushInternal = async (silent = false) => {
         setIsActivatingPush(true);
         try {
             const result = await activateRealTimeRadar();
             if (result.success) {
                 setPushIsActive(true);
-                toast({ title: 'Push Activado', description: 'Gmail notificará a la app cada vez que entre un mail.' });
-            } else {
+                if (!silent) {
+                    toast({ title: 'Push Activado', description: 'Gmail notificará a la app cada vez que entre un mail.' });
+                }
+            } else if (!silent) {
                 toast({ variant: 'destructive', title: 'Error al activar Push', description: result.error });
             }
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo registrar el Watch de Gmail.' });
+            if (!silent) {
+                toast({ variant: 'destructive', title: 'Error', description: 'No se pudo registrar el Watch de Gmail.' });
+            }
         } finally {
             setIsActivatingPush(false);
         }
     };
+
+    const handleSync = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await executeSync(false);
+    };
+
+    const handleActivatePush = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await activatePushInternal(false);
+    };
+
+    const autoInitRef = useRef(false);
+
+    useEffect(() => {
+        if (!user || autoInitRef.current) return;
+        autoInitRef.current = true;
+
+        // 1. Activar Watch/Webhook de Gmail automáticamente al inicio para asegurar el webhook Push
+        activatePushInternal(true);
+
+        // 2. Escaneo automático inicial tras breve delay para permitir carga de proyectos
+        const initialTimer = setTimeout(() => {
+            executeSync(true);
+        }, 1500);
+
+        // 3. Mantener vigilado en segundo plano periódicamente cada 3 minutos mientras la app esté abierta
+        const intervalTimer = setInterval(() => {
+            executeSync(true);
+        }, 3 * 60 * 1000);
+
+        return () => {
+            clearTimeout(initialTimer);
+            clearInterval(intervalTimer);
+        };
+    }, [user]);
 
     const handleSelectAlert = async (alert: any) => {
         if (alert.cardId) {

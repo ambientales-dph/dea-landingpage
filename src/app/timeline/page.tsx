@@ -42,6 +42,8 @@ import { useProject } from '@/providers/project-provider';
 import { WHITELIST } from '@/lib/auth-data';
 import { type FileConfig } from '@/timeline/components/add-files-dialog';
 import { TrashDialog } from '@/timeline/components/trash-dialog';
+import { updateProjectStatus } from '@/app/actions/project-actions';
+import { extractFieldFromDesc } from '@/lib/cuencas';
 
 const STATUS_COLORS_HEX: Record<string, string | null> = {
     'Sin iniciar': 'red',
@@ -334,21 +336,28 @@ function HomeContent() {
               .filter(action => !existingHitosByTrelloId.has(action.id))
               .map(action => {
                 let milestone: Milestone | null = null;
+                const creatorName = action.memberCreator?.fullName || 'Usuario';
                 if (action.type === 'commentCard' && action.data.text) {
                     const isStatusUpdate = action.data.text.includes('📍 HITO DE PROYECTO');
+                    const deMatch = action.data.text.match(/ha cambiado de ["'“](.*?)["'”]\s+a\s+["'“](.*?)["'”]/i);
+                    const aMatch = action.data.text.match(/a ["'“](.*?)["'”]/i);
+                    const oldSt = deMatch ? deMatch[1].trim() : undefined;
+                    const newSt = deMatch ? deMatch[2].trim() : (aMatch ? aMatch[1].trim() : undefined);
+
                     milestone = { 
                         id: `hito-${action.id}`, 
-                        name: isStatusUpdate ? 'Actualización de Estado' : `Comentario de ${action.memberCreator.fullName}`, 
+                        name: isStatusUpdate ? 'Actualización de Estado' : `Comentario de ${creatorName}`, 
                         description: action.data.text, 
                         occurredAt: action.date, 
                         category: isStatusUpdate ? statusChangeCategory : commentsCategory, 
                         tags: isStatusUpdate ? ['estado', 'sistema'] : ['comentario'], 
                         associatedFiles: [], 
                         isImportant: false, 
-                        history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] 
-                    };
+                        history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`],
+                        ...(newSt ? { newStatus: newSt, oldStatus: oldSt } : {})
+                    } as any;
                 } else if (action.type === 'updateCard' && action.data.listAfter && action.data.listBefore) {
-                    milestone = { id: `hito-${action.id}`, name: `Tarjeta movida`, description: `Movida de "${action.data.listBefore.name}" a "${action.data.listAfter.name}" por ${action.memberCreator.fullName}.`, occurredAt: action.date, category: activityCategory, tags: ['activity', 'movimiento'], associatedFiles: [], isImportant: false, history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] };
+                    milestone = { id: `hito-${action.id}`, name: `Tarjeta movida`, description: `Movida de "${action.data.listBefore.name}" a "${action.data.listAfter.name}" por ${creatorName}.`, occurredAt: action.date, category: activityCategory, tags: ['actividad', 'movimiento'], associatedFiles: [], isImportant: false, history: [`${format(new Date(), "PPpp", { locale: es })} - Creación desde actividad de Trello.`] };
                 }
                 return milestone;
             }).filter((m): m is Milestone => m !== null);
@@ -373,7 +382,7 @@ function HomeContent() {
 
 
   const executeFinalUpload = React.useCallback(async (data: any, finalRootId: string, workFolderId: string, resolutions: Record<string, ConflictStrategy>) => {
-    const { fileConfigs, categoryId, name, description, occurredAt } = data;
+    const { fileConfigs, categoryId, name, description, occurredAt, newStatus, oldStatus } = data;
     const category = categories.find((c: any) => c.id === categoryId);
     if (!category || !selectedCard || !firestore) {
         setIsUploading(false);
@@ -382,12 +391,22 @@ function HomeContent() {
 
     setIsUploading(true);
     const { id: toastId, dismiss: localDismiss, update } = toast({
-      title: "Procesando archivos mixtos...",
-      description: "Preparando carpetas en Drive.",
+      title: newStatus ? "Actualizando estado..." : "Procesando archivos mixtos...",
+      description: newStatus ? "Impactando cambio de estado en Trello y Línea de Tiempo." : "Preparando carpetas en Drive.",
       duration: Infinity,
     });
 
     try {
+      let statusRes: any = null;
+      if (newStatus) {
+        update({ id: toastId, description: `Actualizando estado a "${newStatus}" en Trello...` });
+        statusRes = await updateProjectStatus({
+          cardId: selectedCard.id,
+          newStatus,
+          occurredAt: occurredAt ? new Date(occurredAt).toISOString() : new Date().toISOString()
+        });
+      }
+
       const hasFinal = fileConfigs.some((c: any) => c.isFinal);
       let milestoneFolderId = '';
 
@@ -485,26 +504,57 @@ function HomeContent() {
           }
       }
 
-      const newMilestoneData = {
+      let finalDescription = (description || '').trim();
+      if (newStatus) {
+        const statusHitoText = `📍 HITO DE PROYECTO: El estado ha cambiado de "${oldStatus || '---'}" a "${newStatus}". Fecha: ${format(finalOccurredDate, "dd/MM/yyyy, HH:mm")}.`;
+        if (!finalDescription.includes('📍 HITO DE PROYECTO')) {
+          finalDescription = finalDescription ? `${finalDescription}\n\n${statusHitoText}` : statusHitoText;
+        }
+      }
+
+      const newMilestoneData: any = {
           name: name,
-          description: description,
+          description: finalDescription,
           occurredAt: finalOccurredDate.toISOString(),
           category: { id: category.id, name: category.name, color: category.color },
-          tags: [hasFinal ? 'manual' : 'trabajo'],
+          tags: [hasFinal ? 'manual' : 'trabajo', ...(newStatus ? ['estado', 'sistema'] : [])],
           associatedFiles: associatedFiles,
-          isImportant: false,
-          history: [`${format(new Date(), "PPpp", { locale: es })} - Hito creado con carga mixta de ${associatedFiles.length} archivo(s).`],
-          driveFolderId: hasFinal ? (milestoneFolderId || null) : null
+          isImportant: Boolean(newStatus),
+          history: [
+            newStatus
+              ? `${format(new Date(), "PPpp", { locale: es })} - Cambio de estado a "${newStatus}" registrado desde la línea de tiempo.`
+              : `${format(new Date(), "PPpp", { locale: es })} - Hito creado con carga mixta de ${associatedFiles.length} archivo(s).`
+          ],
+          driveFolderId: hasFinal ? (milestoneFolderId || null) : null,
+          ...(newStatus ? { newStatus, oldStatus: oldStatus || 'Sin iniciar' } : {})
       };
 
-      const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
-      await addDoc(milestonesRef, newMilestoneData);
+      const milestoneDocId = statusRes?.trelloActionId ? `hito-${statusRes.trelloActionId}` : undefined;
+      if (milestoneDocId) {
+          newMilestoneData.id = milestoneDocId;
+          const milestoneDocRef = doc(firestore, 'timeline_projects', selectedCard.id, 'milestones', milestoneDocId);
+          await setDoc(milestoneDocRef, newMilestoneData, { merge: true });
+      } else {
+          const milestonesRef = collection(firestore, 'timeline_projects', selectedCard.id, 'milestones');
+          await addDoc(milestonesRef, newMilestoneData);
+      }
       
-      logTimelineActivity('timeline_milestone_created', `Hito creado: "${name}" con ${associatedFiles.length} archivos.`);
+      if (newStatus) {
+        try {
+          await refreshCards();
+          const updated = await getCardById(selectedCard.id);
+          if (updated) setSelectedCard(updated);
+        } catch (cardRefreshErr) {
+          console.error("Error al refrescar tarjeta local:", cardRefreshErr);
+        }
+        logTimelineActivity('status_change', `Cambió el estado a "${newStatus}" desde la línea de tiempo.`);
+      } else {
+        logTimelineActivity('timeline_milestone_created', `Hito creado: "${name}" con ${associatedFiles.length} archivos.`);
+      }
 
       setIsUploadOpen(false);
       localDismiss();
-      toast({ title: `Hito "${name}" creado exitosamente.` });
+      toast({ title: newStatus ? `Estado actualizado a "${newStatus}" e hito registrado.` : `Hito "${name}" creado exitosamente.` });
     } catch (error: any) {
         console.error("Error en la subida:", error);
         localDismiss();
@@ -516,7 +566,7 @@ function HomeContent() {
         setConflicts([]);
         setPendingUploadData(null);
     }
-  }, [categories, selectedCard, firestore, toast, milestones, conflicts, logTimelineActivity]);
+  }, [categories, selectedCard, firestore, toast, milestones, conflicts, logTimelineActivity, refreshCards, setSelectedCard]);
 
   const handleUpload = React.useCallback(async (data: { 
     fileConfigs: FileConfig[], 
@@ -524,7 +574,9 @@ function HomeContent() {
     name: string, 
     description: string, 
     occurredAt: Date,
-    targetFolderId?: string
+    targetFolderId?: string,
+    newStatus?: string,
+    oldStatus?: string
   }) => {
     if (!firestore || !selectedCard) return;
 
@@ -815,6 +867,9 @@ function HomeContent() {
   }, [displayedMilestones]);
 
   const projectCode = selectedCard ? (selectedCard.name.match(/\b([A-Z]{2,4}\d{3})\b/i)?.[0] || null) : null;
+  const currentProjectStatus = React.useMemo(() => {
+    return extractFieldFromDesc(selectedCard?.desc || '', '·ESTADO') || extractFieldFromDesc(selectedCard?.desc || '', 'ESTADO') || 'Sin iniciar';
+  }, [selectedCard]);
 
   const handleToggleView = () => setView(prev => prev === 'timeline' ? 'summary' : 'timeline');
 
@@ -942,6 +997,7 @@ function HomeContent() {
         categories={categories}
         projectCode={projectCode}
         projectName={selectedCard?.name || null}
+        currentStatus={currentProjectStatus}
         onUpload={handleUpload}
         isUploading={isUploading}
         uploadProgress={uploadProgress}

@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { CUENCAS, DESCRIPCION_PLANTILLA } from '@/lib/cuencas';
+import { CUENCAS, DESCRIPCION_PLANTILLA, extractFieldFromDesc } from '@/lib/cuencas';
 import { 
     createTrelloCard, 
     getNextProjectCode, 
@@ -13,6 +13,7 @@ import {
 } from '@/services/trello';
 import { createProjectFolder, shareFolderWithEmails, extractIdFromUrl } from '@/services/google-drive';
 import { WHITELIST } from '@/lib/auth-data';
+import { getAdminFirestore } from '@/firebase/admin';
 
 const PROYECTOS_BOARD_ID = 'CgG4b3B0';
 
@@ -361,7 +362,8 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
 
         const finalDescription = reconcileDescription(oldDesc, updates);
 
-        const isStatusChange = estado !== undefined && !oldDesc.includes(`·ESTADO: **${estado}**`);
+        const oldStatus = extractFieldFromDesc(oldDesc, '·ESTADO') || extractFieldFromDesc(oldDesc, 'ESTADO') || 'Sin iniciar';
+        const isStatusChange = Boolean(estado && estado.trim() !== '' && estado.trim() !== oldStatus.trim());
 
         let cardName = currentCard.name;
         let idList = currentCard.idList;
@@ -390,10 +392,43 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
         if (isStatusChange && estado) {
             updatePayload.cover = { color: getTrelloColorForStatus(estado) };
             const timestampStr = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
-            await addCommentToCard({
+            const commentText = `📍 HITO DE PROYECTO: El estado ha cambiado de "${oldStatus}" a "${estado}". Fecha: ${timestampStr}.`;
+            const trelloComment = await addCommentToCard({
                 cardId,
-                text: `📍 HITO DE PROYECTO: El estado ha cambiado a "${estado}". Fecha: ${timestampStr}.`
+                text: commentText
             });
+
+            // Registrar directamente el hito de cambio de estado en Firestore
+            try {
+                const adminDb = getAdminFirestore();
+                if (adminDb) {
+                    const milestoneId = trelloComment?.id ? `hito-${trelloComment.id}` : undefined;
+                    const milestoneData: any = {
+                        name: 'Actualización de Estado',
+                        description: commentText,
+                        occurredAt: new Date().toISOString(),
+                        category: {
+                            id: 'cat-status',
+                            name: 'Cambio de Estado',
+                            color: '#a3e635'
+                        },
+                        tags: ['estado', 'sistema'],
+                        associatedFiles: [],
+                        isImportant: false,
+                        history: [`${timestampStr} - Actualización de estado desde la ficha del proyecto.`],
+                        newStatus: estado,
+                        oldStatus: oldStatus
+                    };
+                    if (milestoneId) {
+                        milestoneData.id = milestoneId;
+                        await adminDb.collection('timeline_projects').doc(cardId).collection('milestones').doc(milestoneId).set(milestoneData, { merge: true });
+                    } else {
+                        await adminDb.collection('timeline_projects').doc(cardId).collection('milestones').add(milestoneData);
+                    }
+                }
+            } catch (fsErr) {
+                console.error("Error al persistir hito en Firestore desde updateProject:", fsErr);
+            }
         }
 
         await updateTrelloCard(updatePayload);
@@ -414,5 +449,53 @@ export async function updateProject(prevState: ProjectState, formData: FormData)
             message: `Error al actualizar: ${error.message || 'Error desconocido'}`,
             timestamp: Date.now()
         };
+    }
+}
+
+/**
+ * Actualiza únicamente el estado del proyecto tanto en Trello (descripción, color y comentario)
+ * como opcionalmente devolviendo los datos para el hito en Firestore.
+ */
+export async function updateProjectStatus({
+    cardId,
+    newStatus,
+    occurredAt
+}: {
+    cardId: string;
+    newStatus: string;
+    occurredAt?: string;
+}): Promise<{ success: boolean; message?: string; oldStatus?: string; newStatus?: string; trelloActionId?: string }> {
+    try {
+        const currentCard = await getCardById(cardId);
+        const oldDesc = currentCard.desc || '';
+        const oldStatus = extractFieldFromDesc(oldDesc, '·ESTADO') || extractFieldFromDesc(oldDesc, 'ESTADO') || 'Sin iniciar';
+
+        const finalDescription = reconcileDescription(oldDesc, { '·ESTADO': newStatus });
+        const initialColor = getTrelloColorForStatus(newStatus);
+
+        await updateTrelloCard({
+            cardId,
+            desc: finalDescription,
+            cover: { color: initialColor }
+        });
+
+        const dateObj = occurredAt ? new Date(occurredAt) : new Date();
+        const timestampStr = dateObj.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+        const commentText = `📍 HITO DE PROYECTO: El estado ha cambiado de "${oldStatus}" a "${newStatus}". Fecha: ${timestampStr}.`;
+
+        const trelloComment = await addCommentToCard({
+            cardId,
+            text: commentText
+        });
+
+        return {
+            success: true,
+            oldStatus,
+            newStatus,
+            trelloActionId: trelloComment?.id
+        };
+    } catch (e: any) {
+        console.error('Error al actualizar estado del proyecto:', e);
+        return { success: false, message: e.message || 'Error desconocido' };
     }
 }

@@ -1,4 +1,16 @@
 // El `trelloListName` debe coincidir EXACTAMENTE con el nombre de la lista en tu tablero de Trello "Proyectos".
+export const ESTADOS_PROYECTO = [
+  "Sin iniciar",
+  "Iniciado",
+  "Neutralizado",
+  "Terminado",
+  "Con DIA",
+  "Rescindido",
+  "En seguimiento",
+] as const;
+
+export type EstadoProyecto = typeof ESTADOS_PROYECTO[number];
+
 export const CUENCAS = [
   { id: 'mar', name: 'Cuenca Matanza-Riachuelo', code: 'MAR', trelloListName: 'Cuenca Matanza-Riachuelo', driveFolderId: '1-OKZ-1xwM_bLRlwQfg00Z9-do2Q1YTSt' },
   { id: 'rrq', name: 'Cuenca Río Reconquista', code: 'RRQ', trelloListName: 'Cuenca Río Reconquista', driveFolderId: '1E_tP2pQCyEGbjKlBA2sa-p4ttt3WXutq' },
@@ -47,3 +59,29 @@ export const DESCRIPCION_PLANTILLA = `·ESTADO:
 ·COORDINADAS:
 
 #`;
+
+/**
+ * Extrae el valor de un campo específico de la descripción de Trello.
+ */
+export function extractFieldFromDesc(desc: string, field: string): string {
+    if (!desc) return '';
+    const lines = desc.split('\n');
+    const fieldClean = field.replace(/^[- ·]+/, '').toLowerCase().trim();
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const lineClean = line.replace(/^[- ·]+/, '').toLowerCase().trim();
+        if (lineClean.startsWith(fieldClean + ':')) {
+            let val = line.substring(line.indexOf(':') + 1).trim().replace(/^\*\*|\*\*$/g, '').trim();
+            if (!val && i + 1 < lines.length) {
+                const nextLine = lines[i + 1].trim();
+                if (nextLine && !nextLine.startsWith('·') && !nextLine.startsWith('-') && nextLine !== '#') {
+                    val = nextLine.replace(/^\*\*|\*\*$/g, '').trim();
+                }
+            }
+            const mdMatch = val.match(/\[.*?\]\((https?:\/\/[^\s)]+)\)/);
+            if (mdMatch) return mdMatch[1];
+            return val;
+        }
+    }
+    return '';
+}

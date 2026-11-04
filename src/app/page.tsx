@@ -28,6 +28,8 @@ import {
   Plus,
   Construction,
   FileJson,
+  Database,
+  ExternalLink,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -860,6 +862,18 @@ function HomeContent() {
                       }}>
                           <History className="mr-2 h-4 w-4" />
                           <span>Ver Bitácora de Actividad</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onSelect={() => {
+                          const databusUrl = process.env.NEXT_PUBLIC_DATABUS_URL || 'https://dea-data-bus--studio-7793356696-41de0.us-east4.hosted.app';
+                          window.open(databusUrl, '_blank', 'noopener,noreferrer');
+                        }}
+                        className="cursor-pointer group"
+                      >
+                          <Database className="mr-2 h-4 w-4 text-emerald-500 group-hover:scale-110 transition-transform" />
+                          <span className="flex-1 font-medium">DEA Data Bus</span>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground ml-2" />
                       </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

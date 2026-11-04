@@ -28,6 +28,32 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { evaluateReading, resolveMatrixFromPlanillaOrMedium, EvaluationResult } from '@/lib/guideline-evaluator';
 
+function formatAlertTimeAgo(date: Date): string {
+  const now = Date.now();
+  const diffMs = Math.max(0, now - date.getTime());
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) {
+    if (minutes <= 0) return 'hace instantes';
+    if (minutes === 1) return 'hace 1 minuto';
+    return `hace ${minutes} minutos`;
+  }
+
+  if (hours === 1 || hours === 2) {
+    const horaTxt = hours === 1 ? '1 hora' : '2 horas';
+    if (minutes === 0) {
+      return `hace ${horaTxt}`;
+    }
+    const minTxt = minutes === 1 ? '1 minuto' : `${minutes} minutos`;
+    return `hace ${horaTxt} y ${minTxt}`;
+  }
+
+  // 3 horas o más: solo la cantidad de horas
+  return `hace ${hours} horas`;
+}
+
 export interface EnvironmentalAlert {
   id: string;
   analyte: string;
@@ -364,7 +390,7 @@ export default function EnvironmentalAlertsBell({ onAlertClick }: Props) {
                   <div className="flex items-center justify-between pt-1 text-[9px] text-neutral-500 border-t border-neutral-800/60 mt-1">
                     <span className="flex items-center gap-1">
                       <Clock className="h-2.5 w-2.5" />
-                      {formatDistanceToNow(alert.date, { addSuffix: true, locale: es })}
+                      {formatAlertTimeAgo(alert.date)}
                     </span>
                     <span className="text-amber-500/80 hover:text-amber-400 flex items-center gap-0.5 font-medium">
                       Ver en CartoDEA <ExternalLink className="h-2.5 w-2.5" />
