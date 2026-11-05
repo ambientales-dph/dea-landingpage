@@ -104,6 +104,7 @@ export default function ActivityLogDialog({ isOpen, onOpenChange, onActivityClic
       case 'milestone_files_added': return 'LT: ARCHIVOS';
       case 'timeline_milestone_deleted': return 'LT: ELIMINÓ';
       case 'milestone_file_deleted': return 'LT: QUITÓ';
+      case 'upload_reference_doc': return 'DOC. REFERENCIA';
       default: return type.toUpperCase();
     }
   };
@@ -123,6 +124,7 @@ export default function ActivityLogDialog({ isOpen, onOpenChange, onActivityClic
       case 'milestone_files_added': return 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20';
       case 'timeline_milestone_deleted': return 'bg-rose-500/10 text-rose-600 border-rose-500/20';
       case 'milestone_file_deleted': return 'bg-stone-500/10 text-stone-600 border-stone-500/20';
+      case 'upload_reference_doc': return 'bg-teal-500/10 text-teal-600 border-teal-500/20';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
     }
   };

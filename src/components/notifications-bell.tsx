@@ -34,6 +34,7 @@ export interface CombinedAction {
     stationName?: string;
     reportOid?: string;
     details?: string;
+    documentUrl?: string;
 }
 
 interface NotificationsBellProps {
@@ -137,11 +138,13 @@ export default function NotificationsBell({ onNotificationClick, onDataBusNotifi
                             actionText = `subió nuevos archivos al hito de "${data.projectName}"`;
                         } else if (data.actionType === 'timeline_milestone_deleted') {
                             actionText = `eliminó un hito de la línea de tiempo de "${data.projectName}"`;
+                        } else if (data.actionType === 'upload_reference_doc') {
+                            actionText = `subió "${data.projectName}" a Documentación de Referencia`;
                         } else {
                             actionText = `actualizó el proyecto "${data.projectName}" desde el portal`;
                         }
 
-                        return {
+                        const item: CombinedAction = {
                             id: `portal-${doc.id}`,
                             source: 'portal',
                             type: data.actionType,
@@ -154,7 +157,9 @@ export default function NotificationsBell({ onNotificationClick, onDataBusNotifi
                             stationName: data.stationName,
                             reportOid: data.reportOid,
                             details: data.details,
+                            documentUrl: data.documentUrl,
                         };
+                        return item;
                     })
                     .filter((a): a is CombinedAction => a !== null);
 
@@ -266,6 +271,10 @@ export default function NotificationsBell({ onNotificationClick, onDataBusNotifi
     const databusUrl = process.env.NEXT_PUBLIC_DATABUS_URL || 'https://dea-data-bus--studio-7793356696-41de0.us-east4.hosted.app';
 
     const handleSelect = async (action: CombinedAction) => {
+        if (action.type === 'upload_reference_doc' && action.documentUrl) {
+            window.open(action.documentUrl, '_blank', 'noopener,noreferrer');
+            return;
+        }
         if (action.cardId) {
             try {
                 const card = await getCardById(action.cardId);
