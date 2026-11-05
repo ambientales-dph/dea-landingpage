@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from './ui/scroll-area';
 import { RECURSOS, RECURSOS_PROPIOS, type Recurso } from '@/lib/recursos';
-import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2, Folder as FolderIcon, FileText, Library, Plus, Link as LinkIcon, Loader2, UploadCloud, ExternalLink } from 'lucide-react';
+import { Link2, Search, X, Globe, Database, BookText, ChevronDown, Pin, Paperclip, Trash2, Folder as FolderIcon, FileText, Library, Plus, Link as LinkIcon, Loader2, UploadCloud, ExternalLink, AlertTriangle, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as CardTitleComponent, CardDescription as CardDescriptionComponent } from './ui/card';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
@@ -24,6 +24,9 @@ import { searchSNRD, type SNRDArticle } from '@/services/snrd';
 import { searchCrossref, type CrossrefArticle } from '@/services/crossref';
 import { searchPlos, type PlosArticle } from '@/services/plos';
 import { searchDoaj, type DoajArticle } from '@/services/doaj';
+import { searchScielo, type ScieloArticle } from '@/services/scielo';
+import { searchOpenAlex, type OpenAlexArticle } from '@/services/openalex';
+import { searchEuropePMC, type EuropePMCArticle } from '@/services/europepmc';
 import { addAttachmentToTrelloCard, removeAttachmentFromTrelloCard, type TrelloCard } from '@/services/trello';
 import { Separator } from './ui/separator';
 import { Skeleton } from './ui/skeleton';
@@ -67,11 +70,79 @@ interface ReferenceDocumentItem {
   createdAt: string;
 }
 
+interface MiscellaneousCardItem {
+  id: string;
+  name: string;
+  desc: string;
+  url: string;
+  boardId: string;
+  boardName: string;
+  idList: string;
+  listName: string;
+  closed: boolean;
+  attachments: {
+    id: string;
+    name: string;
+    url: string;
+    originalTrelloUrl?: string;
+    bytes?: number;
+    mimeType?: string;
+  }[];
+  hasReferenceDocs?: boolean;
+  createdAt: string;
+  dateLastActivity: string;
+}
+
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes <= 0) return '';
   const kb = bytes / 1024;
   if (kb < 1024) return `${kb.toFixed(0)} KB`;
   return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+function formatUploadDate(isoDate: string): string {
+  if (!isoDate) return '';
+  try {
+    const d = new Date(isoDate);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
+function splitFileNameAndExt(fileName: string): { base: string; ext: string } {
+  const lastDot = fileName.lastIndexOf('.');
+  if (lastDot <= 0) return { base: fileName, ext: '' };
+  return {
+    base: fileName.slice(0, lastDot),
+    ext: fileName.slice(lastDot),
+  };
+}
+
+function stripNumberSuffix(baseName: string): string {
+  return baseName.replace(/\s*\(\d+\)$/, '').trim();
+}
+
+function getNextEnumeratedFileName(originalFileName: string, existingDocs: ReferenceDocumentItem[]): string {
+  const { base, ext } = splitFileNameAndExt(originalFileName);
+  const cleanBase = stripNumberSuffix(base);
+  const existingNames = new Set(existingDocs.map(d => (d.fileName || '').toLowerCase().trim()));
+
+  let counter = 1;
+  while (true) {
+    const candidate = `${cleanBase} (${counter})${ext}`;
+    if (!existingNames.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+    counter++;
+  }
 }
 
 const removeAccents = (str: string): string => {
@@ -101,6 +172,8 @@ const isScientificUrl = (url: string): boolean => {
     'elsevier.com',
     'journals.plos.org',
     'doaj.org',
+    'openalex.org',
+    'europepmc.org',
   ];
   try {
     const { hostname } = new URL(url);
@@ -121,6 +194,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
   const [crossrefResults, setCrossrefResults] = useState<CrossrefArticle[]>([]);
   const [plosResults, setPlosResults] = useState<PlosArticle[]>([]);
   const [doajResults, setDoajResults] = useState<DoajArticle[]>([]);
+  const [scieloResults, setScieloResults] = useState<ScieloArticle[]>([]);
+  const [openAlexResults, setOpenAlexResults] = useState<OpenAlexArticle[]>([]);
+  const [europePmcResults, setEuropePmcResults] = useState<EuropePMCArticle[]>([]);
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [attachingId, setAttachingId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -139,10 +215,17 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
   const [isDraggingRefFile, setIsDraggingRefFile] = useState(false);
   const [isUploadingRefDoc, setIsUploadingRefDoc] = useState(false);
   const [uploadRefProgress, setUploadRefProgress] = useState(0);
+  const [duplicateCandidate, setDuplicateCandidate] = useState<ReferenceDocumentItem | null>(null);
+  const [deletingRefDocId, setDeletingRefDocId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadXhrRef = useRef<XMLHttpRequest | null>(null);
   const uploadAbortControllerRef = useRef<AbortController | null>(null);
   const uploadCancelledRef = useRef<boolean>(false);
+
+  // Estado para Misceláneas (Tarjetas No-Proyecto de Trello)
+  const [miscCards, setMiscCards] = useState<MiscellaneousCardItem[]>([]);
+  const [isLoadingMiscCards, setIsLoadingMiscCards] = useState(false);
+  const [miscSearchQuery, setMiscSearchQuery] = useState('');
 
   const fetchReferenceDocs = useCallback(async () => {
     setIsLoadingRefDocs(true);
@@ -159,11 +242,43 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     }
   }, []);
 
+  const fetchMiscCards = useCallback(async () => {
+    setIsLoadingMiscCards(true);
+    try {
+      const res = await fetch('/api/miscellaneous-cards', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setMiscCards(data.cards || []);
+      }
+    } catch (error) {
+      console.error('Error cargando Misceláneas:', error);
+    } finally {
+      setIsLoadingMiscCards(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       fetchReferenceDocs();
+      fetchMiscCards();
     }
-  }, [isOpen, fetchReferenceDocs]);
+  }, [isOpen, fetchReferenceDocs, fetchMiscCards]);
+
+  const filteredMiscCards = useMemo(() => {
+    const combinedQuery = (miscSearchQuery || searchQuery).trim();
+    if (!combinedQuery) return miscCards;
+    const norm = removeAccents(combinedQuery.toLowerCase());
+    return miscCards.filter(card => {
+      const n = removeAccents((card.name || '').toLowerCase());
+      const d = removeAccents((card.desc || '').toLowerCase());
+      const b = removeAccents((card.boardName || '').toLowerCase());
+      const l = removeAccents((card.listName || '').toLowerCase());
+      const atts = (card.attachments || []).some(a =>
+        removeAccents((a.name || '').toLowerCase()).includes(norm)
+      );
+      return n.includes(norm) || d.includes(norm) || b.includes(norm) || l.includes(norm) || atts;
+    });
+  }, [miscCards, miscSearchQuery, searchQuery]);
 
   const filteredReferenceDocs = useMemo(() => {
     const combinedQuery = (refSearchQuery || searchQuery).trim();
@@ -184,9 +299,42 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     setUploadComments('');
     setIsDraggingRefFile(false);
     setUploadRefProgress(0);
+    setDuplicateCandidate(null);
     uploadXhrRef.current = null;
     uploadAbortControllerRef.current = null;
     uploadCancelledRef.current = false;
+  };
+
+  const handleDeleteReferenceDoc = async (docItem: ReferenceDocumentItem) => {
+    setDeletingRefDocId(docItem.id);
+    try {
+      const res = await fetch('/api/reference-docs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          id: docItem.id,
+          storagePath: docItem.storagePath,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error('No se pudo eliminar el documento.');
+      }
+      setReferenceDocs(prev => prev.filter(d => d.id !== docItem.id));
+      updateAndStorePinnedResources(prev => prev.filter(p => p.url !== docItem.downloadUrl));
+      toast({
+        title: 'Documento eliminado',
+        description: `Se quitó "${docItem.title || docItem.fileName}" de Documentación de Referencia.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al eliminar',
+        description: error.message || 'Ocurrió un error al eliminar el documento.',
+      });
+    } finally {
+      setDeletingRefDocId(null);
+    }
   };
 
   const handleCancelRefUpload = () => {
@@ -212,16 +360,25 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     }
   };
 
-  const handleUploadReferenceDocument = async () => {
-    if (!uploadFile) {
-      toast({
-        variant: 'destructive',
-        title: 'Archivo requerido',
-        description: 'Seleccioná o arrastrá un documento para subir.',
-      });
-      return;
-    }
+  const executeUploadReferenceDocument = async (options?: {
+    mode?: 'normal' | 'overwrite' | 'keep-both';
+    targetDoc?: ReferenceDocumentItem;
+  }) => {
+    if (!uploadFile) return;
 
+    const mode = options?.mode || 'normal';
+    const targetDoc = options?.targetDoc;
+
+    const finalFileName =
+      mode === 'keep-both'
+        ? getNextEnumeratedFileName(uploadFile.name, referenceDocs)
+        : uploadFile.name;
+
+    const overwriteDocId = mode === 'overwrite' && targetDoc ? targetDoc.id : undefined;
+    const previousStoragePath =
+      mode === 'overwrite' && targetDoc ? targetDoc.storagePath : undefined;
+
+    setDuplicateCandidate(null);
     uploadCancelledRef.current = false;
     const abortController = new AbortController();
     uploadAbortControllerRef.current = abortController;
@@ -242,7 +399,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
         signal: abortController.signal,
         body: JSON.stringify({
           action: 'get-upload-url',
-          fileName: uploadFile.name,
+          fileName: finalFileName,
           mimeType: uploadFile.type || 'application/pdf',
         }),
       });
@@ -283,7 +440,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
             body: JSON.stringify({
               action: 'finalize-upload',
               storagePath,
-              fileName: uploadFile.name,
+              fileName: finalFileName,
               fileSize: uploadFile.size,
               mimeType: uploadFile.type || 'application/pdf',
               title: uploadTitle,
@@ -292,6 +449,8 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
               userName: realName,
               userEmail: user?.email || '',
               userPhoto: user?.photoURL || '',
+              overwriteDocId,
+              previousStoragePath,
             }),
           });
 
@@ -309,12 +468,15 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
       if (!savedDoc) {
         const formData = new FormData();
         formData.append('file', uploadFile);
+        formData.append('customFileName', finalFileName);
         formData.append('title', uploadTitle);
         formData.append('comments', uploadComments);
         formData.append('userId', user?.uid || 'portal-user');
         formData.append('userName', realName);
         formData.append('userEmail', user?.email || '');
         formData.append('userPhoto', user?.photoURL || '');
+        if (overwriteDocId) formData.append('overwriteDocId', overwriteDocId);
+        if (previousStoragePath) formData.append('previousStoragePath', previousStoragePath);
 
         const fallbackRes = await fetch('/api/reference-docs', {
           method: 'POST',
@@ -333,15 +495,23 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
 
       setUploadRefProgress(100);
       if (savedDoc) {
-        setReferenceDocs(prev => [savedDoc!, ...prev]);
+        setReferenceDocs(prev => {
+          const withoutReplaced = overwriteDocId
+            ? prev.filter(d => d.id !== overwriteDocId)
+            : prev;
+          return [savedDoc!, ...withoutReplaced];
+        });
       } else {
         await fetchReferenceDocs();
       }
 
-      const displayLabel = uploadTitle.trim() || uploadFile.name;
+      const displayLabel = uploadTitle.trim() || finalFileName;
       toast({
-        title: 'Documento subido con éxito',
-        description: `Se incorporó "${displayLabel}" en Documentación de Referencia.`,
+        title: mode === 'overwrite' ? 'Documento actualizado' : 'Documento subido con éxito',
+        description:
+          mode === 'overwrite'
+            ? `Se sobreescribió "${displayLabel}" en Documentación de Referencia.`
+            : `Se incorporó "${displayLabel}" en Documentación de Referencia.`,
       });
 
       setIsUploadModalOpen(false);
@@ -360,6 +530,40 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
       uploadXhrRef.current = null;
       uploadAbortControllerRef.current = null;
     }
+  };
+
+  const handleUploadReferenceDocument = async () => {
+    if (!uploadFile) {
+      toast({
+        variant: 'destructive',
+        title: 'Archivo requerido',
+        description: 'Seleccioná o arrastrá un documento para subir.',
+      });
+      return;
+    }
+
+    // Verificar si ya existe un archivo con el mismo nombre (o mismo nombre base) y mismo tamaño
+    const incomingParts = splitFileNameAndExt(uploadFile.name);
+    const incomingBase = stripNumberSuffix(incomingParts.base).toLowerCase();
+    const incomingExt = incomingParts.ext.toLowerCase();
+
+    const existingDuplicate = referenceDocs.find(doc => {
+      if (Number(doc.fileSize) !== Number(uploadFile.size)) return false;
+      const docParts = splitFileNameAndExt(doc.fileName || '');
+      const docBase = stripNumberSuffix(docParts.base).toLowerCase();
+      const docExt = docParts.ext.toLowerCase();
+      return (
+        (doc.fileName || '').toLowerCase() === uploadFile.name.toLowerCase() ||
+        (docBase === incomingBase && docExt === incomingExt)
+      );
+    });
+
+    if (existingDuplicate) {
+      setDuplicateCandidate(existingDuplicate);
+      return;
+    }
+
+    await executeUploadReferenceDocument({ mode: 'normal' });
   };
 
   const prevSelectedCardId = useRef<string | null>(null);
@@ -415,6 +619,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
         setCrossrefResults([]);
         setPlosResults([]);
         setDoajResults([]);
+        setScieloResults([]);
+        setOpenAlexResults([]);
+        setEuropePmcResults([]);
         setManualUrl('');
         setManualTitle('');
     }
@@ -481,18 +688,25 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
     
     setIsSearchingExternal(true);
     try {
-      const [elsevier, snrd, crossref, plos, doaj] = await Promise.all([
+      const results = await Promise.allSettled([
         searchElsevier(searchQuery),
         searchSNRD(searchQuery),
         searchCrossref(searchQuery),
         searchPlos(searchQuery),
         searchDoaj(searchQuery),
+        searchScielo(searchQuery),
+        searchOpenAlex(searchQuery),
+        searchEuropePMC(searchQuery),
       ]);
-      setElsevierResults(elsevier);
-      setSnrdResults(snrd);
-      setCrossrefResults(crossref);
-      setPlosResults(plos);
-      setDoajResults(doaj);
+
+      setElsevierResults(results[0].status === 'fulfilled' ? results[0].value : []);
+      setSnrdResults(results[1].status === 'fulfilled' ? results[1].value : []);
+      setCrossrefResults(results[2].status === 'fulfilled' ? results[2].value : []);
+      setPlosResults(results[3].status === 'fulfilled' ? results[3].value : []);
+      setDoajResults(results[4].status === 'fulfilled' ? results[4].value : []);
+      setScieloResults(results[5].status === 'fulfilled' ? results[5].value : []);
+      setOpenAlexResults(results[6].status === 'fulfilled' ? results[6].value : []);
+      setEuropePmcResults(results[7].status === 'fulfilled' ? results[7].value : []);
     } catch (e) {
       toast({
         variant: 'destructive',
@@ -519,6 +733,9 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
         setCrossrefResults([]);
         setPlosResults([]);
         setDoajResults([]);
+        setScieloResults([]);
+        setOpenAlexResults([]);
+        setEuropePmcResults([]);
     }
   };
 
@@ -714,7 +931,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                       <Input
-                        placeholder="Buscar en la biblioteca, SNRD, Elsevier, Crossref, PLOS y DOAJ..."
+                        placeholder="Buscar en la biblioteca, SNRD, SciELO, OpenAlex, Europe PMC, Elsevier, Crossref, PLOS y DOAJ..."
                         value={searchQuery}
                         onChange={(e) => handleQueryChange(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -947,7 +1164,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                         </CollapsibleContent>
                       </Collapsible>
 
-                      {(elsevierResults.length > 0 || snrdResults.length > 0 || crossrefResults.length > 0 || plosResults.length > 0 || doajResults.length > 0 || isSearchingExternal) && (
+                      {(elsevierResults.length > 0 || snrdResults.length > 0 || scieloResults.length > 0 || openAlexResults.length > 0 || europePmcResults.length > 0 || crossrefResults.length > 0 || plosResults.length > 0 || doajResults.length > 0 || isSearchingExternal) && (
                         <>
                           <Separator className="my-3" />
                           <div className="space-y-2">
@@ -956,7 +1173,7 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                 <CollapsibleTrigger className="group flex w-full items-center justify-between p-1.5 rounded-md hover:bg-muted/50">
                                     <div className="flex items-center gap-2">
                                         <Database className="h-3.5 w-3.5 text-primary" />
-                                        <span className="uppercase tracking-widest text-[9px] font-black">Repositorios Nacionales (SNRD)</span>
+                                        <span className="uppercase tracking-widest text-[9px] font-black">Repositorios Nacionales (SNRD / CONICET)</span>
                                         {!isSearchingExternal && <Badge variant="secondary" className="h-3.5 px-1 text-[8px] font-bold">{snrdResults.length}</Badge>}
                                     </div>
                                     <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
@@ -981,7 +1198,109 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                             })}
                                         </div>
                                     ) : (
-                                        <p className="px-2 py-3 text-[11px] text-muted-foreground italic">No se encontraron artículos en SNRD.</p>
+                                        <p className="px-2 py-3 text-[11px] text-muted-foreground italic">No se encontraron artículos en Repositorios Nacionales.</p>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                            <Collapsible defaultOpen={false}>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-1.5 rounded-md hover:bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                        <Globe className="h-3.5 w-3.5 text-primary" />
+                                        <span className="uppercase tracking-widest text-[9px] font-black">SciELO / Red Iberoamericana</span>
+                                        {!isSearchingExternal && <Badge variant="secondary" className="h-3.5 px-1 text-[8px] font-bold">{scieloResults.length}</Badge>}
+                                    </div>
+                                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-1 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                    {isSearchingExternal ? <SkeletonLoader /> : scieloResults.length > 0 ? (
+                                        <div className="flex flex-col gap-1">
+                                            {scieloResults.map((article, index) => {
+                                                const pinned = isManuallyPinned(article.url);
+                                                return (
+                                                  <div key={article.id || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md border transition-all", index % 2 !== 0 ? 'bg-muted/20 border-transparent' : 'bg-white border-zinc-100 shadow-sm' )}>
+                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                                          <span className="text-xs font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-[9px] text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-[9px] text-muted-foreground italic truncate">{highlightText(article.journal, searchQuery)}</span>
+                                                      </a>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full flex-shrink-0 ml-3 hover:bg-fuchsia-50" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.journal, isScientific: true })}>
+                                                        <Pin className={cn("h-3.5 w-3.5", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-zinc-300 group-hover/item:text-fuchsia-500")} />
+                                                      </Button>
+                                                  </div>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="px-2 py-3 text-[11px] text-muted-foreground italic">No se encontraron artículos en SciELO / Iberoamérica.</p>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                            <Collapsible defaultOpen={false}>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-1.5 rounded-md hover:bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                        <Library className="h-3.5 w-3.5 text-primary" />
+                                        <span className="uppercase tracking-widest text-[9px] font-black">OpenAlex (Catálogo Científico Global)</span>
+                                        {!isSearchingExternal && <Badge variant="secondary" className="h-3.5 px-1 text-[8px] font-bold">{openAlexResults.length}</Badge>}
+                                    </div>
+                                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-1 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                    {isSearchingExternal ? <SkeletonLoader /> : openAlexResults.length > 0 ? (
+                                        <div className="flex flex-col gap-1">
+                                            {openAlexResults.map((article, index) => {
+                                                const pinned = isManuallyPinned(article.url);
+                                                return (
+                                                  <div key={article.id || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md border transition-all", index % 2 !== 0 ? 'bg-muted/20 border-transparent' : 'bg-white border-zinc-100 shadow-sm' )}>
+                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                                          <span className="text-xs font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-[9px] text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-[9px] text-muted-foreground italic truncate">{highlightText(article.publication, searchQuery)}</span>
+                                                      </a>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full flex-shrink-0 ml-3 hover:bg-fuchsia-50" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
+                                                        <Pin className={cn("h-3.5 w-3.5", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-zinc-300 group-hover/item:text-fuchsia-500")} />
+                                                      </Button>
+                                                  </div>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="px-2 py-3 text-[11px] text-muted-foreground italic">No se encontraron artículos en OpenAlex.</p>
+                                    )}
+                                </CollapsibleContent>
+                            </Collapsible>
+
+                            <Collapsible defaultOpen={false}>
+                                <CollapsibleTrigger className="group flex w-full items-center justify-between p-1.5 rounded-md hover:bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                        <Database className="h-3.5 w-3.5 text-primary" />
+                                        <span className="uppercase tracking-widest text-[9px] font-black">Europe PMC / PubMed Central</span>
+                                        {!isSearchingExternal && <Badge variant="secondary" className="h-3.5 px-1 text-[8px] font-bold">{europePmcResults.length}</Badge>}
+                                    </div>
+                                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-1 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                                    {isSearchingExternal ? <SkeletonLoader /> : europePmcResults.length > 0 ? (
+                                        <div className="flex flex-col gap-1">
+                                            {europePmcResults.map((article, index) => {
+                                                const pinned = isManuallyPinned(article.url);
+                                                return (
+                                                  <div key={article.id || index} className={cn( "group/item flex items-start justify-between py-1.5 px-2 rounded-md border transition-all", index % 2 !== 0 ? 'bg-muted/20 border-transparent' : 'bg-white border-zinc-100 shadow-sm' )}>
+                                                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex flex-grow flex-col gap-0.5 overflow-hidden">
+                                                          <span className="text-xs font-bold text-foreground group-hover/item:text-primary transition-colors leading-tight">{highlightText(article.title, searchQuery)}</span>
+                                                          <span className="text-[9px] text-muted-foreground">{highlightText(article.authors.join(', '), searchQuery)}</span>
+                                                          <span className="text-[9px] text-muted-foreground italic truncate">{highlightText(article.publication, searchQuery)}</span>
+                                                      </a>
+                                                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full flex-shrink-0 ml-3 hover:bg-fuchsia-50" onClick={() => handlePinToggle({ title: article.title, url: article.url, authors: article.authors, publication: article.publication, isScientific: true })}>
+                                                        <Pin className={cn("h-3.5 w-3.5", pinned ? "fill-fuchsia-500 text-fuchsia-500" : "text-zinc-300 group-hover/item:text-fuchsia-500")} />
+                                                      </Button>
+                                                  </div>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="px-2 py-3 text-[11px] text-muted-foreground italic">No se encontraron artículos en Europe PMC.</p>
                                     )}
                                 </CollapsibleContent>
                             </Collapsible>
@@ -1267,13 +1586,19 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                             {highlightText(docItem.comments, activeQuery)}
                                           </p>
                                         )}
-                                        <div className="flex items-center gap-2 mt-0.5 text-[9px] text-muted-foreground">
+                                        <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[9px] text-muted-foreground">
                                           {docItem.fileSize > 0 && (
                                             <Badge variant="secondary" className="h-4 px-1.5 text-[8px] font-semibold">
                                               {formatFileSize(docItem.fileSize)}
                                             </Badge>
                                           )}
-                                          {docItem.uploadedBy && <span>Subido por {docItem.uploadedBy}</span>}
+                                          {docItem.createdAt && (
+                                            <span className="inline-flex items-center gap-1 text-[9px] text-zinc-500">
+                                              <Calendar className="h-2.5 w-2.5" />
+                                              {formatUploadDate(docItem.createdAt)}
+                                            </span>
+                                          )}
+                                          {docItem.uploadedBy && <span>· Subido por {docItem.uploadedBy}</span>}
                                         </div>
                                       </div>
                                     </a>
@@ -1313,6 +1638,20 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                                       >
                                         <Pin className={cn("h-3.5 w-3.5", pinned ? "fill-current text-fuchsia-500 opacity-100" : "")} />
                                       </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 rounded-full text-zinc-400 hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => handleDeleteReferenceDoc(docItem)}
+                                        disabled={deletingRefDocId === docItem.id}
+                                        title="Eliminar documento de referencia"
+                                      >
+                                        {deletingRefDocId === docItem.id ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin text-destructive" />
+                                        ) : (
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        )}
+                                      </Button>
                                     </div>
                                   </div>
                                 );
@@ -1321,6 +1660,129 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                           ) : (
                             <p className="p-4 text-center text-[11px] text-muted-foreground italic">
                               No se encontraron documentos de referencia.
+                            </p>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <Separator className="my-3" />
+
+                    <Collapsible className="mb-4" defaultOpen={false}>
+                      <CollapsibleTrigger className="group flex w-full items-center justify-between p-1.5 rounded-md hover:bg-muted/50 text-sm font-semibold text-left">
+                        <div className="flex items-center gap-2">
+                          <FolderIcon className="h-3.5 w-3.5 text-amber-600" />
+                          <span className="uppercase tracking-widest text-[9px] font-black">
+                            Misceláneas ({filteredMiscCards.length})
+                          </span>
+                        </div>
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-2 data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                        <div className="flex flex-col gap-2.5 pb-4">
+                          <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg border border-zinc-200/70">
+                            <div className="relative flex-1">
+                              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                placeholder="Buscar en Misceláneas (metodología, planillas, Kobo, consultorías)..."
+                                value={miscSearchQuery}
+                                onChange={(e) => setMiscSearchQuery(e.target.value)}
+                                className="h-8 pl-8 pr-7 text-xs bg-white border-zinc-200"
+                              />
+                              {miscSearchQuery && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setMiscSearchQuery('')}
+                                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          {isLoadingMiscCards ? (
+                            <SkeletonLoader />
+                          ) : filteredMiscCards.length > 0 ? (
+                            <div className="flex flex-col gap-2">
+                              {filteredMiscCards.map((cardItem, index) => {
+                                const activeQuery = miscSearchQuery || searchQuery;
+                                return (
+                                  <div
+                                    key={cardItem.id}
+                                    className={cn(
+                                      "flex flex-col gap-1.5 py-2.5 px-3 rounded-lg border transition-all",
+                                      index % 2 === 0 ? 'bg-white border-zinc-200/80 shadow-sm' : 'bg-muted/20 border-zinc-200/40'
+                                    )}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <span className="text-xs font-bold text-foreground leading-tight">
+                                            {highlightText(cardItem.name, activeQuery)}
+                                          </span>
+                                          <Badge variant="outline" className="text-[8px] h-4 px-1.5 font-semibold border-amber-500/40 text-amber-700 bg-amber-50">
+                                            {cardItem.boardName} · {cardItem.listName}
+                                          </Badge>
+                                        </div>
+                                        {cardItem.desc && (
+                                          <p className="text-[10px] text-zinc-600 whitespace-pre-wrap leading-relaxed mt-0.5">
+                                            {highlightText(cardItem.desc, activeQuery)}
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      {cardItem.url && (
+                                        <a
+                                          href={cardItem.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
+                                          title="Abrir tarjeta original en Trello"
+                                        >
+                                          <ExternalLink className="h-3 w-3" />
+                                          <span>Trello</span>
+                                        </a>
+                                      )}
+                                    </div>
+
+                                    {cardItem.attachments && cardItem.attachments.length > 0 && (
+                                      <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-zinc-100">
+                                        {cardItem.attachments.map((att) => {
+                                          const isDrive = (att.url || '').includes('drive.google.com');
+                                          return (
+                                            <a
+                                              key={att.id}
+                                              href={att.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className={cn(
+                                                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors border",
+                                                isDrive
+                                                  ? "bg-amber-50/80 text-amber-900 border-amber-200 hover:bg-amber-100"
+                                                  : "bg-zinc-100 text-zinc-800 border-zinc-200 hover:bg-zinc-200"
+                                              )}
+                                            >
+                                              {isDrive ? (
+                                                <FolderIcon className="h-3 w-3 text-amber-600 shrink-0" />
+                                              ) : (
+                                                <FileText className="h-3 w-3 text-primary shrink-0" />
+                                              )}
+                                              <span className="truncate max-w-[240px]">{att.name}</span>
+                                              <ExternalLink className="h-2.5 w-2.5 opacity-60 shrink-0" />
+                                            </a>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="p-4 text-center text-[11px] text-muted-foreground italic">
+                              No se encontraron tarjetas en Misceláneas.
                             </p>
                           )}
                         </div>
@@ -1510,6 +1972,81 @@ export default function ResourceLibrary({ isOpen, onOpenChange, selectedCard, on
                   Subir documento
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(duplicateCandidate)}
+        onOpenChange={(open) => {
+          if (!open) setDuplicateCandidate(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Posible archivo duplicado
+            </DialogTitle>
+            <DialogDescription className="text-xs leading-relaxed pt-1">
+              Ya existe un archivo en <strong>Documentación de Referencia</strong> con el mismo nombre y tamaño (
+              <span className="font-semibold text-foreground">{duplicateCandidate?.fileName}</span> —{' '}
+              {duplicateCandidate ? formatFileSize(duplicateCandidate.fileSize) : ''}).
+              <br />
+              ¿Qué acción deseás realizar?
+            </DialogDescription>
+          </DialogHeader>
+
+          {uploadFile && (
+            <div className="rounded-lg bg-muted/40 border p-3 text-xs space-y-1.5">
+              <p className="text-[11px] text-muted-foreground">
+                • <strong>Sobreescribir:</strong> reemplaza el documento existente por esta nueva versión.
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                • <strong>Conservar ambos:</strong> guarda el nuevo archivo como{' '}
+                <span className="font-mono font-semibold text-foreground">
+                  {getNextEnumeratedFileName(uploadFile.name, referenceDocs)}
+                </span>
+                .
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDuplicateCandidate(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                if (duplicateCandidate) {
+                  executeUploadReferenceDocument({ mode: 'keep-both' });
+                }
+              }}
+            >
+              Conservar ambos
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                if (duplicateCandidate) {
+                  executeUploadReferenceDocument({
+                    mode: 'overwrite',
+                    targetDoc: duplicateCandidate,
+                  });
+                }
+              }}
+            >
+              Sobreescribir
             </Button>
           </DialogFooter>
         </DialogContent>

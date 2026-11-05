@@ -1,5 +1,7 @@
-
 'use server';
+
+import { getAdminFirestore } from '@/firebase/admin';
+import { extractFieldFromDesc } from '@/lib/cuencas';
 
 export interface TrelloBoardSummary {
   name: string;
@@ -21,141 +23,344 @@ export interface TrelloCardBasic {
   name: string;
   url: string;
   desc?: string;
+  idBoard?: string;
+  idList?: string;
 }
 
 export interface TrelloAttachment {
-    id: string;
-    bytes: number;
-    date: string; 
-    fileName: string;
-    mimeType: string;
-    url: string;
+  id: string;
+  bytes: number;
+  date: string;
+  fileName: string;
+  mimeType: string;
+  url: string;
 }
 
 export interface TrelloAction {
-    id: string;
-    data: {
-        text?: string;
-        listBefore?: { id: string, name: string };
-        listAfter?: { id: string, name: string };
-        board: { id: string, name: string};
-        card: { id: string, name: string};
-    };
-    type: 'commentCard' | 'updateCard';
-    date: string;
-    memberCreator: { id: string; fullName: string; };
+  id: string;
+  data: {
+    text?: string;
+    listBefore?: { id: string; name: string };
+    listAfter?: { id: string; name: string };
+    board: { id: string; name: string };
+    card: { id: string; name: string };
+  };
+  type: 'commentCard' | 'updateCard';
+  date: string;
+  memberCreator: { id: string; fullName: string };
 }
 
-function getTrelloAuthParams(): string | null {
-    const apiKey = process.env.TRELLO_API_KEY;
-    const apiToken = process.env.TRELLO_API_TOKEN;
-    if (!apiKey || !apiToken) return null;
-    return `key=${apiKey}&token=${apiToken}`;
+async function resolveBoardDoc(boardIdOrShortLink: string) {
+  const db = getAdminFirestore();
+  const directSnap = await db.collection('project_boards').doc(boardIdOrShortLink).get();
+  if (directSnap.exists) return directSnap;
+
+  const byShortLink = await db
+    .collection('project_boards')
+    .where('shortLink', '==', boardIdOrShortLink)
+    .limit(1)
+    .get();
+  if (!byShortLink.empty) return byShortLink.docs[0];
+  return null;
 }
 
 export async function getBoardSummary(boardId: string): Promise<TrelloBoardSummary | null> {
-  const auth = getTrelloAuthParams();
-  if (!auth) return null;
-  const url = `https://api.trello.com/1/boards/${boardId}?lists=open&cards=open&card_fields=name,due&list_fields=name&fields=name&${auth}`;
-  const res = await fetch(url);
-  return res.ok ? await res.json() : null;
+  try {
+    const db = getAdminFirestore();
+    const boardDoc = await resolveBoardDoc(boardId);
+    if (!boardDoc) return null;
+    const bData = boardDoc.data()!;
+    const lists: any[] = (bData.lists || []).filter((l: any) => !l.closed);
+
+    const cardsSnap = await db.collection('projects').where('boardId', '==', boardDoc.id).get();
+    const cardsByList = new Map<string, { id: string; name: string; due: string | null }[]>();
+    cardsSnap.forEach(docSnap => {
+      const c = docSnap.data();
+      if (c.closed) return;
+      if (!cardsByList.has(c.idList)) cardsByList.set(c.idList, []);
+      cardsByList.get(c.idList)!.push({
+        id: docSnap.id,
+        name: c.name || '',
+        due: null,
+      });
+    });
+
+    return {
+      name: bData.name || boardId,
+      lists: lists.map(l => ({
+        id: l.id,
+        name: l.name,
+        cards: cardsByList.get(l.id) || [],
+      })),
+    };
+  } catch (error) {
+    console.error('Error getting board summary from Firestore:', error);
+    return null;
+  }
 }
 
 export async function getMemberBoards(): Promise<{ boards: TrelloBoard[]; isConfigured: boolean }> {
-  const auth = getTrelloAuthParams();
-  if (!auth) return { boards: [], isConfigured: false };
-  const url = `https://api.trello.com/1/members/me/boards?fields=name&${auth}`;
-  const res = await fetch(url);
-  return { boards: res.ok ? await res.json() : [], isConfigured: true };
+  try {
+    const db = getAdminFirestore();
+    const snap = await db.collection('project_boards').get();
+    const boards = snap.docs.map(d => ({
+      id: d.id,
+      name: d.data().name || d.id,
+    }));
+    return { boards, isConfigured: true };
+  } catch (error) {
+    console.error('Error loading boards from Firestore:', error);
+    return { boards: [], isConfigured: false };
+  }
 }
 
 export async function getBoardLists(boardId: string): Promise<TrelloListBasic[]> {
-  const auth = getTrelloAuthParams();
-  if (!auth) return [];
-  const url = `https://api.trello.com/1/boards/${boardId}/lists?fields=name&${auth}`;
-  const res = await fetch(url);
-  return res.ok ? await res.json() : [];
+  try {
+    const boardDoc = await resolveBoardDoc(boardId);
+    if (!boardDoc) return [];
+    const lists: any[] = boardDoc.data()?.lists || [];
+    return lists
+      .filter(l => !l.closed)
+      .map(l => ({ id: l.id, name: l.name }));
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function getCardsInList(listId: string): Promise<TrelloCardBasic[]> {
-  const auth = getTrelloAuthParams();
-  if (!auth) return [];
-  const url = `https://api.trello.com/1/lists/${listId}/cards?fields=name,id,url,desc&${auth}`;
-  const res = await fetch(url);
-  return res.ok ? await res.json() : [];
+  try {
+    const db = getAdminFirestore();
+    const snap = await db.collection('projects').where('idList', '==', listId).get();
+    return snap.docs
+      .filter(d => !d.data().closed)
+      .map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name || '',
+          url: data.url || data.trelloUrl || '',
+          desc: data.desc || '',
+          idBoard: data.boardId || '',
+          idList: data.idList || '',
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function getCardAttachments(cardId: string): Promise<TrelloAttachment[]> {
-  const auth = getTrelloAuthParams();
-  if (!auth) return [];
-  const url = `https://api.trello.com/1/cards/${cardId}/attachments?fields=id,name,url,bytes,mimeType,date&${auth}`;
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.map((att: any) => ({...att, fileName: att.name}));
+  try {
+    const db = getAdminFirestore();
+    const docSnap = await db.collection('projects').doc(cardId).get();
+    if (!docSnap.exists) return [];
+    const attachments: any[] = docSnap.data()?.attachments || [];
+    return attachments.map(att => ({
+      id: att.id,
+      bytes: Number(att.bytes || 0),
+      date: att.date || new Date().toISOString(),
+      fileName: att.fileName || att.name || 'Adjunto',
+      mimeType: att.mimeType || 'application/octet-stream',
+      url: att.url || '',
+    }));
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function getCardActions(cardId: string): Promise<TrelloAction[]> {
-    const auth = getTrelloAuthParams();
-    if (!auth) return [];
-    // Limitamos a 150 para evitar timeouts
-    const url = `https://api.trello.com/1/cards/${cardId}/actions?filter=commentCard,updateCard&fields=data,date,type,memberCreator&memberCreator_fields=fullName&limit=150&${auth}`;
-    const res = await fetch(url);
-    return res.ok ? await res.json() : [];
+  try {
+    const db = getAdminFirestore();
+    const docSnap = await db.collection('projects').doc(cardId).get();
+    if (!docSnap.exists) return [];
+    const data = docSnap.data()!;
+    const actions: any[] = Array.isArray(data.actions) ? data.actions : [];
+    return actions
+      .filter(a => a.type === 'commentCard' || a.type === 'updateCard')
+      .slice(0, 150)
+      .map(a => ({
+        id: a.id,
+        type: a.type,
+        date: a.date,
+        data: {
+          ...a.data,
+          board: a.data?.board || { id: data.boardId || '', name: data.boardName || '' },
+          card: a.data?.card || { id: cardId, name: data.name || '' },
+        },
+        memberCreator: {
+          id: a.memberCreator?.id || 'portal',
+          fullName: a.memberCreator?.fullName || 'Usuario DEA',
+        },
+      }));
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function searchTrelloCards(query: string): Promise<TrelloCardBasic[]> {
-    const auth = getTrelloAuthParams();
-    if (!auth) return [];
-    const url = `https://api.trello.com/1/search?query=${encodeURIComponent(query)}&idBoards=mine&modelTypes=cards&card_fields=name,id,url,idBoard,idList,desc&cards_limit=50&${auth}`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.cards || [];
+  try {
+    const db = getAdminFirestore();
+    const norm = query
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+    if (!norm) return [];
+
+    const snap = await db.collection('projects').get();
+    const matches: TrelloCardBasic[] = [];
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.closed) return;
+      const hay = `${data.name || ''} ${data.code || ''} ${data.desc || ''}`
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      if (hay.includes(norm)) {
+        matches.push({
+          id: docSnap.id,
+          name: data.name || '',
+          url: data.url || data.trelloUrl || '',
+          desc: data.desc || '',
+          idBoard: data.boardId || '',
+          idList: data.idList || '',
+        });
+      }
+    });
+    return matches.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 50);
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function getCardById(cardId: string): Promise<TrelloCardBasic | null> {
-  const auth = getTrelloAuthParams();
-  if (!auth) return null;
-  const url = `https://api.trello.com/1/cards/${cardId}?fields=name,id,url,idBoard,idList,desc&${auth}`;
-  const res = await fetch(url);
-  return res.ok ? await res.json() : null;
+  try {
+    const db = getAdminFirestore();
+    const docSnap = await db.collection('projects').doc(cardId).get();
+    if (!docSnap.exists) return null;
+    const data = docSnap.data()!;
+    return {
+      id: docSnap.id,
+      name: data.name || '',
+      url: data.url || data.trelloUrl || '',
+      desc: data.desc || '',
+      idBoard: data.boardId || '',
+      idList: data.idList || '',
+    };
+  } catch (error) {
+    return null;
+  }
 }
 
-export async function updateTrelloCard(cardId: string, data: { name?: string, desc?: string }): Promise<TrelloCardBasic | null> {
-    const auth = getTrelloAuthParams();
-    if (!auth) return null;
-    const url = `https://api.trello.com/1/cards/${cardId}?${auth}`;
-    const res = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    return res.ok ? await res.json() : null;
+export async function updateTrelloCard(
+  cardId: string,
+  data: { name?: string; desc?: string }
+): Promise<TrelloCardBasic | null> {
+  try {
+    const db = getAdminFirestore();
+    const docRef = db.collection('projects').doc(cardId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) return null;
+
+    const updates: Record<string, any> = {
+      dateLastActivity: new Date().toISOString(),
+    };
+    if (data.name !== undefined) updates.name = data.name;
+    if (data.desc !== undefined) {
+      updates.desc = data.desc;
+      updates.fields = {
+        ...(docSnap.data()?.fields || {}),
+        estado:
+          extractFieldFromDesc(data.desc, '·ESTADO') ||
+          extractFieldFromDesc(data.desc, 'ESTADO') ||
+          'Sin iniciar',
+      };
+    }
+
+    await docRef.set(updates, { merge: true });
+    return await getCardById(cardId);
+  } catch (error) {
+    return null;
+  }
 }
 
-export async function attachUrlToCard(cardId: string, name: string, attachmentUrl: string): Promise<TrelloAttachment | null> {
-    const auth = getTrelloAuthParams();
-    if (!auth) return null;
-    const url = `https://api.trello.com/1/cards/${cardId}/attachments?url=${encodeURIComponent(attachmentUrl)}&name=${encodeURIComponent(name)}&${auth}`;
-    const res = await fetch(url, { method: 'POST' });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return { ...data, fileName: data.name };
+export async function attachUrlToCard(
+  cardId: string,
+  name: string,
+  attachmentUrl: string
+): Promise<TrelloAttachment | null> {
+  try {
+    const db = getAdminFirestore();
+    const docRef = db.collection('projects').doc(cardId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) return null;
+    const data = docSnap.data()!;
+
+    const newAtt: TrelloAttachment = {
+      id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      bytes: 0,
+      date: new Date().toISOString(),
+      fileName: name,
+      mimeType: 'text/uri-list',
+      url: attachmentUrl,
+    };
+
+    const existing = Array.isArray(data.attachments) ? data.attachments : [];
+    await docRef.set(
+      {
+        attachments: [...existing, { ...newAtt, name, previews: [] }],
+        dateLastActivity: newAtt.date,
+      },
+      { merge: true }
+    );
+    return newAtt;
+  } catch (error) {
+    return null;
+  }
 }
 
-export async function deleteAttachmentFromCard(cardId: string, attachmentId: string): Promise<boolean> {
-    const auth = getTrelloAuthParams();
-    if (!auth) return false;
-    const url = `https://api.trello.com/1/cards/${cardId}/attachments/${attachmentId}?${auth}`;
-    const res = await fetch(url, { method: 'DELETE' });
-    return res.ok;
+export async function deleteAttachmentFromCard(
+  cardId: string,
+  attachmentId: string
+): Promise<boolean> {
+  try {
+    const db = getAdminFirestore();
+    const docRef = db.collection('projects').doc(cardId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) return false;
+    const existing: any[] = docSnap.data()?.attachments || [];
+    await docRef.set(
+      {
+        attachments: existing.filter(a => a.id !== attachmentId),
+        dateLastActivity: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 export async function deleteAction(actionId: string): Promise<boolean> {
-    const auth = getTrelloAuthParams();
-    if (!auth) return false;
-    const url = `https://api.trello.com/1/actions/${actionId}?${auth}`;
-    const res = await fetch(url, { method: 'DELETE' });
-    return res.ok;
+  try {
+    const db = getAdminFirestore();
+    const snap = await db.collection('projects').get();
+    for (const docSnap of snap.docs) {
+      const actions: any[] = docSnap.data()?.actions || [];
+      if (actions.some(a => a.id === actionId)) {
+        await docSnap.ref.set(
+          {
+            actions: actions.filter(a => a.id !== actionId),
+          },
+          { merge: true }
+        );
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    return false;
+  }
 }

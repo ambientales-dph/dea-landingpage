@@ -101,6 +101,7 @@ async function resolveDownloadUrl(bucket: any, storagePath: string): Promise<str
 }
 
 async function registerDocumentAndNotify(params: {
+  bucket: any;
   storagePath: string;
   downloadUrl: string;
   fileName: string;
@@ -112,6 +113,8 @@ async function registerDocumentAndNotify(params: {
   userName?: string;
   userEmail?: string;
   userPhoto?: string;
+  overwriteDocId?: string;
+  previousStoragePath?: string;
 }) {
   const db = getAdminFirestore();
   if (!db) throw new Error('Firestore Admin no disponible');
@@ -125,7 +128,9 @@ async function registerDocumentAndNotify(params: {
   const cleanComments = (params.comments || '').trim();
   const displayLabel = cleanTitle || params.fileName;
 
-  const docRef = db.collection('reference_documents').doc();
+  const docRef = params.overwriteDocId
+    ? db.collection('reference_documents').doc(params.overwriteDocId)
+    : db.collection('reference_documents').doc();
   const nowIso = new Date().toISOString();
 
   const docData: ReferenceDocument & { timestamp: any } = {
@@ -144,6 +149,18 @@ async function registerDocumentAndNotify(params: {
   };
 
   await docRef.set(docData);
+
+  if (
+    params.overwriteDocId &&
+    params.previousStoragePath &&
+    params.previousStoragePath !== params.storagePath
+  ) {
+    try {
+      await params.bucket.file(params.previousStoragePath).delete();
+    } catch (e) {
+      console.warn('[ReferenceDocs] No se pudo borrar archivo previo al sobreescribir:', e);
+    }
+  }
 
   // Registrar notificación para la campana del Portal
   await db.collection('app_activities').add({
@@ -186,8 +203,11 @@ export async function POST(req: NextRequest) {
       const userName = (formData.get('userName') as string) || '';
       const userEmail = (formData.get('userEmail') as string) || '';
       const userPhoto = (formData.get('userPhoto') as string) || '';
+      const customFileName = (formData.get('customFileName') as string) || file.name;
+      const overwriteDocId = (formData.get('overwriteDocId') as string) || undefined;
+      const previousStoragePath = (formData.get('previousStoragePath') as string) || undefined;
 
-      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeFileName = customFileName.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `reference_docs/${Date.now()}_${safeFileName}`;
       const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -202,9 +222,10 @@ export async function POST(req: NextRequest) {
 
       const downloadUrl = await resolveDownloadUrl(bucket, storagePath);
       const savedDoc = await registerDocumentAndNotify({
+        bucket,
         storagePath,
         downloadUrl,
-        fileName: file.name,
+        fileName: customFileName,
         fileSize: file.size,
         mimeType: file.type || 'application/pdf',
         title,
@@ -213,6 +234,8 @@ export async function POST(req: NextRequest) {
         userName,
         userEmail,
         userPhoto,
+        overwriteDocId,
+        previousStoragePath,
       });
 
       return NextResponse.json({ success: true, document: savedDoc });
@@ -251,6 +274,8 @@ export async function POST(req: NextRequest) {
         userName,
         userEmail,
         userPhoto,
+        overwriteDocId,
+        previousStoragePath,
       } = body;
 
       if (!storagePath || !fileName) {
@@ -259,6 +284,7 @@ export async function POST(req: NextRequest) {
 
       const downloadUrl = await resolveDownloadUrl(bucket, storagePath);
       const savedDoc = await registerDocumentAndNotify({
+        bucket,
         storagePath,
         downloadUrl,
         fileName,
@@ -270,6 +296,8 @@ export async function POST(req: NextRequest) {
         userName,
         userEmail,
         userPhoto,
+        overwriteDocId,
+        previousStoragePath,
       });
 
       return NextResponse.json({ success: true, document: savedDoc });

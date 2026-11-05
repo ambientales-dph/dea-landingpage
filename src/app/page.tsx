@@ -30,6 +30,7 @@ import {
   FileJson,
   Database,
   ExternalLink,
+  HardDrive,
 } from 'lucide-react';
 import MapBackground from '@/components/map-background';
 import TrelloConnectionToast from '@/components/trello-connection-toast';
@@ -63,6 +64,7 @@ import {
 import CreateProjectForm from '@/components/create-project-form';
 import ResourceLibrary from '@/components/resource-library';
 import ActivityLogDialog from '@/components/activity-log-dialog';
+import FirebaseResourcesDialog from '@/components/firebase-resources-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { 
@@ -110,6 +112,7 @@ function HomeContent() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
+  const [isFirebaseResourcesOpen, setIsFirebaseResourcesOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [isRedirectingToCartoDEA, setIsRedirectingToCartoDEA] = useState(false);
   const [userProjects, setUserProjects] = useState<TrelloCard[]>([]);
@@ -863,6 +866,15 @@ function HomeContent() {
                           <History className="mr-2 h-4 w-4" />
                           <span>Ver Bitácora de Actividad</span>
                       </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e) => {
+                          e.preventDefault();
+                          setTimeout(() => {
+                            setIsFirebaseResourcesOpen(true);
+                          }, 300);
+                      }}>
+                          <HardDrive className="mr-2 h-4 w-4 text-primary" />
+                          <span>Recursos Firebase</span>
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
                         onSelect={() => {
@@ -1237,6 +1249,10 @@ function HomeContent() {
           isOpen={isActivityLogOpen} 
           onOpenChange={setIsActivityLogOpen} 
           onActivityClick={handleActivityLogClick}
+        />
+        <FirebaseResourcesDialog
+          isOpen={isFirebaseResourcesOpen}
+          onOpenChange={setIsFirebaseResourcesOpen}
         />
         <Dialog open={isCreateProjectOpen} onOpenChange={setCreateProjectOpen}>
           <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-0" showCloseButton={false}>
