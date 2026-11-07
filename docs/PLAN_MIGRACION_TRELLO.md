@@ -21,8 +21,8 @@ El objetivo es migrar la totalidad de la información de proyectos, obras, comen
 | :--- | :---: | :--- |
 | **Tableros migrados (`project_boards`)** | **2** | `PROYECTOS DEAS` (`5ffc801cf3f43446ad22e1b0`) y `SEGUIMIENTO DE OBRAS` (`6182b5b73b68da8f804d5d82`) |
 | **Proyectos migrados (`projects`)** | **185** | 181 con código estándar + 4 normalizados (`RRQ020`, `QQG001`, `RSA006` Seguimiento, `MAR003` Pluvial) |
-| **Tarjetas descartadas (vacías/plantilla)** | **3** | `Nombre del proyecto (XXX000)`, `RSA101` (archivada vacía) y `Qpeot (MAR011)` (archivada vacía) |
-| **Tarjetas en `Misceláneas` (`miscellaneous_cards`)** | **22** | Las 22 tarjetas sin código de proyecto, con link directo a la tarjeta de Trello y a sus carpetas de Drive |
+| **Tarjetas descartadas (vacías/plantilla)** | **5** | `Nombre del proyecto (XXX000)`, `RSA101`, `Qpeot (MAR011)`, `Puentes Ferroviarios –rio Luján` y `Puentes Viales río Lujan` |
+| **Tarjetas en `Misceláneas` (`miscellaneous_cards`)** | **20** | Las 20 tarjetas sin código de proyecto, con link directo a la tarjeta de Trello y a sus carpetas de Drive |
 | **Archivos subidos a `Documentación de Referencia`** | **8** | De las 5 tarjetas de plantillas/manuales (ROP, Manual Salvaguardas PDF+DOCX, Matriz Impactos XLSX, 2 Modelos Informes PGAS, 2 Modelos Reuniones) — Total 9 docs en la sección |
 | **Adjuntos binarios de proyectos subidos a Storage** | **7** | Correspondientes a `RSA070`, `MAR008`, `MAR007` y `RPS006` (`project_attachments/`) |
 | **Comentarios migrados** | **143** | Incluidos en el historial de actividad de cada proyecto |
