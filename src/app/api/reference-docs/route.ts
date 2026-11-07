@@ -31,6 +31,16 @@ async function ensureBucketCors(bucket: any) {
   }
 }
 
+export interface ReferenceFolderFile {
+  name: string;
+  url: string;
+  size: number;
+  sizeFormatted?: string;
+  format?: string;
+  comments?: string;
+  driveId?: string;
+}
+
 export interface ReferenceDocument {
   id: string;
   title: string;
@@ -43,6 +53,9 @@ export interface ReferenceDocument {
   uploadedBy: string;
   uploadedByEmail: string;
   createdAt: string;
+  isFolder?: boolean;
+  folderDriveUrl?: string;
+  folderFiles?: ReferenceFolderFile[];
 }
 
 export async function GET() {
@@ -61,12 +74,15 @@ export async function GET() {
         comments: data.comments || '',
         fileName: data.fileName || '',
         fileSize: data.fileSize || 0,
-        mimeType: data.mimeType || 'application/octet-stream',
+        mimeType: data.mimeType || (data.isFolder ? 'application/vnd.google-apps.folder' : 'application/octet-stream'),
         storagePath: data.storagePath || '',
-        downloadUrl: data.downloadUrl || '',
+        downloadUrl: data.downloadUrl || data.url || '',
         uploadedBy: data.uploadedBy || 'Usuario DEA',
         uploadedByEmail: data.uploadedByEmail || '',
         createdAt: data.createdAt || new Date().toISOString(),
+        isFolder: Boolean(data.isFolder),
+        folderDriveUrl: data.folderDriveUrl || data.url || '',
+        folderFiles: data.folderFiles || [],
       };
     });
 

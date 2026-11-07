@@ -462,6 +462,10 @@ export const STANDARDIZED_PROJECTS: Record<string, { name: string; gisFolderId: 
     name: 'Entubamiento Canal Llambías - Trenque Lauquen',
     gisFolderId: '1Fl0jkPhZT3vSf1SXsiUjSBq-D-6t6-XO',
   },
+  'RSA_HUMEDALES': {
+    name: 'Consultoría Humedales - Cuenca del Salado',
+    gisFolderId: '1eJTyzOiqdIWZJWUtO0CZr5ai7v28MS8_',
+  },
   'MAR013': {
     name: 'Prueba CC - Cuenca Matanza-Riachuelo',
     gisFolderId: '1zLNmYe1qlMFzZ99G6Le0RUpQ09lBqV9T',

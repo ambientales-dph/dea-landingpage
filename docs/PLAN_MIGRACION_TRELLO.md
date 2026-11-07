@@ -21,9 +21,15 @@ El objetivo es migrar la totalidad de la información de proyectos, obras, comen
 | :--- | :---: | :--- |
 | **Tableros migrados (`project_boards`)** | **2** | `PROYECTOS DEAS` (`5ffc801cf3f43446ad22e1b0`) y `SEGUIMIENTO DE OBRAS` (`6182b5b73b68da8f804d5d82`) |
 | **Proyectos migrados (`projects`)** | **185** | 181 con código estándar + 4 normalizados (`RRQ020`, `QQG001`, `RSA006` Seguimiento, `MAR003` Pluvial) |
+<<<<<<< HEAD
 | **Tarjetas descartadas (vacías/plantilla)** | **5** | `Nombre del proyecto (XXX000)`, `RSA101`, `Qpeot (MAR011)`, `Puentes Ferroviarios –rio Luján` y `Puentes Viales río Lujan` |
 | **Tarjetas en `Misceláneas` (`miscellaneous_cards`)** | **20** | Las 20 tarjetas sin código de proyecto, con link directo a la tarjeta de Trello y a sus carpetas de Drive |
 | **Archivos subidos a `Documentación de Referencia`** | **8** | De las 5 tarjetas de plantillas/manuales (ROP, Manual Salvaguardas PDF+DOCX, Matriz Impactos XLSX, 2 Modelos Informes PGAS, 2 Modelos Reuniones) — Total 9 docs en la sección |
+=======
+| **Tarjetas descartadas (vacías/plantilla)** | **3** | `Nombre del proyecto (XXX000)`, `RSA101` (archivada vacía) y `Qpeot (MAR011)` (archivada vacía) |
+| **Tarjetas en `Misceláneas` (`miscellaneous_cards`)** | **11** (originalmente 22) | Tarjetas temáticas y de referencia general sin código de proyecto (se depuraron las 4 de Metodología, Kobo, Informes semestrales, los 3 duplicados de Recursos Internos y las 2 de Manual Salvaguardas y ROP ya en Documentación de Referencia) |
+| **Archivos en `Documentación de Referencia`** | **2** (originalmente 9) | Los 6 modelos/manuales (Manual Salvaguardas PDF+DOCX, 2 Modelos Informes PGAS, 2 Modelos Reuniones) se mudaron a Recursos Internos como recursos institucionales con metadatos completos |
+>>>>>>> e159fb076d48369e0c1eaf424611bb0396e044ae
 | **Adjuntos binarios de proyectos subidos a Storage** | **7** | Correspondientes a `RSA070`, `MAR008`, `MAR007` y `RPS006` (`project_attachments/`) |
 | **Comentarios migrados** | **143** | Incluidos en el historial de actividad de cada proyecto |
 | **Peso total en Firestore** | **~772 KB** | < 0.08% de 1 GB (Costo de almacenamiento y lecturas/escrituras: **$0.00 / mes**) |
