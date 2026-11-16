@@ -81,11 +81,13 @@ async function uploadBufferToStorage(
   return `https://storage.googleapis.com/${bucket.name}/${encodeURIComponent(storagePath).replace(/%2F/g, '/')}`;
 }
 
-// Tarjetas vacías o de plantilla que se descartan de la colección projects
+// Tarjetas vacías o de plantilla que se descartan de la colección projects / miscellaneous_cards
 const DISCARDED_PROJECT_CARD_IDS = new Set([
   '696fb5461cd1dc96a49bfbe2', // Nombre del proyecto (XXX000) - Plantilla en METODOLOGÍA
   '685c2941234b1f8de728328a', // RSA101 - Archivada vacía
   '6984ddc91abad28c0e4549d0', // Qpeot (MAR011) - Archivada vacía de prueba
+  '62c6de17702eda2b71a7b1f0', // Puentes Ferroviarios –rio Luján (Pilar, Exaltación de La Cruz, Luján) - Vacía sin código
+  '62c6e8e8c3d8757c3c5c89f2', // Puentes Viales río Lujan - Vacía sin código
 ]);
 
 // Normalización explícita para las 4 tarjetas de proyecto con código fuera de formato
