@@ -466,6 +466,10 @@ export const STANDARDIZED_PROJECTS: Record<string, { name: string; gisFolderId: 
     name: 'Consultoría Humedales - Cuenca del Salado',
     gisFolderId: '1eJTyzOiqdIWZJWUtO0CZr5ai7v28MS8_',
   },
+  'RSA_QUIMICA': {
+    name: 'Monitoreo Químico Río Salado (RSA Química)',
+    gisFolderId: '118dEk9ynbXV45OBuxJhV9pa5XnhEbr3u',
+  },
   'MAR013': {
     name: 'Prueba CC - Cuenca Matanza-Riachuelo',
     gisFolderId: '1zLNmYe1qlMFzZ99G6Le0RUpQ09lBqV9T',
