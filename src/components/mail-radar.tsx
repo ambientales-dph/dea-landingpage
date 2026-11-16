@@ -63,7 +63,7 @@ export default function MailRadar() {
         return () => unsubscribe();
     }, [db, user]);
 
-    const executeSync = async (silent = false) => {
+    const executeSync = async (silent = false, isManual = false) => {
         if (isSyncing) return;
 
         setIsSyncing(true);
@@ -82,7 +82,7 @@ export default function MailRadar() {
                 };
             }).filter(p => p.code !== 'S/C');
 
-            const result = await syncGmailAlerts(projectList.length > 0 ? projectList : null);
+            const result = await syncGmailAlerts(projectList.length > 0 ? projectList : null, isManual);
             if (result.success) {
                 if (result.newAlerts && result.newAlerts > 0) {
                     toast({ 
@@ -133,7 +133,7 @@ export default function MailRadar() {
     const handleSync = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        await executeSync(false);
+        await executeSync(false, true);
     };
 
     const handleActivatePush = async (e: React.MouseEvent) => {
@@ -153,12 +153,12 @@ export default function MailRadar() {
 
         // 2. Escaneo automático inicial tras breve delay para permitir carga de proyectos
         const initialTimer = setTimeout(() => {
-            executeSync(true);
+            executeSync(true, false);
         }, 1500);
 
         // 3. Mantener vigilado en segundo plano periódicamente cada 3 minutos mientras la app esté abierta
         const intervalTimer = setInterval(() => {
-            executeSync(true);
+            executeSync(true, false);
         }, 3 * 60 * 1000);
 
         return () => {

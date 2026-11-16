@@ -9,7 +9,10 @@ import { getAllCardsFromAllBoards } from '@/services/trello';
 /**
  * Sincroniza alertas de Gmail analizando solo correos no leídos.
  */
-export async function syncGmailAlerts(providedProjects: { id: string, code: string, name: string }[] | null = null) {
+export async function syncGmailAlerts(
+    providedProjects: { id: string, code: string, name: string }[] | null = null,
+    isManualSync: boolean = false
+) {
     const { db } = initializeFirebase();
     
     try {
@@ -30,16 +33,33 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
         const emails = await getLatestEmails();
         if (emails.length === 0) return { success: true, newAlerts: 0 };
 
-        console.log(`\n🔍 [RADAR] Analizando ${emails.length} mail(s) nuevo(s)...`);
+        console.log(`\n🔍 [RADAR] Analizando ${emails.length} mail(s) no leído(s) (Modo: ${isManualSync ? 'Manual' : 'Automático'})...`);
 
-        const results = await Promise.all(emails.map(async (email) => {
+        const errors: string[] = [];
+        let matchedCount = 0;
+
+        for (const email of emails) {
             try {
-                // Verificamos si ya procesamos este mail por su ID de Gmail
+                // Verificamos si ya existe registro de este mail por su ID de Gmail
                 const alertDocRef = doc(db, 'mail_alerts', email.id);
                 const existingSnap = await getDoc(alertDocRef);
-                if (existingSnap.exists()) return false;
+                
+                if (existingSnap.exists()) {
+                    const alertData = existingSnap.data();
+                    
+                    // Si es sincronización automática (webhook Push o timer periódico):
+                    // Respetamos lo que el usuario haya hecho (no resucitar notificaciones descartadas o leídas)
+                    if (!isManualSync) continue;
 
-                console.log(`   [IA] Procesando: "${email.subject.substring(0, 30)}..."`);
+                    // Si es sincronización manual pero la alerta ya está visible como 'new', no la duplicamos
+                    if (alertData?.status === 'new') continue;
+
+                    // En sincronización manual, si el correo sigue sin abrir en Gmail pero fue descartado ('dismissed')
+                    // o leído ('read') en el portal, lo volvemos a procesar para que reaparezca como 'new'
+                    console.log(`   🔄 [RE-SINCRONIZACIÓN] Re-activando mail no leído: "${email.subject.substring(0, 35)}..."`);
+                }
+
+                console.log(`   [RADAR] Procesando: "${email.subject.substring(0, 40)}..."`);
                 
                 // Intento 1: Analizar mail actual
                 let analysis = await matchMailToProject({
@@ -73,7 +93,7 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
 
                     const displayCode = isMultiple ? 'Varios' : firstMatch.code;
 
-                    console.log(`     ✅ VINCULADO: "${displayName}"`);
+                    console.log(`     ✅ VINCULADO: "${displayName}" (${analysis.reasoning})`);
 
                     // Guardamos la alerta técnica
                     await setDoc(alertDocRef, {
@@ -101,21 +121,31 @@ export async function syncGmailAlerts(providedProjects: { id: string, code: stri
                         resumen_ia: analysis.reasoning
                     });
 
-                    return true;
+                    matchedCount++;
+                } else {
+                    console.log(`     ❌ IGNORADO: No se detectó lugar ni código conocido.`);
                 }
-                
-                console.log(`     ❌ IGNORADO: No se detectó lugar ni código conocido.`);
-                return false;
             } catch (err: any) {
                 console.error(`   [ERROR MAIL ${email.id}]:`, err.message);
-                return false;
+                errors.push(`Error en "${email.subject.slice(0, 30)}...": ${err.message}`);
             }
-        }));
+        }
 
-        const newAlertsCount = results.filter(r => r === true).length;
-        if (newAlertsCount > 0) console.log(`🏁 [RADAR] Finalizado. Alertas nuevas: ${newAlertsCount}\n`);
+        if (matchedCount > 0) console.log(`🏁 [RADAR] Finalizado. Alertas nuevas: ${matchedCount}\n`);
         
-        return { success: true, newAlerts: newAlertsCount };
+        // Si todos los correos fallaron por error crítico (ej. problemas de API / IA)
+        if (emails.length > 0 && errors.length === emails.length) {
+            return {
+                success: false,
+                error: `Fallo en el análisis de correos: ${errors[0]}`
+            };
+        }
+
+        return { 
+            success: true, 
+            newAlerts: matchedCount,
+            warning: errors.length > 0 ? `${errors.length} correo(s) tuvieron errores durante el escaneo.` : undefined
+        };
     } catch (error: any) {
         console.error('❌ [RADAR ERROR]:', error.message);
         return { success: false, error: error.message };
